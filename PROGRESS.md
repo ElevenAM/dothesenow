@@ -5,7 +5,7 @@
 - **UI**: shadcn/ui + Tailwind CSS v4
 - **Auth**: Supabase magic link (email OTP)
 - **Multi-tenancy**: Shared DB, org_id on every table, RLS isolation
-- **Billing**: Stripe (Free / Starter $29 / Pro $79 / Enterprise $199)
+- **Billing**: Stripe (Free / Premium $9.99/mo)
 - **MCP Server**: 21 existing tools in `packages/mcp-server/`, runs locally via Claude Code/Desktop
 
 ## Infrastructure
@@ -73,18 +73,69 @@ Also add `https://dothesenow.com` and `http://localhost:3000` to Supabase Auth r
 
 ---
 
-## Phase 1b: Stripe Billing — NOT STARTED
+## Phase 1b: Stripe Billing — COMPLETE
 
-### Tasks
-1. Install Stripe SDK, create products/prices in Stripe Dashboard
-2. Checkout flow during onboarding (or upgrade from free)
-3. Webhook handler (`/api/webhooks/stripe/route.ts`) with signature verification + idempotency via `dtn_stripe_events` table
-4. Stripe Customer Portal integration for self-serve billing
-5. Plan enforcement middleware (check `org.plan` + `org.plan_status`)
-6. Grace period logic for failed payments (7 days past_due → downgrade to free)
+### What was built
+1. **Simplified plan structure**: 2 tiers (Free + Premium $9.99/mo) instead of original 4-tier
+   - Migration `003_simplify_plans.sql` updated CHECK constraint to `('free', 'premium')`
+   - Applied to production Supabase
 
-### Deliverable
-Full billing lifecycle — subscribe, upgrade, downgrade, payment failure recovery
+2. **Stripe foundation** (`src/lib/stripe/`)
+   - `client.ts` — Server-only Stripe SDK singleton (stripe@21.0.1)
+   - `config.ts` — Plan definitions with price IDs, feature limits, plan hierarchy, utility functions (`planFromPriceId`, `canAccessFeature`, `getPlanLimits`, `isPlanActive`, `isInGracePeriod`)
+
+3. **Supabase admin client** (`src/lib/supabase/admin.ts`)
+   - Service-role client for webhook handler (bypasses RLS)
+   - Uses `SUPABASE_SERVICE_ROLE_KEY` env var
+
+4. **Webhook handler** (`src/app/api/webhooks/stripe/route.ts`)
+   - Signature verification with `STRIPE_WEBHOOK_SECRET`
+   - Idempotency via `dtn_stripe_events` table (insert-before-process pattern)
+   - Handles 5 event types:
+     - `checkout.session.completed` → sets org plan + creates subscription record
+     - `customer.subscription.updated` → syncs plan/status changes
+     - `customer.subscription.deleted` → downgrades to free
+     - `invoice.payment_failed` → sets `plan_status = 'past_due'`
+     - `invoice.payment_succeeded` → restores `plan_status = 'active'`
+   - Adapted for Stripe SDK v21 breaking changes (period dates on subscription items, subscription ID via `invoice.parent.subscription_details`)
+
+5. **Server Actions** (`src/lib/stripe/actions.ts`)
+   - `createCheckoutSession(planId)` — authenticates user, verifies owner/admin role, creates/retrieves Stripe customer, creates Checkout Session, redirects to Stripe
+   - `createPortalSession()` — creates Stripe Customer Portal session for managing billing
+
+6. **Billing UI** (`src/app/(dashboard)/settings/billing/page.tsx`)
+   - Server component showing current plan status with badge
+   - Subscription period dates and cancellation info
+   - Plan comparison cards (Free vs Premium) with feature lists
+   - Upgrade button (client component, triggers checkout)
+   - Manage Billing button (client component, opens Stripe portal)
+   - Past-due warning banner
+   - Role-gated: only owners/admins see upgrade options
+
+7. **Dashboard layout update** (`src/app/(dashboard)/layout.tsx`)
+   - Org query now includes `plan` and `plan_status` fields
+   - Global past-due warning banner with "Fix billing" link when `plan_status === 'past_due'`
+
+8. **Billing components** (`src/components/billing/`)
+   - `upgrade-button.tsx` — Client component with `useTransition` for loading state
+   - `manage-billing-button.tsx` — Client component for portal redirect
+
+9. **Grace period**: Stripe-driven (no custom cron). Stripe retries failed payments ~3 times over 7 days. If all retries fail, Stripe cancels → webhook downgrades to free.
+
+### Environment variables added
+- `STRIPE_SECRET_KEY` — Stripe live secret key
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — Stripe live publishable key
+- `STRIPE_WEBHOOK_SECRET` — Needs value from `stripe listen` or Stripe Dashboard
+- `SUPABASE_SERVICE_ROLE_KEY` — For admin Supabase client
+
+### What's still needed
+- [ ] Run `stripe listen --forward-to localhost:3000/api/webhooks/stripe` to get webhook secret for local testing
+- [ ] Add `STRIPE_WEBHOOK_SECRET` to Vercel env vars after creating webhook endpoint in Stripe Dashboard (point to `https://dothesenow.com/api/webhooks/stripe`)
+- [ ] Add `SUPABASE_SERVICE_ROLE_KEY` and Stripe keys to Vercel env vars
+- [ ] Configure Stripe Customer Portal settings in Stripe Dashboard (allowed actions: cancel, update payment method)
+- [ ] Configure Stripe retry settings: Settings → Billing → Subscriptions → "Cancel subscription after all retries fail"
+- [ ] End-to-end test: upgrade from free → checkout → verify DB updated → manage billing → cancel → verify downgrade
+- [ ] Git push with updated code
 
 ---
 
@@ -178,9 +229,25 @@ Production-ready platform
 - `src/index.ts` — monolithic 21-tool MCP server (to be refactored in Phase 4)
 - `.env.example` — SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ORG_ID
 
+### Stripe Billing (`apps/web/src/lib/stripe/`)
+- `client.ts` — Server-only Stripe SDK singleton
+- `config.ts` — Plan definitions, price IDs, feature limits, utility functions
+- `actions.ts` — Server Actions: createCheckoutSession, createPortalSession
+
+### Billing UI (`apps/web/src/components/billing/`)
+- `upgrade-button.tsx` — Client component for checkout redirect
+- `manage-billing-button.tsx` — Client component for Stripe portal redirect
+
+### Supabase Admin (`apps/web/src/lib/supabase/`)
+- `admin.ts` — Service-role client for webhook handler (bypasses RLS)
+
+### Webhook (`apps/web/src/app/api/webhooks/stripe/`)
+- `route.ts` — Stripe webhook POST handler with signature verification + idempotency
+
 ### Database (`supabase/migrations/`)
 - `001_initial_schema.sql` — 11 mktg_* tables, RLS, views, triggers
 - `002_multi_tenant.sql` — 9 dtn_* tables, org_id on mktg_*, updated views, member RLS
+- `003_simplify_plans.sql` — Update plan CHECK constraint to ('free', 'premium')
 
 ### Config
 - `package.json` — root workspace (npm workspaces + turbo)
