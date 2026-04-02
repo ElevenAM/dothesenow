@@ -17,6 +17,44 @@ interface DispatchableTask {
 }
 
 /**
+ * Returns a human-readable reason if the executor can't run, or null if it's ready.
+ * Used by dispatch to gracefully skip unconfigured executors and by the UI to show hints.
+ */
+function getUnavailableReason(executorType: string): string | null {
+  if (executorType === "claude_api") {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return "Claude API is not configured yet — ANTHROPIC_API_KEY is missing. Task kept as pending for manual completion.";
+    }
+    if (!process.env.EXECUTOR_INTERNAL_SECRET) {
+      return "Claude executor secret is not configured yet — EXECUTOR_INTERNAL_SECRET is missing. Task kept as pending for manual completion.";
+    }
+  }
+  if (executorType === "n8n") {
+    if (!process.env.N8N_WEBHOOK_SECRET) {
+      return "n8n is not connected — set up a workflow at https://n8n.io and configure N8N_WEBHOOK_SECRET. Task kept as pending for manual completion.";
+    }
+  }
+  return null;
+}
+
+/**
+ * Check which executor types are available based on configured env vars.
+ * Called from server actions to inform the UI.
+ */
+export function getExecutorAvailability(): Record<string, { available: boolean; hint?: string }> {
+  return {
+    self: { available: true },
+    freelancer: { available: true },
+    claude_api: process.env.ANTHROPIC_API_KEY && process.env.EXECUTOR_INTERNAL_SECRET
+      ? { available: true }
+      : { available: false, hint: "Requires ANTHROPIC_API_KEY — not configured yet" },
+    n8n: process.env.N8N_WEBHOOK_SECRET
+      ? { available: true }
+      : { available: false, hint: "Connect at n8n.io — no premium subscription needed for self-hosted" },
+  };
+}
+
+/**
  * Dispatch a task to its executor (n8n or Claude API).
  * Returns a promise that resolves when dispatch completes (or fails).
  * Caller should await this or use waitUntil() in serverless contexts.
@@ -86,6 +124,21 @@ async function doDispatch(task: DispatchableTask): Promise<void> {
   const supabase = createAdminClient();
 
   try {
+    // Check if the executor is actually configured before dispatching
+    const unavailable = getUnavailableReason(task.executor_type);
+    if (unavailable) {
+      // Mark as pending_manual with a note about what's missing
+      await supabase
+        .from("dtn_daily_tasks")
+        .update({
+          status: "pending",
+          outcome_notes: unavailable,
+        })
+        .eq("id", task.id)
+        .eq("org_id", task.org_id);
+      return;
+    }
+
     // Mark task as in_progress before dispatching
     await supabase
       .from("dtn_daily_tasks")

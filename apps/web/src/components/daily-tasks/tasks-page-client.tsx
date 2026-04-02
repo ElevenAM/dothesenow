@@ -21,6 +21,8 @@ const EXECUTOR_TABS = [
   { value: "freelancer", label: "Freelancer", icon: Briefcase },
 ] as const;
 
+export type ExecutorAvailability = Record<string, { available: boolean; hint?: string }>;
+
 interface TasksPageClientProps {
   tasks: DailyTask[];
   summary: DailyTasksSummary[];
@@ -28,6 +30,7 @@ interface TasksPageClientProps {
   dept: string;
   members: TeamMember[];
   currentUserId: string;
+  executorAvailability: ExecutorAvailability;
 }
 
 export function TasksPageClient({
@@ -37,6 +40,7 @@ export function TasksPageClient({
   dept,
   members,
   currentUserId,
+  executorAvailability,
 }: TasksPageClientProps) {
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -103,6 +107,7 @@ export function TasksPageClient({
             date={date}
             members={members}
             currentUserId={currentUserId}
+            executorAvailability={executorAvailability}
           />
         </div>
       </div>
@@ -169,6 +174,7 @@ export function TasksPageClient({
         date={date}
         members={members}
         currentUserId={currentUserId}
+        executorAvailability={executorAvailability}
         editingTask={editingTask}
         open={editDialogOpen}
         onOpenChange={(open) => {

@@ -19,18 +19,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Plus, ExternalLink } from "lucide-react";
 import {
   createDailyTask,
   updateDailyTask,
 } from "@/lib/daily-tasks/actions";
 import type { DailyTask, TeamMember } from "@/lib/daily-tasks/actions";
+import type { ExecutorAvailability } from "./tasks-page-client";
 
 interface TaskFormDialogProps {
   dept: string;
   date: string;
   members: TeamMember[];
   currentUserId: string;
+  executorAvailability?: ExecutorAvailability;
   editingTask?: DailyTask | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -63,6 +65,7 @@ export function TaskFormDialog({
   date,
   members,
   currentUserId,
+  executorAvailability,
   editingTask,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
@@ -223,13 +226,38 @@ export function TaskFormDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {EXECUTOR_TYPES.map((e) => (
-                  <SelectItem key={e.value} value={e.value}>
-                    {e.label}
-                  </SelectItem>
-                ))}
+                {EXECUTOR_TYPES.map((e) => {
+                  const status = executorAvailability?.[e.value];
+                  return (
+                    <SelectItem key={e.value} value={e.value}>
+                      {e.label}
+                      {status && !status.available && (
+                        <span className="ml-1.5 text-xs text-muted-foreground">(not configured)</span>
+                      )}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
+            {executorAvailability?.[executorType] && !executorAvailability[executorType].available && (
+              <p className="text-xs text-amber-600">
+                {executorType === "n8n" ? (
+                  <>
+                    n8n is not connected yet. Tasks will stay pending for manual completion.{" "}
+                    <a
+                      href="https://n8n.io"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-0.5 underline hover:text-amber-700"
+                    >
+                      Set up n8n <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </>
+                ) : (
+                  executorAvailability[executorType].hint
+                )}
+              </p>
+            )}
           </div>
 
           {executorType === "self" && members.length > 1 && (

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
-import { dispatchTask } from "@/lib/daily-tasks/dispatch";
+import { dispatchTask, getExecutorAvailability } from "@/lib/daily-tasks/dispatch";
 import { getDepartmentId } from "@/lib/departments";
 
 export interface DailyTask {
@@ -292,6 +292,10 @@ export async function carryOverTasks(
 
   revalidatePath("/", "layout");
   return { count: eligible.length };
+}
+
+export async function fetchExecutorAvailability() {
+  return getExecutorAvailability();
 }
 
 export async function getTeamMembers() {
