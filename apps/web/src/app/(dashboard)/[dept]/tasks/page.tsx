@@ -1,8 +1,42 @@
-export default async function TasksPage() {
+import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+import {
+  getDailyTasks,
+  getDailyTasksSummary,
+  getTeamMembers,
+} from "@/lib/daily-tasks/actions";
+import { RealtimeListener } from "@/components/realtime-listener";
+import { TasksPageClient } from "@/components/daily-tasks/tasks-page-client";
+
+export default async function TasksPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ dept: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const { dept } = await params;
+  const resolvedSearch = await searchParams;
+  const date =
+    resolvedSearch.date || new Date().toISOString().split("T")[0];
+
+  const { membership, user } = await getAuthenticatedMembership();
+
+  const [tasks, summary, members] = await Promise.all([
+    getDailyTasks(dept, date),
+    getDailyTasksSummary(dept, date),
+    getTeamMembers(),
+  ]);
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Daily Tasks</h1>
-      <p className="text-gray-500">Your daily task list. Coming in Phase 4.</p>
-    </div>
+    <RealtimeListener table="dtn_daily_tasks" orgId={membership.orgId}>
+      <TasksPageClient
+        tasks={tasks}
+        summary={summary}
+        date={date}
+        dept={dept}
+        members={members}
+        currentUserId={user.id}
+      />
+    </RealtimeListener>
   );
 }

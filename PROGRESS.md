@@ -64,12 +64,9 @@
    - Vercel: deployed to production, env vars configured
    - Domain: `dothesenow.com` + `www.dothesenow.com` added (awaiting DNS)
 
-### DNS Action Required
-Add these A records in AWS Route 53 for `dothesenow.com`:
-- `dothesenow.com` → `76.76.21.21`
-- `www.dothesenow.com` → `76.76.21.21`
-
-Also add `https://dothesenow.com` and `http://localhost:3000` to Supabase Auth redirect URLs in the dashboard.
+### DNS — DONE
+- [x] A records added for `dothesenow.com` → `76.76.21.21`
+- [ ] Add `https://dothesenow.com` and `http://localhost:3000` to Supabase Auth redirect URLs in the dashboard
 
 ---
 
@@ -205,7 +202,7 @@ Also add `https://dothesenow.com` and `http://localhost:3000` to Supabase Auth r
 ### What's still needed
 - [ ] End-to-end test: invite → accept → verify membership
 - [ ] Verify RLS policies work correctly for cross-org isolation
-- [ ] DNS setup still pending (from Phase 1a)
+- [x] DNS A records done (Phase 1a)
 
 ---
 
@@ -287,24 +284,89 @@ supabase/migrations/005_realtime_and_strategy_versioning.sql
 - [ ] End-to-end test: add contact → search → filter → open detail sheet
 - [ ] Verify realtime works across two browser tabs
 - [ ] Git push with Phase 3 code
-- [ ] DNS setup still pending (from Phase 1a)
+- [x] DNS A records done (Phase 1a)
 
 ---
 
-## Phase 4: Daily Tasks + MCP Refactor — NOT STARTED
+## Phase 4: Daily Tasks + MCP Refactor — COMPLETE
 
-### Tasks
-1. Daily tasks page: date picker, task list grouped by executor_type, add/edit/complete
-2. Task assignment dialog: assign to self, teammate, n8n, Claude API, or freelancer
-3. Build `OrgScopedClient` wrapper in MCP server (`packages/mcp-server/src/lib/supabase.ts`)
-4. Refactor all 21 existing MCP tools to use org-scoped client
-5. Add per-request `org_id` parameter to all tools (falls back to env default)
-6. New MCP tools: `get_daily_tasks`, `create_daily_task`, `update_daily_task`, `generate_daily_tasks`, `carry_over_tasks`
-7. Write automated tenant isolation tests for every MCP tool
-8. Split monolithic `index.ts` into modular tool files: `tools/crm.ts`, `tools/strategy.ts`, `tools/marketplace.ts`, `tools/daily-tasks.ts`, `tools/blog.ts`, `tools/approvals.ts`
+### What was built
 
-### Deliverable
-Full daily task loop — create/assign/complete from web or Claude. Tenant isolation verified.
+1. **MCP Server refactor** — split 750-line monolithic `index.ts` into modular architecture:
+   - `src/lib/supabase.ts` — `OrgScopedClient` wrapper with `createOrgClient(orgId?)` factory
+   - `src/tools/types.ts` — shared `ToolDefinition`, `ToolModule`, `ToolResult`, `ToolHandler` types
+   - `src/tools/registry.ts` — tool registration + dispatch (resolves org_id from arg or env)
+   - `src/tools/crm.ts` — 6 CRM tools (search_contacts, add_contact, update_contact, log_outreach, get_outreach_history, get_pipeline_summary)
+   - `src/tools/strategy.ts` — 6 strategy tools (get_strategy_doc, update_strategy_doc, search_strategy, get_competitors, update_competitor, log_insight)
+   - `src/tools/marketplace.ts` — 5 marketplace tools (create_task, list_tasks, review_submission, get_freelancer_leaderboard, send_task_message)
+   - `src/tools/campaigns.ts` — 2 campaign tools (create_campaign, create_weekly_review)
+   - `src/tools/daily-tasks.ts` — 5 NEW daily task tools (see below)
+   - `src/index.ts` — slim 28-line entry point (server setup + registry import)
+
+2. **Org_id tenant isolation on all 24 tools** — every query includes `.eq('org_id', client.orgId)`, every insert includes `org_id: client.orgId`. The `org_id` parameter is optional on all tools (falls back to `ORG_ID` env var).
+
+3. **5 new MCP daily task tools**:
+   - `get_daily_tasks` — filter by date, executor_type, status, assigned_to, priority
+   - `create_daily_task` — insert with org_id, sets `generated_by: 'claude'`
+   - `update_daily_task` — update by id scoped to org, auto-sets `completed_at` on completion
+   - `generate_daily_tasks` — returns structured context (strategies + yesterday's outcomes + suggested focus) for Claude Desktop to reason over
+   - `carry_over_tasks` — atomic UPDATE→INSERT: marks originals as carried_over, creates copies for today
+
+4. **Daily tasks web UI** (`apps/web/`):
+   - Server page: `[dept]/tasks/page.tsx` with RealtimeListener, parallel data fetching
+   - Server actions: `src/lib/daily-tasks/actions.ts` (getDailyTasks, getDailyTasksSummary, createDailyTask, updateDailyTask, completeDailyTask, skipDailyTask, carryOverTasks, getTeamMembers)
+   - Client components:
+     - `tasks-page-client.tsx` — main wrapper with executor-type tabs, carry-over button
+     - `date-picker.tsx` — Calendar+Popover, arrow navigation, URL-driven `?date=YYYY-MM-DD`
+     - `task-list.tsx` — task rows with checkbox completion, priority/status badges, action dropdown
+     - `task-form-dialog.tsx` — create/edit dialog with assignment section (self/teammate/n8n/claude_api/freelancer)
+     - `summary-cards.tsx` — per-executor-type completion stats
+     - `task-detail-sheet.tsx` — slide-over with full task details
+
+5. **shadcn/ui components added**: Calendar, Popover, Checkbox (base-ui/react)
+
+6. **Tenant isolation test suite** (`packages/mcp-server/src/__tests__/tenant-isolation.test.ts`)
+   - Tests CRM, Strategy, Marketplace, Campaigns, Daily Tasks modules
+   - Two test org UUIDs, verifies cross-org reads return zero, writes set correct org_id
+   - Uses vitest, runs against local Supabase (`supabase start`)
+
+### Race condition protections
+- Strategy versioning: relies on unique partial index `idx_mktg_strategy_one_active_per_type` — concurrent MCP updates fail cleanly
+- Carry-over: atomic UPDATE RETURNING→INSERT pattern prevents duplicate copies on double-click/race
+- `review_submission`: flagged as tech debt (3 sequential writes without transaction), to be fixed in Phase 5
+
+### New dependencies
+- `vitest` — test framework for MCP server
+
+### New files (17)
+```
+packages/mcp-server/src/lib/supabase.ts
+packages/mcp-server/src/tools/types.ts
+packages/mcp-server/src/tools/registry.ts
+packages/mcp-server/src/tools/crm.ts
+packages/mcp-server/src/tools/strategy.ts
+packages/mcp-server/src/tools/marketplace.ts
+packages/mcp-server/src/tools/campaigns.ts
+packages/mcp-server/src/tools/daily-tasks.ts
+packages/mcp-server/src/__tests__/tenant-isolation.test.ts
+apps/web/src/lib/daily-tasks/actions.ts
+apps/web/src/components/daily-tasks/tasks-page-client.tsx
+apps/web/src/components/daily-tasks/date-picker.tsx
+apps/web/src/components/daily-tasks/task-list.tsx
+apps/web/src/components/daily-tasks/task-form-dialog.tsx
+apps/web/src/components/daily-tasks/summary-cards.tsx
+apps/web/src/components/daily-tasks/task-detail-sheet.tsx
+apps/web/src/components/ui/{calendar,popover,checkbox}.tsx (auto-generated)
+```
+
+### What's still needed
+- [ ] Run tenant isolation tests against local Supabase (`supabase start && cd packages/mcp-server && npm test`)
+- [ ] End-to-end test: create task in web → verify via MCP `get_daily_tasks`
+- [ ] End-to-end test: create task via MCP → verify appears in web UI
+- [ ] Verify profile joins work (may need FK relationship definition or manual join)
+- [ ] Test carry-over flow: create tasks yesterday → carry over → verify copies
+- [ ] Git push with Phase 4 code
+- [x] DNS A records done (Phase 1a)
 
 ---
 
@@ -364,8 +426,28 @@ Production-ready platform
 - `src/components/team/invite-dialog.tsx` — invite member dialog
 - `src/components/team/member-actions.tsx` — per-member action dropdown
 
+### Daily Tasks (`apps/web/src/lib/daily-tasks/`)
+- `actions.ts` — getDailyTasks, getDailyTasksSummary, createDailyTask, updateDailyTask, completeDailyTask, skipDailyTask, carryOverTasks, getTeamMembers
+
+### Daily Tasks UI (`apps/web/src/components/daily-tasks/`)
+- `tasks-page-client.tsx` — main wrapper with executor tabs + carry-over
+- `date-picker.tsx` — Calendar+Popover date navigation
+- `task-list.tsx` — task rows with checkbox, badges, actions dropdown
+- `task-form-dialog.tsx` — create/edit dialog with assignment
+- `summary-cards.tsx` — per-executor completion stats
+- `task-detail-sheet.tsx` — detail slide-over
+
 ### MCP Server (`packages/mcp-server/`)
-- `src/index.ts` — monolithic 21-tool MCP server (to be refactored in Phase 4)
+- `src/index.ts` — slim entry point (28 lines, delegates to registry)
+- `src/lib/supabase.ts` — OrgScopedClient wrapper + createOrgClient factory
+- `src/tools/registry.ts` — tool registration + dispatch
+- `src/tools/types.ts` — shared ToolDefinition, ToolModule, ToolResult types
+- `src/tools/crm.ts` — 6 CRM tools (org-scoped)
+- `src/tools/strategy.ts` — 6 strategy tools (org-scoped)
+- `src/tools/marketplace.ts` — 5 marketplace tools (org-scoped)
+- `src/tools/campaigns.ts` — 2 campaign tools (org-scoped)
+- `src/tools/daily-tasks.ts` — 5 daily task tools (org-scoped)
+- `src/__tests__/tenant-isolation.test.ts` — cross-org isolation tests
 - `.env.example` — SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ORG_ID
 
 ### Stripe Billing (`apps/web/src/lib/stripe/`)
