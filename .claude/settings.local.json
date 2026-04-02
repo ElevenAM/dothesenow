@@ -15,7 +15,25 @@
       "Bash(npx tsc:*)",
       "Bash(npx create-next-app@latest apps/web --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm)",
       "Bash(npx shadcn@latest init -d)",
-      "Bash(npx shadcn@latest add card dialog table tabs badge dropdown-menu select textarea sheet separator avatar input label -y)"
+      "Bash(npx shadcn@latest add card dialog table tabs badge dropdown-menu select textarea sheet separator avatar input label -y)",
+      "Bash(find /Users/liam/Documents/DoTheseNow/apps/web/node_modules/next/dist -name *.md -path */docs/*)",
+      "Bash(find /Users/liam/Documents/DoTheseNow/node_modules/next -name *.md -not -path */node_modules/*)",
+      "Read(//Users/liam/Documents/**)",
+      "Bash(grep -ri STRIPE /Users/liam/Documents/Therafree/supabase --include=*.sql --include=*.ts --include=*.env* -l)",
+      "Bash(find /Users/liam/Documents/DoTheseNow/node_modules/next/dist/docs/01-app -name *server-function* -o -name *function* -o -name *directive*)",
+      "Bash(npm run:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(npx turbo:*)",
+      "Bash(npx next:*)",
+      "Bash(pnpm --version)",
+      "Bash(/usr/local/bin/npm run:*)",
+      "Bash(git status:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(grep -n \"mktg_task_submissions\" /Users/liam/Documents/DoTheseNow/supabase/migrations/*.sql)",
+      "Bash(ls /Users/liam/Documents/Therafree/apps/mobile/src/stores/chat*)"
     ]
   }
 }
