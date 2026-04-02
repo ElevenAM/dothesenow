@@ -264,6 +264,8 @@ export const marketplace: ToolModule = {
           .select("*")
           .eq("org_id", client.orgId);
       }
+      if (args.engagement_type && args.engagement_type !== "both")
+        query = query.eq("engagement_type", args.engagement_type);
       if (args.min_rating)
         query = query.gte("avg_rating", args.min_rating);
 
