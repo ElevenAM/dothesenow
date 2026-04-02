@@ -1,27 +1,13 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Bot, Cpu, User, Briefcase } from "lucide-react";
 import { reviewApprovalItem } from "@/lib/approvals/actions";
 import type { ApprovalItem } from "@/lib/approvals/actions";
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  revision_requested: "bg-orange-100 text-orange-800",
-};
-
-const ITEM_TYPE_LABELS: Record<string, string> = {
-  social_post: "Social Post",
-  blog_post: "Blog Post",
-  email_draft: "Email Draft",
-  task_submission: "Task Output",
-  strategy_change: "Strategy",
-};
+import { STATUS_COLORS, ITEM_TYPE_LABELS } from "./constants";
 
 const SUBMITTER_ICONS: Record<string, typeof Bot> = {
   claude_api: Bot,
@@ -39,21 +25,32 @@ interface ApprovalCardProps {
 export function ApprovalCard({ item, onSelect, canReview }: ApprovalCardProps) {
   const [isApproving, startApproveTransition] = useTransition();
   const [isRejecting, startRejectTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const SubmitterIcon = SUBMITTER_ICONS[item.submitted_by_type] || User;
   const timeAgo = formatRelativeTime(item.created_at);
 
   function handleQuickApprove(e: React.MouseEvent) {
     e.stopPropagation();
+    setError(null);
     startApproveTransition(async () => {
-      await reviewApprovalItem(item.id, "approved");
+      try {
+        await reviewApprovalItem(item.id, "approved");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to approve");
+      }
     });
   }
 
   function handleQuickReject(e: React.MouseEvent) {
     e.stopPropagation();
+    setError(null);
     startRejectTransition(async () => {
-      await reviewApprovalItem(item.id, "rejected");
+      try {
+        await reviewApprovalItem(item.id, "rejected");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to reject");
+      }
     });
   }
 
@@ -87,6 +84,9 @@ export function ApprovalCard({ item, onSelect, canReview }: ApprovalCardProps) {
             <p className="text-sm text-muted-foreground line-clamp-2">
               {item.content}
             </p>
+            {error && (
+              <p className="text-sm text-red-600 mt-1">{error}</p>
+            )}
           </div>
 
           {canReview && item.status === "pending" && (

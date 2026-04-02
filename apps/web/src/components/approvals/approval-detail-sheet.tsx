@@ -14,21 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { reviewApprovalItem } from "@/lib/approvals/actions";
 import type { ApprovalItem } from "@/lib/approvals/actions";
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  revision_requested: "bg-orange-100 text-orange-800",
-};
-
-const ITEM_TYPE_LABELS: Record<string, string> = {
-  social_post: "Social Post",
-  blog_post: "Blog Post",
-  email_draft: "Email Draft",
-  task_submission: "Task Output",
-  strategy_change: "Strategy Change",
-};
+import { STATUS_COLORS, ITEM_TYPE_LABELS } from "./constants";
 
 interface ApprovalDetailSheetProps {
   item: ApprovalItem | null;
@@ -44,26 +30,35 @@ export function ApprovalDetailSheet({
   canReview,
 }: ApprovalDetailSheetProps) {
   const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  if (!item) return null;
-
-  const isReviewable =
-    item.status === "pending" || item.status === "revision_requested";
+  const isReviewable = item
+    ? item.status === "pending" || item.status === "revision_requested"
+    : false;
 
   function handleReview(
     status: "approved" | "rejected" | "revision_requested"
   ) {
+    setReviewError(null);
     startTransition(async () => {
-      await reviewApprovalItem(item!.id, status, reviewNotes || undefined);
-      setReviewNotes("");
-      onOpenChange(false);
+      try {
+        await reviewApprovalItem(item!.id, status, reviewNotes || undefined);
+        setReviewNotes("");
+        onOpenChange(false);
+      } catch (err) {
+        setReviewError(
+          err instanceof Error ? err.message : "Failed to submit review"
+        );
+      }
     });
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+        {item && (
+        <>
         <SheetHeader>
           <SheetTitle className="pr-8">{item.title}</SheetTitle>
         </SheetHeader>
@@ -175,6 +170,9 @@ export function ApprovalDetailSheet({
                   onChange={(e) => setReviewNotes(e.target.value)}
                   rows={3}
                 />
+                {reviewError && (
+                  <p className="text-sm text-red-600">{reviewError}</p>
+                )}
                 <div className="flex gap-2">
                   <Button
                     className="bg-green-600 hover:bg-green-700 text-white"
@@ -219,6 +217,8 @@ export function ApprovalDetailSheet({
             </p>
           </div>
         </div>
+        </>
+        )}
       </SheetContent>
     </Sheet>
   );

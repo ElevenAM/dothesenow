@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
 import { dispatchTask } from "@/lib/daily-tasks/dispatch";
+import { getDepartmentId } from "@/lib/departments";
 
 export interface DailyTask {
   id: string;
@@ -66,20 +67,6 @@ const PRIORITY_RANK: Record<string, number> = {
 
 function todayString(): string {
   return new Date().toISOString().split("T")[0];
-}
-
-async function getDepartmentId(
-  orgId: string,
-  deptSlug: string,
-): Promise<string | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("dtn_departments")
-    .select("id")
-    .eq("org_id", orgId)
-    .eq("slug", deptSlug)
-    .single();
-  return data?.id ?? null;
 }
 
 export async function getDailyTasks(deptSlug: string, date?: string) {
@@ -167,9 +154,9 @@ export async function createDailyTask(
 
   if (error) throw new Error(error.message);
 
-  // Dispatch to executor if non-self (fire-and-forget with error recovery)
+  // Dispatch to executor if non-self (awaited to prevent serverless termination)
   const created = data as DailyTask;
-  dispatchTask(created);
+  await dispatchTask(created);
 
   revalidatePath("/", "layout");
   return created;

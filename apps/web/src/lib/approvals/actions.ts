@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+import { getDepartmentId } from "@/lib/departments";
 
 export interface ApprovalItem {
   id: string;
@@ -47,20 +47,6 @@ export interface ApprovalStats {
 }
 
 const PAGE_SIZE = 20;
-
-async function getDepartmentId(
-  orgId: string,
-  deptSlug: string
-): Promise<string | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("dtn_departments")
-    .select("id")
-    .eq("org_id", orgId)
-    .eq("slug", deptSlug)
-    .single();
-  return data?.id ?? null;
-}
 
 export async function getApprovalItems(
   deptSlug: string,
@@ -135,7 +121,9 @@ export async function reviewApprovalItem(
     "admin",
   ]);
 
-  const supabase = createAdminClient();
+  // Use user-scoped client — the RPC is SECURITY DEFINER and handles its own
+  // privilege escalation, consistent with update_strategy_doc pattern in migration 005
+  const supabase = await createClient();
 
   const { data, error } = await supabase.rpc("review_approval_item", {
     p_approval_id: itemId,

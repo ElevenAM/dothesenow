@@ -18,16 +18,68 @@ interface DispatchableTask {
 
 /**
  * Dispatch a task to its executor (n8n or Claude API).
- * Fire-and-forget: errors are caught and the task is marked as failed.
+ * Returns a promise that resolves when dispatch completes (or fails).
+ * Caller should await this or use waitUntil() in serverless contexts.
  * Only called from the web app server actions (not MCP).
  */
-export function dispatchTask(task: DispatchableTask): void {
+export async function dispatchTask(task: DispatchableTask): Promise<void> {
   if (task.executor_type === "self" || task.executor_type === "freelancer") {
     return;
   }
 
-  // Fire-and-forget — don't await
-  void doDispatch(task);
+  await doDispatch(task);
+}
+
+function getBaseUrl(): string {
+  return process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+}
+
+/** Reject URLs pointing to private/internal addresses to prevent SSRF */
+function validateWebhookUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid webhook URL: ${url}`);
+  }
+
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error(`Webhook URL must use http or https: ${url}`);
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Block localhost and loopback
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "0.0.0.0"
+  ) {
+    throw new Error(`Webhook URL must not point to localhost: ${url}`);
+  }
+
+  // Block private IP ranges (10.x, 172.16-31.x, 192.168.x, 169.254.x)
+  const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (ipv4Match) {
+    const [, a, b] = ipv4Match.map(Number);
+    if (
+      a === 10 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254) ||
+      a === 127
+    ) {
+      throw new Error(`Webhook URL must not point to a private address: ${url}`);
+    }
+  }
+
+  // Block cloud metadata endpoints
+  if (hostname === "metadata.google.internal" || hostname === "metadata.google") {
+    throw new Error(`Webhook URL must not point to cloud metadata: ${url}`);
+  }
 }
 
 async function doDispatch(task: DispatchableTask): Promise<void> {
@@ -51,7 +103,7 @@ async function doDispatch(task: DispatchableTask): Promise<void> {
     console.error(`[dispatch] Failed to dispatch task ${task.id}:`, message);
 
     // Mark task as failed so it doesn't stay in_progress forever
-    await supabase
+    const { error: failError } = await supabase
       .from("dtn_daily_tasks")
       .update({
         status: "failed",
@@ -59,6 +111,13 @@ async function doDispatch(task: DispatchableTask): Promise<void> {
       })
       .eq("id", task.id)
       .eq("org_id", task.org_id);
+
+    if (failError) {
+      console.error(
+        `[dispatch] Also failed to mark task ${task.id} as failed:`,
+        failError.message
+      );
+    }
   }
 }
 
@@ -68,7 +127,9 @@ async function dispatchToN8n(task: DispatchableTask): Promise<void> {
     throw new Error("n8n task missing executor_config.webhook_url");
   }
 
-  const callbackUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000").origin : "http://localhost:3000"}/api/webhooks/n8n`;
+  validateWebhookUrl(webhookUrl);
+
+  const callbackUrl = `${getBaseUrl()}/api/webhooks/n8n`;
 
   const response = await fetch(webhookUrl, {
     method: "POST",
@@ -91,15 +152,16 @@ async function dispatchToN8n(task: DispatchableTask): Promise<void> {
 }
 
 async function dispatchToClaude(task: DispatchableTask): Promise<void> {
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
+  const secret = process.env.EXECUTOR_INTERNAL_SECRET;
+  if (!secret) {
+    throw new Error("EXECUTOR_INTERNAL_SECRET is not configured");
+  }
 
-  const response = await fetch(`${baseUrl}/api/executors/claude`, {
+  const response = await fetch(`${getBaseUrl()}/api/executors/claude`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-executor-secret": process.env.EXECUTOR_INTERNAL_SECRET || "",
+      "x-executor-secret": secret,
     },
     body: JSON.stringify({
       task_id: task.id,

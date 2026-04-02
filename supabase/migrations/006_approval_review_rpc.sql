@@ -66,11 +66,11 @@ BEGIN
   -- Return updated approval item
   SELECT to_jsonb(a) INTO v_result
   FROM dtn_approval_queue a
-  WHERE a.id = p_approval_id;
+  WHERE a.id = p_approval_id AND a.org_id = p_org_id;
 
   RETURN v_result;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Enable realtime on approval queue (REPLICA IDENTITY FULL already set in migration 002)
 -- Just ensure it's in the publication

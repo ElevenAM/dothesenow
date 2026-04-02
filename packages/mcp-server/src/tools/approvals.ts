@@ -103,6 +103,10 @@ export const approvals: ToolModule = {
             type: "string",
             description: "Feedback or notes for the submitter",
           },
+          reviewer_id: {
+            type: "string",
+            description: "UUID of the reviewer (optional, null if no user context)",
+          },
         },
         required: ["approval_id", "status"],
       },
@@ -195,13 +199,14 @@ export const approvals: ToolModule = {
     },
 
     async review_approval(client, args) {
-      const { approval_id, status, reviewer_notes } = args;
+      const { approval_id, status, reviewer_notes, reviewer_id } = args;
 
       // Use the atomic RPC function for review
+      // MCP reviews may not have a user context — pass null if no reviewer_id provided
       const { data, error } = await client.rpc("review_approval_item", {
         p_approval_id: approval_id as string,
         p_org_id: client.orgId,
-        p_reviewer_id: "00000000-0000-0000-0000-000000000000", // MCP reviews don't have a user context
+        p_reviewer_id: (reviewer_id as string) || null,
         p_status: status as string,
         p_reviewer_notes: (reviewer_notes as string) || null,
       });
