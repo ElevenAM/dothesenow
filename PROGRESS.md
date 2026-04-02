@@ -139,17 +139,66 @@ Also add `https://dothesenow.com` and `http://localhost:3000` to Supabase Auth r
 
 ---
 
-## Phase 2: Team & Permissions — NOT STARTED
+## Phase 2: Team & Permissions — COMPLETE
 
-### Tasks
-1. Team invite system: Owner/Admin can invite via email, invited user joins org
-2. Role-based UI: Admin sees settings/team page, Members don't
-3. Org switcher: users can belong to multiple orgs
-4. Membership-aware RLS policies on all tables (already created in migration, needs testing)
-5. Plan-based limits enforcement (member count per plan)
+### What was built
+1. **Migration `004_team_invites.sql`**
+   - Partial index on `invited_email` for pending invite lookups
+   - Unique partial index on `(org_id, invited_email)` preventing duplicate pending invites
+   - `check_and_insert_invite()` PL/pgSQL function — atomic plan limit check + invite insertion (uses `SELECT ... FOR UPDATE` on org row)
+   - `check_and_accept_invite()` PL/pgSQL function — atomic email verification + plan limit re-check + invite acceptance
 
-### Deliverable
-Invite team members, assign roles, switch between orgs
+2. **Server actions** (`src/lib/team/actions.ts`)
+   - `inviteTeamMember(email, role)` — Owner/admin only, calls atomic RPC
+   - `acceptInvite(membershipId)` — Authenticated user, calls atomic RPC with email verification
+   - `declineInvite(membershipId)` — Email-verified decline, deletes invite row
+   - `removeMember(membershipId)` — Owner/admin only, last-owner protection, soft-delete
+   - `updateMemberRole(membershipId, newRole)` — Owner only, last-owner protection
+   - `cancelInvite(membershipId)` — Owner/admin only, deletes pending invite
+   - `switchOrg(orgId)` — Sets httpOnly cookie, validates membership
+   - All actions return `{ error: string } | { success: true }` pattern
+
+3. **Query helpers** (`src/lib/team/queries.ts`)
+   - `getOrgMembers(orgId)` — Active members with emails from auth.users
+   - `getPendingInvites(orgId)` — Pending invites for an org
+   - `getPendingInvitesForUser(email)` — Cross-org pending invites for a user
+   - `getMemberCount(orgId)` — Active + pending count for limit checks
+
+4. **Team settings page** (`/settings/team`)
+   - Role-gated: members see "no permission" message, owners/admins see full UI
+   - Member count vs plan limit display
+   - Invite form with email + role selector, plan limit warnings
+   - Members table with role badges, role change/remove actions (dropdown)
+   - Pending invites table with cancel buttons
+
+5. **Invite acceptance flow**
+   - Dashboard layout shows blue invite banner when pending invites exist
+   - `/invites` page lists all pending invites with accept/decline buttons
+   - Auth callback redirects to `/invites` if user has no org but has pending invites
+
+6. **Org switcher**
+   - Sidebar dropdown appears when user has multiple orgs
+   - Cookie-based org selection (`dtn_current_org`, httpOnly)
+   - Layout validates cookie against active memberships, falls back to first org
+
+7. **Plan limit enforcement**
+   - Free plan: 2 members max (active + pending)
+   - Premium plan: unlimited
+   - Double-gate: checked at invite time AND acceptance time
+   - Atomic via PL/pgSQL `FOR UPDATE` locks — prevents concurrent bypass
+
+### Components created
+- `src/components/team/invite-form.tsx` — Invite form with error/success states
+- `src/components/team/member-actions.tsx` — Role change + remove dropdown
+- `src/components/team/cancel-invite-button.tsx` — Cancel pending invite
+- `src/components/team/invite-actions.tsx` — Accept/decline invite buttons
+
+### What's still needed
+- [ ] Apply migration `004_team_invites.sql` to production Supabase
+- [ ] End-to-end test: invite → accept → verify membership
+- [ ] Test plan limit enforcement (free plan: invite 3rd member should fail)
+- [ ] Test org switcher with multiple orgs
+- [ ] Membership-aware RLS policies testing (already created in migration 002)
 
 ---
 
@@ -219,11 +268,12 @@ Production-ready platform
 - `src/lib/supabase/{client,server,middleware}.ts` — Supabase utilities
 - `src/app/(auth)/login/page.tsx` — magic link login
 - `src/app/(auth)/signup/page.tsx` — magic link signup
-- `src/app/(auth)/callback/route.ts` — auth code exchange
-- `src/app/(dashboard)/layout.tsx` — sidebar layout, fetches org/dept
+- `src/app/(auth)/callback/route.ts` — auth code exchange + pending invite detection
+- `src/app/(dashboard)/layout.tsx` — sidebar layout, org switching, invite banner
 - `src/app/(dashboard)/onboarding/page.tsx` — org creation + dept seeding
+- `src/app/(dashboard)/invites/page.tsx` — pending invite list with accept/decline
 - `src/app/(dashboard)/[dept]/page.tsx` — department overview with stats
-- `src/components/dashboard/sidebar.tsx` — navigation sidebar
+- `src/components/dashboard/sidebar.tsx` — navigation sidebar with org switcher
 
 ### MCP Server (`packages/mcp-server/`)
 - `src/index.ts` — monolithic 21-tool MCP server (to be refactored in Phase 4)
@@ -238,6 +288,16 @@ Production-ready platform
 - `upgrade-button.tsx` — Client component for checkout redirect
 - `manage-billing-button.tsx` — Client component for Stripe portal redirect
 
+### Team & Permissions (`apps/web/src/lib/team/`)
+- `actions.ts` — Server Actions: invite, accept, decline, remove, role change, cancel, switch org
+- `queries.ts` — Query helpers: getOrgMembers, getPendingInvites, getMemberCount
+
+### Team UI (`apps/web/src/components/team/`)
+- `invite-form.tsx` — Email + role invite form with plan limit warnings
+- `member-actions.tsx` — Role change + remove dropdown
+- `cancel-invite-button.tsx` — Cancel pending invite
+- `invite-actions.tsx` — Accept/decline invite buttons
+
 ### Supabase Admin (`apps/web/src/lib/supabase/`)
 - `admin.ts` — Service-role client for webhook handler (bypasses RLS)
 
@@ -248,6 +308,7 @@ Production-ready platform
 - `001_initial_schema.sql` — 11 mktg_* tables, RLS, views, triggers
 - `002_multi_tenant.sql` — 9 dtn_* tables, org_id on mktg_*, updated views, member RLS
 - `003_simplify_plans.sql` — Update plan CHECK constraint to ('free', 'premium')
+- `004_team_invites.sql` — Invite indexes, atomic limit-check PL/pgSQL functions
 
 ### Config
 - `package.json` — root workspace (npm workspaces + turbo)

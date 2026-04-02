@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -11,14 +12,10 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      if (isSignup) {
-        // New user — send to onboarding to create org
-        return NextResponse.redirect(`${origin}/onboarding`);
-      }
-
-      // Existing user — check if they have an org
       const { data: { user } } = await supabase.auth.getUser();
+
       if (user) {
+        // Check for active org memberships
         const { data: memberships } = await supabase
           .from("dtn_memberships")
           .select("org_id")
@@ -26,7 +23,24 @@ export async function GET(request: Request) {
           .eq("is_active", true)
           .limit(1);
 
-        if (!memberships || memberships.length === 0) {
+        const hasOrg = memberships && memberships.length > 0;
+
+        if (!hasOrg && user.email) {
+          // Check for pending invites via admin client (pending invites have user_id=null)
+          const admin = createAdminClient();
+          const { data: pendingInvites } = await admin
+            .from("dtn_memberships")
+            .select("id")
+            .eq("invited_email", user.email.toLowerCase())
+            .is("user_id", null)
+            .limit(1);
+
+          if (pendingInvites && pendingInvites.length > 0) {
+            return NextResponse.redirect(`${origin}/invites`);
+          }
+        }
+
+        if (!hasOrg) {
           return NextResponse.redirect(`${origin}/onboarding`);
         }
       }
