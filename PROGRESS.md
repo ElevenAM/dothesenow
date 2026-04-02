@@ -142,77 +142,152 @@ Also add `https://dothesenow.com` and `http://localhost:3000` to Supabase Auth r
 ## Phase 2: Team & Permissions — COMPLETE
 
 ### What was built
-1. **Migration `004_team_invites.sql`**
-   - Partial index on `invited_email` for pending invite lookups
-   - Unique partial index on `(org_id, invited_email)` preventing duplicate pending invites
-   - `check_and_insert_invite()` PL/pgSQL function — atomic plan limit check + invite insertion (uses `SELECT ... FOR UPDATE` on org row)
-   - `check_and_accept_invite()` PL/pgSQL function — atomic email verification + plan limit re-check + invite acceptance
+1. **Migration 004** (`supabase/migrations/004_profiles_and_invite_limit.sql`)
+   - `profiles` table (id, email, display_name, avatar_url) with RLS + auth trigger on signup
+   - Backfill for existing users
+   - `invite_team_member()` DB function — atomic plan limit check + duplicate guard + insert, serialized via `FOR UPDATE`
 
-2. **Server actions** (`src/lib/team/actions.ts`)
-   - `inviteTeamMember(email, role)` — Owner/admin only, calls atomic RPC
-   - `acceptInvite(membershipId)` — Authenticated user, calls atomic RPC with email verification
-   - `declineInvite(membershipId)` — Email-verified decline, deletes invite row
-   - `removeMember(membershipId)` — Owner/admin only, last-owner protection, soft-delete
-   - `updateMemberRole(membershipId, newRole)` — Owner only, last-owner protection
-   - `cancelInvite(membershipId)` — Owner/admin only, deletes pending invite
-   - `switchOrg(orgId)` — Sets httpOnly cookie, validates membership
-   - All actions return `{ error: string } | { success: true }` pattern
+2. **Shared auth helper** (`src/lib/auth-helpers.ts`)
+   - `getAuthenticatedMembership(requiredRoles?)` — single source of truth for auth + org context
+   - Reads `dtn_active_org` cookie, validates membership, falls back to first org if stale
+   - Returns user, membership, org, and allOrgs array
+   - Used by all server actions and server pages
 
-3. **Query helpers** (`src/lib/team/queries.ts`)
-   - `getOrgMembers(orgId)` — Active members with emails from auth.users
-   - `getPendingInvites(orgId)` — Pending invites for an org
-   - `getPendingInvitesForUser(email)` — Cross-org pending invites for a user
-   - `getMemberCount(orgId)` — Active + pending count for limit checks
+3. **Org context utility** (`src/lib/org-context.ts`)
+   - Cookie-based active org management (get/set/clear)
+   - `dtn_active_org` cookie, 1-year expiry
 
-4. **Team settings page** (`/settings/team`)
-   - Role-gated: members see "no permission" message, owners/admins see full UI
-   - Member count vs plan limit display
-   - Invite form with email + role selector, plan limit warnings
-   - Members table with role badges, role change/remove actions (dropdown)
-   - Pending invites table with cancel buttons
+4. **Org switcher** (`src/components/dashboard/org-switcher.tsx`)
+   - Dropdown in sidebar header showing current org + list of all orgs
+   - Single-org mode: static display (no dropdown)
+   - Calls `switchOrg()` server action on selection
 
-5. **Invite acceptance flow**
-   - Dashboard layout shows blue invite banner when pending invites exist
-   - `/invites` page lists all pending invites with accept/decline buttons
-   - Auth callback redirects to `/invites` if user has no org but has pending invites
+5. **Org switch action** (`src/lib/org/actions.ts`)
+   - `switchOrg(orgId)` — verifies membership, sets cookie, revalidates
 
-6. **Org switcher**
-   - Sidebar dropdown appears when user has multiple orgs
-   - Cookie-based org selection (`dtn_current_org`, httpOnly)
-   - Layout validates cookie against active memberships, falls back to first org
+6. **Team server actions** (`src/lib/team/actions.ts`)
+   - `inviteTeamMember(email, role)` — atomic DB insert via RPC, then Supabase invite email. Rolls back on email failure.
+   - `removeTeamMember(membershipId)` — soft-delete active members, hard-delete pending invites. Prevents removing owner.
+   - `updateMemberRole(membershipId, role)` — owner-only, can't change owner role
+   - `resendInvite(membershipId)` — re-sends invite email, updates invited_at
+   - `cancelInvite(membershipId)` — deletes pending invite row
 
-7. **Plan limit enforcement**
-   - Free plan: 2 members max (active + pending)
-   - Premium plan: unlimited
-   - Double-gate: checked at invite time AND acceptance time
-   - Atomic via PL/pgSQL `FOR UPDATE` locks — prevents concurrent bypass
+7. **Invite acceptance** (`src/app/(auth)/callback/route.ts`)
+   - Atomic UPDATE with `WHERE user_id IS NULL` — idempotent on retry
+   - Runs before signup/onboarding checks so invited users skip onboarding
+   - Sets active org cookie to first accepted invite's org
 
-### Components created
-- `src/components/team/invite-form.tsx` — Invite form with error/success states
-- `src/components/team/member-actions.tsx` — Role change + remove dropdown
-- `src/components/team/cancel-invite-button.tsx` — Cancel pending invite
-- `src/components/team/invite-actions.tsx` — Accept/decline invite buttons
+8. **Team settings page** (`src/app/(dashboard)/settings/team/page.tsx`)
+   - Role-gated: owner/admin only (members see permission error)
+   - Members table with profile join (single query, no admin API for emails)
+   - Member count vs plan limit indicator
+   - Upgrade banner when at free plan limit
+   - Empty state for new orgs
+   - Expired invite detection (>7 days from invited_at)
+
+9. **Team UI components**
+   - `src/components/team/invite-dialog.tsx` — email + role select, disabled at limit
+   - `src/components/team/member-actions.tsx` — per-row dropdown: change role, remove, resend/cancel invite
+
+10. **Sidebar updates** (`src/components/dashboard/sidebar.tsx`)
+    - Integrated org switcher replacing static org header
+    - Role-gated "Team" settings link (owner/admin only)
+
+11. **Dashboard layout updates** (`src/app/(dashboard)/layout.tsx`)
+    - Reads `dtn_active_org` cookie, validates membership, falls back to first org
+    - Passes `role`, `orgId`, `allOrgs` to sidebar
+
+### Race condition protections
+- Invite acceptance: atomic UPDATE with WHERE guards — second click is no-op
+- Plan limit enforcement: DB function with `SELECT ... FOR UPDATE` serializes concurrent invites
+- Invite email failure: membership row rolled back if `inviteUserByEmail()` fails
 
 ### What's still needed
-- [ ] Apply migration `004_team_invites.sql` to production Supabase
 - [ ] End-to-end test: invite → accept → verify membership
-- [ ] Test plan limit enforcement (free plan: invite 3rd member should fail)
-- [ ] Test org switcher with multiple orgs
-- [ ] Membership-aware RLS policies testing (already created in migration 002)
+- [ ] Verify RLS policies work correctly for cross-org isolation
+- [ ] DNS setup still pending (from Phase 1a)
 
 ---
 
-## Phase 3: Core Views — NOT STARTED
+## Phase 3: Core Views — COMPLETE
 
-### Tasks
-1. Strategy doc editor — markdown editor, read/write `mktg_strategy_docs` scoped to org, version history
-2. Contacts table — server-side paginated, filterable by type/status/tags, detail view + outreach history
-3. Pipeline summary — chart from `mktg_pipeline_summary` view, engagement metrics
-4. Department overview dashboard (partially done — stats cards exist, needs activity feed)
-5. Supabase Realtime subscriptions in web app for live updates
+### What was built
+1. **Migration 005** (`supabase/migrations/005_realtime_and_strategy_versioning.sql`)
+   - `REPLICA IDENTITY FULL` on `mktg_strategy_docs`, `mktg_contacts`, `mktg_outreach_log` for Realtime
+   - Unique partial index `idx_mktg_strategy_one_active_per_type` — prevents two active docs of same type per org (race condition safety)
+   - `update_strategy_doc()` RPC function — atomic versioning with `FOR UPDATE` serialization (deactivate old → insert new version in one transaction)
 
-### Deliverable
-All existing MCP data visible and editable in the web app, with live updates
+2. **Strategy page** (`src/app/(dashboard)/[dept]/strategy/page.tsx`)
+   - Full markdown editor (`@uiw/react-md-editor`) with live preview
+   - Doc cards grid with type filtering via Tabs
+   - Create new document dialog (doc_type + title)
+   - Version history sidebar (view any previous version)
+   - Unsaved changes protection: `beforeunload` warning, dirty-state indicator, Ctrl/Cmd+S shortcut
+   - All mutations use atomic `update_strategy_doc()` RPC function
+   - Server actions: `getStrategyDocs`, `getStrategyDoc`, `getVersionHistory`, `createStrategyDoc`, `updateStrategyDoc` (`src/lib/strategy/actions.ts`)
+
+3. **Contacts page** (`src/app/(dashboard)/[dept]/contacts/page.tsx`)
+   - Server-side paginated table (20 per page) with exact count
+   - URL-based filter state (shareable/bookmarkable): search, type, status, lifecycle_stage, page
+   - Debounced search input (400ms) to avoid hammering server
+   - Contact detail Sheet (slide-over) with full info + outreach timeline
+   - Add contact dialog (first name, last name, email, company, type, notes)
+   - Outreach timeline component showing chronological history with channel icons and status badges
+   - Server actions: `searchContacts`, `getContact`, `getOutreachHistory`, `createContact`, `updateContact` (`src/lib/contacts/actions.ts`)
+
+4. **Pipeline page** (`src/app/(dashboard)/[dept]/pipeline/page.tsx`)
+   - Engagement metric cards (Total Active, Engaged 7d/30d, Avg Lead Score)
+   - Horizontal bar chart (recharts) showing contacts by lifecycle stage
+   - Detailed breakdown table by contact type × stage
+   - Empty state with link to contacts page for new orgs
+
+5. **Activity feed** (`src/components/dashboard/activity-feed.tsx`)
+   - Combined recent activity from outreach, strategy docs, and contacts
+   - Parallel queries (5 each), merged and sorted by timestamp, top 10 shown
+   - Relative time formatting (just now, 5m ago, 3h ago, 2d ago)
+   - Replaced "Getting Started" card on department overview
+
+6. **Realtime listener** (`src/components/realtime-listener.tsx`)
+   - Client component subscribing to Supabase Realtime postgres_changes
+   - Org-scoped filter: `org_id=eq.${orgId}` (no cross-org noise)
+   - Triggers `router.refresh()` on INSERT/UPDATE/DELETE → server components re-render
+   - Applied to strategy and contacts pages
+
+### New dependencies
+- `@uiw/react-md-editor` — Markdown editor with preview
+- `recharts` — Chart library for pipeline visualization
+
+### Race condition protections
+- Strategy versioning: `update_strategy_doc()` RPC with `FOR UPDATE` lock + unique partial index
+- Realtime: org-scoped subscription filter prevents cross-org data leakage
+
+### New files (16)
+```
+src/lib/strategy/actions.ts
+src/lib/contacts/actions.ts
+src/components/strategy/doc-list.tsx
+src/components/strategy/doc-editor.tsx
+src/components/strategy/version-history.tsx
+src/components/strategy/create-doc-dialog.tsx
+src/components/contacts/contacts-page-client.tsx
+src/components/contacts/contacts-table.tsx
+src/components/contacts/contacts-filters.tsx
+src/components/contacts/contact-sheet.tsx
+src/components/contacts/contact-form.tsx
+src/components/contacts/outreach-timeline.tsx
+src/components/pipeline/pipeline-funnel.tsx
+src/components/pipeline/engagement-cards.tsx
+src/components/dashboard/activity-feed.tsx
+src/components/realtime-listener.tsx
+supabase/migrations/005_realtime_and_strategy_versioning.sql
+```
+
+### What's still needed
+- [ ] End-to-end test: create strategy doc → edit → verify version history
+- [ ] End-to-end test: add contact → search → filter → open detail sheet
+- [ ] Verify realtime works across two browser tabs
+- [ ] Git push with Phase 3 code
+- [ ] DNS setup still pending (from Phase 1a)
 
 ---
 
@@ -266,14 +341,28 @@ Production-ready platform
 ### Web App (`apps/web/`)
 - `src/middleware.ts` — auth session refresh + redirect
 - `src/lib/supabase/{client,server,middleware}.ts` — Supabase utilities
+- `src/lib/supabase/admin.ts` — Service-role client (bypasses RLS)
+- `src/lib/auth-helpers.ts` — Shared auth + org context helper (`getAuthenticatedMembership`)
+- `src/lib/org-context.ts` — Cookie-based active org management
 - `src/app/(auth)/login/page.tsx` — magic link login
 - `src/app/(auth)/signup/page.tsx` — magic link signup
-- `src/app/(auth)/callback/route.ts` — auth code exchange + pending invite detection
-- `src/app/(dashboard)/layout.tsx` — sidebar layout, org switching, invite banner
+- `src/app/(auth)/callback/route.ts` — auth code exchange + invite acceptance
+- `src/app/(dashboard)/layout.tsx` — sidebar layout, org cookie, fetches org/dept
 - `src/app/(dashboard)/onboarding/page.tsx` — org creation + dept seeding
-- `src/app/(dashboard)/invites/page.tsx` — pending invite list with accept/decline
-- `src/app/(dashboard)/[dept]/page.tsx` — department overview with stats
-- `src/components/dashboard/sidebar.tsx` — navigation sidebar with org switcher
+- `src/app/(dashboard)/[dept]/page.tsx` — department overview with stats + activity feed
+- `src/app/(dashboard)/[dept]/strategy/page.tsx` — strategy doc editor with version history
+- `src/app/(dashboard)/[dept]/contacts/page.tsx` — paginated contacts table with filters
+- `src/app/(dashboard)/[dept]/pipeline/page.tsx` — pipeline funnel chart + engagement metrics
+- `src/app/(dashboard)/settings/team/page.tsx` — team management (members table, invites)
+- `src/components/dashboard/sidebar.tsx` — navigation sidebar with org switcher + role gating
+- `src/components/dashboard/org-switcher.tsx` — org dropdown switcher
+- `src/components/dashboard/activity-feed.tsx` — combined recent activity feed
+- `src/components/strategy/{doc-list,doc-editor,version-history,create-doc-dialog}.tsx`
+- `src/components/contacts/{contacts-page-client,contacts-table,contacts-filters,contact-sheet,contact-form,outreach-timeline}.tsx`
+- `src/components/pipeline/{pipeline-funnel,engagement-cards}.tsx`
+- `src/components/realtime-listener.tsx` — org-scoped Supabase Realtime subscription
+- `src/components/team/invite-dialog.tsx` — invite member dialog
+- `src/components/team/member-actions.tsx` — per-member action dropdown
 
 ### MCP Server (`packages/mcp-server/`)
 - `src/index.ts` — monolithic 21-tool MCP server (to be refactored in Phase 4)
@@ -288,18 +377,13 @@ Production-ready platform
 - `upgrade-button.tsx` — Client component for checkout redirect
 - `manage-billing-button.tsx` — Client component for Stripe portal redirect
 
-### Team & Permissions (`apps/web/src/lib/team/`)
-- `actions.ts` — Server Actions: invite, accept, decline, remove, role change, cancel, switch org
-- `queries.ts` — Query helpers: getOrgMembers, getPendingInvites, getMemberCount
+### Strategy & Contacts Actions (`apps/web/src/lib/`)
+- `strategy/actions.ts` — getStrategyDocs, getStrategyDoc, getVersionHistory, createStrategyDoc, updateStrategyDoc
+- `contacts/actions.ts` — searchContacts, getContact, getOutreachHistory, createContact, updateContact
 
-### Team UI (`apps/web/src/components/team/`)
-- `invite-form.tsx` — Email + role invite form with plan limit warnings
-- `member-actions.tsx` — Role change + remove dropdown
-- `cancel-invite-button.tsx` — Cancel pending invite
-- `invite-actions.tsx` — Accept/decline invite buttons
-
-### Supabase Admin (`apps/web/src/lib/supabase/`)
-- `admin.ts` — Service-role client for webhook handler (bypasses RLS)
+### Team & Org Actions (`apps/web/src/lib/`)
+- `org/actions.ts` — switchOrg server action
+- `team/actions.ts` — inviteTeamMember, removeTeamMember, updateMemberRole, resendInvite, cancelInvite
 
 ### Webhook (`apps/web/src/app/api/webhooks/stripe/`)
 - `route.ts` — Stripe webhook POST handler with signature verification + idempotency
@@ -308,7 +392,8 @@ Production-ready platform
 - `001_initial_schema.sql` — 11 mktg_* tables, RLS, views, triggers
 - `002_multi_tenant.sql` — 9 dtn_* tables, org_id on mktg_*, updated views, member RLS
 - `003_simplify_plans.sql` — Update plan CHECK constraint to ('free', 'premium')
-- `004_team_invites.sql` — Invite indexes, atomic limit-check PL/pgSQL functions
+- `004_profiles_and_invite_limit.sql` — profiles table, auth trigger, invite_team_member() function
+- `005_realtime_and_strategy_versioning.sql` — realtime identity, unique active doc index, update_strategy_doc() RPC
 
 ### Config
 - `package.json` — root workspace (npm workspaces + turbo)

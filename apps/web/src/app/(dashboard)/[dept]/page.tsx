@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ActivityFeed } from "@/components/dashboard/activity-feed";
+import { getAuthenticatedMembership } from "@/lib/auth-helpers";
 import { CheckSquare, Users, ShieldCheck, FileText } from "lucide-react";
 
 export default async function DepartmentOverview({
@@ -9,21 +10,9 @@ export default async function DepartmentOverview({
   params: Promise<{ dept: string }>;
 }) {
   const { dept } = await params;
+  const { membership } = await getAuthenticatedMembership();
+  const orgId = membership.orgId;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  // Get org_id from membership
-  const { data: memberships } = await supabase
-    .from("dtn_memberships")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .limit(1);
-
-  const orgId = memberships?.[0]?.org_id;
-  if (!orgId) return null;
 
   // Fetch summary stats
   const [tasksResult, contactsResult, approvalsResult, strategyResult] = await Promise.all([
@@ -104,29 +93,7 @@ export default async function DepartmentOverview({
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Getting Started</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Badge variant="outline">1</Badge>
-            <span className="text-sm">Add your marketing strategy document</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="outline">2</Badge>
-            <span className="text-sm">Import or add your contacts</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="outline">3</Badge>
-            <span className="text-sm">Create your first daily tasks</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="outline">4</Badge>
-            <span className="text-sm">Connect Claude Code with the MCP server</span>
-          </div>
-        </CardContent>
-      </Card>
+      <ActivityFeed orgId={orgId} />
     </div>
   );
 }
