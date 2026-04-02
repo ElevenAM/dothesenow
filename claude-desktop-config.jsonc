@@ -1,0 +1,36 @@
+// ============================================================================
+// Claude Desktop MCP Configuration
+// ============================================================================
+// Add this to your Claude Desktop config file:
+//   macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
+//   Windows: %APPDATA%\Claude\claude_desktop_config.json
+//
+// Merge the "mcpServers" block below into your existing config.
+// ============================================================================
+
+{
+  "mcpServers": {
+    "marketing-ops": {
+      "command": "node",
+      "args": ["/absolute/path/to/marketing-mcp-server/dist/index.js"],
+      "env": {
+        "SUPABASE_URL": "https://your-new-project-ref.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key"
+      }
+    }
+  }
+}
+
+// Alternative: if you want to run in dev mode with tsx:
+// {
+//   "mcpServers": {
+//     "marketing-ops": {
+//       "command": "npx",
+//       "args": ["tsx", "/absolute/path/to/marketing-mcp-server/src/index.ts"],
+//       "env": {
+//         "SUPABASE_URL": "https://your-new-project-ref.supabase.co",
+//         "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key"
+//       }
+//     }
+//   }
+// }

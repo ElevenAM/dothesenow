@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init:*)",
+      "Bash(mkdir -p packages/mcp-server/src)",
+      "Bash(mkdir -p supabase/migrations)",
+      "Bash(mkdir -p apps)",
+      "Bash(mv src/index.ts packages/mcp-server/src/index.ts)",
+      "Bash(cp package.json packages/mcp-server/package.json)",
+      "Bash(cp tsconfig.json packages/mcp-server/tsconfig.json)",
+      "Bash(cp .env.example packages/mcp-server/.env.example)",
+      "Bash(cp supabase-migration.sql supabase/migrations/001_initial_schema.sql)",
+      "Bash(export PATH=\"/usr/local/bin:$PATH\")",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx create-next-app@latest apps/web --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm)",
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add card dialog table tabs badge dropdown-menu select textarea sheet separator avatar input label -y)"
+    ]
+  }
+}

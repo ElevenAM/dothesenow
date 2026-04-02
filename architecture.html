@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketing Ops Platform — Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1729; color: #e2e8f0; min-height: 100vh; padding: 40px 20px; }
+  h1 { text-align: center; font-size: 28px; margin-bottom: 8px; color: #f1f5f9; }
+  .subtitle { text-align: center; font-size: 14px; color: #94a3b8; margin-bottom: 40px; }
+
+  .diagram { max-width: 1000px; margin: 0 auto; position: relative; }
+
+  /* Layers */
+  .layer { border-radius: 16px; padding: 20px; margin-bottom: 24px; position: relative; }
+  .layer-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; }
+
+  .layer-claude { background: linear-gradient(135deg, #1e3a5f 0%, #1a2744 100%); border: 1px solid #2e75b6; }
+  .layer-claude .layer-label { color: #60a5fa; }
+
+  .layer-mcp { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border: 1px solid #4b5563; border-style: dashed; }
+  .layer-mcp .layer-label { color: #9ca3af; }
+
+  .layer-backend { background: linear-gradient(135deg, #1a2e1a 0%, #0f1f0f 100%); border: 1px solid #22c55e40; }
+  .layer-backend .layer-label { color: #4ade80; }
+
+  .layer-data { background: linear-gradient(135deg, #2d1b4e 0%, #1a0f2e 100%); border: 1px solid #a855f740; }
+  .layer-data .layer-label { color: #c084fc; }
+
+  .layer-external { background: linear-gradient(135deg, #3b1f1f 0%, #1f0f0f 100%); border: 1px solid #ef444440; }
+  .layer-external .layer-label { color: #f87171; }
+
+  /* Boxes */
+  .boxes { display: flex; gap: 12px; flex-wrap: wrap; }
+  .box { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 14px 16px; flex: 1; min-width: 140px; }
+  .box-title { font-size: 13px; font-weight: 600; color: #f1f5f9; margin-bottom: 6px; }
+  .box-detail { font-size: 11px; color: #94a3b8; line-height: 1.5; }
+  .box-icon { font-size: 18px; margin-bottom: 6px; }
+
+  .box-highlight { border-color: #2e75b6; background: rgba(46, 117, 182, 0.1); }
+  .box-green { border-color: #22c55e60; }
+  .box-purple { border-color: #a855f760; }
+
+  /* Arrows */
+  .arrow-section { display: flex; justify-content: center; margin: -12px 0; position: relative; z-index: 1; }
+  .arrow { display: flex; flex-direction: column; align-items: center; padding: 0 16px; }
+  .arrow-line { width: 2px; height: 24px; background: linear-gradient(to bottom, #4b556380, #4b5563); }
+  .arrow-head { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #4b5563; }
+  .arrow-label { font-size: 10px; color: #64748b; margin-top: 2px; letter-spacing: 0.5px; }
+  .arrow-up .arrow-head { border-top: none; border-bottom: 8px solid #4b5563; order: -1; }
+
+  /* Bidirectional */
+  .bidir { display: flex; align-items: center; gap: 16px; }
+  .bidir .arrow { flex: 1; }
+
+  /* Separation line */
+  .firewall { border: 1px dashed #ef444480; border-radius: 8px; padding: 4px 16px; margin: 16px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .firewall-label { font-size: 11px; color: #f87171; font-weight: 600; letter-spacing: 1px; }
+
+  /* Tool grid */
+  .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+  .tool { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 10px; font-size: 11px; }
+  .tool-name { color: #e2e8f0; font-family: 'SF Mono', monospace; font-size: 11px; }
+  .tool-desc { color: #64748b; font-size: 10px; margin-top: 2px; }
+
+  /* Legend */
+  .legend { max-width: 1000px; margin: 32px auto 0; display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* Data flow note */
+  .note { max-width: 1000px; margin: 24px auto 0; background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 10px; padding: 16px 20px; }
+  .note-title { font-size: 12px; font-weight: 600; color: #fbbf24; margin-bottom: 6px; }
+  .note-text { font-size: 12px; color: #d4c5a0; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<h1>Marketing Ops Platform Architecture</h1>
+<p class="subtitle">Claude Desktop as primary interface — MCP server as the bridge — Supabase as the brain</p>
+
+<div class="diagram">
+
+  <!-- CLAUDE DESKTOP -->
+  <div class="layer layer-claude">
+    <div class="layer-label">Your Interface — Claude Desktop</div>
+    <div class="boxes">
+      <div class="box box-highlight">
+        <div class="box-icon">💬</div>
+        <div class="box-title">Claude Chat</div>
+        <div class="box-detail">Natural language interface for all marketing ops. "Show me leads who haven't been contacted in 2 weeks" → Claude calls your MCP tools.</div>
+      </div>
+      <div class="box box-highlight">
+        <div class="box-icon">📋</div>
+        <div class="box-title">Daily Playbook</div>
+        <div class="box-detail">Your existing scheduled prompts (BridgeCalm marketing playbook) now backed by real CRM data instead of notes.</div>
+      </div>
+      <div class="box box-highlight">
+        <div class="box-icon">📊</div>
+        <div class="box-title">Weekly Reviews</div>
+        <div class="box-detail">Claude pulls pipeline metrics, outreach stats, and task completion rates from the database — no manual compilation.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW: Claude ↔ MCP -->
+  <div class="arrow-section">
+    <div class="arrow">
+      <div class="arrow-line"></div>
+      <div class="arrow-head"></div>
+      <div class="arrow-label">stdio (JSON-RPC) — tool calls & responses</div>
+    </div>
+  </div>
+
+  <!-- MCP SERVER -->
+  <div class="layer layer-mcp">
+    <div class="layer-label">MCP Server (Node.js / TypeScript) — The Bridge</div>
+    <div class="boxes" style="margin-bottom: 16px;">
+      <div class="box">
+        <div class="box-title">21 Tools Exposed</div>
+        <div class="box-detail">CRM, strategy, marketplace, campaign, and review tools that Claude can call mid-conversation.</div>
+      </div>
+      <div class="box">
+        <div class="box-title">Data Gating Logic</div>
+        <div class="box-detail">Controls what context flows to freelancers vs. stays internal. Strategy docs never leak to the marketplace surface.</div>
+      </div>
+      <div class="box">
+        <div class="box-title">Runs Locally</div>
+        <div class="box-detail">Runs on your machine as a stdio process. Claude Desktop launches it automatically. No server to host for the MCP layer.</div>
+      </div>
+    </div>
+    <div class="tool-grid">
+      <div class="tool"><div class="tool-name">search_contacts</div><div class="tool-desc">Query CRM with filters</div></div>
+      <div class="tool"><div class="tool-name">add_contact</div><div class="tool-desc">Create new CRM entry</div></div>
+      <div class="tool"><div class="tool-name">log_outreach</div><div class="tool-desc">Record touchpoints</div></div>
+      <div class="tool"><div class="tool-name">get_pipeline_summary</div><div class="tool-desc">Lifecycle stage stats</div></div>
+      <div class="tool"><div class="tool-name">get_strategy_doc</div><div class="tool-desc">Retrieve active strategy</div></div>
+      <div class="tool"><div class="tool-name">update_strategy_doc</div><div class="tool-desc">Version-controlled updates</div></div>
+      <div class="tool"><div class="tool-name">get_competitors</div><div class="tool-desc">Competitive intelligence</div></div>
+      <div class="tool"><div class="tool-name">create_task</div><div class="tool-desc">Post to marketplace</div></div>
+      <div class="tool"><div class="tool-name">review_submission</div><div class="tool-desc">Evaluate freelancer work</div></div>
+      <div class="tool"><div class="tool-name">create_weekly_review</div><div class="tool-desc">Auto-compile KPIs</div></div>
+      <div class="tool"><div class="tool-name">log_insight</div><div class="tool-desc">Record learnings</div></div>
+      <div class="tool"><div class="tool-name">get_freelancer_leaderboard</div><div class="tool-desc">Rank available talent</div></div>
+    </div>
+  </div>
+
+  <!-- ARROW: MCP ↔ Supabase -->
+  <div class="arrow-section">
+    <div class="arrow">
+      <div class="arrow-line"></div>
+      <div class="arrow-head"></div>
+      <div class="arrow-label">HTTPS — service_role key (full access)</div>
+    </div>
+  </div>
+
+  <!-- SUPABASE BACKEND -->
+  <div class="layer layer-backend">
+    <div class="layer-label">New Supabase Project — Marketing Ops Database</div>
+    <div class="boxes">
+      <div class="box box-green">
+        <div class="box-icon">👥</div>
+        <div class="box-title">CRM Tables</div>
+        <div class="box-detail">mktg_contacts, mktg_outreach_log, mktg_campaigns — with indexes on type, status, tags for fast Claude queries.</div>
+      </div>
+      <div class="box box-green">
+        <div class="box-icon">🧠</div>
+        <div class="box-title">Strategy Hub</div>
+        <div class="box-detail">mktg_strategy_docs (versioned), mktg_competitors, mktg_insights — with pgvector embeddings for semantic search.</div>
+      </div>
+      <div class="box box-green">
+        <div class="box-icon">📝</div>
+        <div class="box-title">Marketplace</div>
+        <div class="box-detail">mktg_tasks, mktg_freelancers, mktg_task_submissions, mktg_task_messages — with RLS policies for data isolation.</div>
+      </div>
+      <div class="box box-green">
+        <div class="box-icon">📈</div>
+        <div class="box-title">Analytics</div>
+        <div class="box-detail">mktg_weekly_reviews, mktg_pipeline_summary (view), mktg_freelancer_leaderboard (view).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREWALL -->
+  <div class="firewall">
+    <span>🔒</span>
+    <span class="firewall-label">Row-Level Security Boundary — Freelancers see only their assigned tasks</span>
+    <span>🔒</span>
+  </div>
+
+  <!-- EXTERNAL LAYER -->
+  <div class="layer layer-external">
+    <div class="layer-label">Freelancer-Facing Portal (Future Phase) — Minimal Web App</div>
+    <div class="boxes">
+      <div class="box">
+        <div class="box-icon">🌐</div>
+        <div class="box-title">Task Board</div>
+        <div class="box-detail">Freelancers browse open tasks, see ONLY the brief + brand guidelines. No access to strategy docs, competitor data, or CRM.</div>
+      </div>
+      <div class="box">
+        <div class="box-icon">📤</div>
+        <div class="box-title">Submission Portal</div>
+        <div class="box-detail">Upload deliverables, receive feedback. Task-scoped messaging with you (via MCP → Claude) or direct.</div>
+      </div>
+      <div class="box">
+        <div class="box-icon">💰</div>
+        <div class="box-title">Payments (Stripe Connect)</div>
+        <div class="box-detail">Escrow on task claim, release on approval. Supports freelance (per-task) and work-to-hire (conversion fee).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEPARATE: BridgeCalm -->
+  <div style="margin-top: 32px; border-top: 1px dashed #334155; padding-top: 24px;">
+    <div class="layer" style="background: linear-gradient(135deg, #1b2838 0%, #141e2e 100%); border: 1px solid #334155;">
+      <div class="layer-label" style="color: #94a3b8;">Separate System — BridgeCalm (Existing Supabase Project)</div>
+      <div class="boxes">
+        <div class="box" style="border-color: #33415580;">
+          <div class="box-icon">🏥</div>
+          <div class="box-title">BridgeCalm App</div>
+          <div class="box-detail">Your existing production database with users, therapists, assessments, chat sessions, etc. Completely untouched.</div>
+        </div>
+        <div class="box" style="border-color: #33415580;">
+          <div class="box-icon">🔗</div>
+          <div class="box-title">Future Integration (Optional)</div>
+          <div class="box-detail">Later, the marketing MCP could optionally read BridgeCalm metrics (signup counts, retention rates) via cross-project API calls to inform strategy — on your terms.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background: #2e75b6;"></div> Claude Desktop (your interface)</div>
+  <div class="legend-item"><div class="legend-dot" style="background: #4b5563; border: 1px dashed #9ca3af;"></div> MCP Server (local bridge)</div>
+  <div class="legend-item"><div class="legend-dot" style="background: #22c55e40; border: 1px solid #22c55e60;"></div> New Supabase Project</div>
+  <div class="legend-item"><div class="legend-dot" style="background: #ef444420; border: 1px solid #ef444440;"></div> Freelancer Portal (future)</div>
+  <div class="legend-item"><div class="legend-dot" style="background: #33415540; border: 1px solid #334155;"></div> BridgeCalm (untouched)</div>
+</div>
+
+<!-- Key insight -->
+<div class="note">
+  <div class="note-title">Key Architecture Decision: Data Isolation</div>
+  <div class="note-text">
+    Your MCP server uses the <strong>service_role</strong> key, giving it full read/write to the marketing database. This is safe because the MCP server runs locally on your machine — only Claude Desktop talks to it via stdio.<br><br>
+    Freelancers access the database through the <strong>Supabase client</strong> with an <strong>authenticated</strong> role, which is locked down by Row-Level Security policies. They can only see: open tasks (browsing), their own assigned tasks, their own submissions, and task-scoped messages. They cannot see: strategy documents, competitive analysis, CRM contacts, outreach logs, other freelancers' work, or campaign internals.<br><br>
+    This means you can tell Claude "create a task for a freelancer to write 3 LinkedIn posts about therapist burnout based on our competitive positioning" and the MCP server will generate a clean brief from your strategy doc <em>without</em> exposing the underlying competitive intelligence to the freelancer.
+  </div>
+</div>
+
+</body>
+</html>
