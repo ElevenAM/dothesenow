@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { stripe } from "@/lib/stripe/client";
+import { getStripe } from "@/lib/stripe/client";
 import { PLANS, type PlanId } from "@/lib/stripe/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -54,7 +54,7 @@ export async function createCheckoutSession(planId: PlanId) {
   let customerId = org.stripe_customer_id;
 
   if (!customerId) {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       email: user.email,
       metadata: { org_id: org.id, org_name: org.name },
     });
@@ -72,7 +72,7 @@ export async function createCheckoutSession(planId: PlanId) {
   const headersList = await headers();
   const origin = headersList.get("origin") || "http://localhost:3000";
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: customerId,
     line_items: [{ price: plan.priceId, quantity: 1 }],
     mode: "subscription",
@@ -133,7 +133,7 @@ export async function createPortalSession() {
   const headersList = await headers();
   const origin = headersList.get("origin") || "http://localhost:3000";
 
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripe().billingPortal.sessions.create({
     customer: org.stripe_customer_id,
     return_url: `${origin}/settings/billing`,
   });

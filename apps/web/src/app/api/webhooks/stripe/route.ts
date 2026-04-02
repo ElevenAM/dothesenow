@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe/client";
+import { getStripe } from "@/lib/stripe/client";
 import { planFromPriceId } from "@/lib/stripe/config";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   // Verify webhook signature
   let event;
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       rawBody,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
 
         // Fetch the full subscription to get price details
         const subscription =
-          await stripe.subscriptions.retrieve(subscriptionId);
+          await getStripe().subscriptions.retrieve(subscriptionId);
         const firstItem = subscription.items.data[0];
         const priceId = firstItem?.price.id;
         const plan = priceId ? planFromPriceId(priceId) : null;
