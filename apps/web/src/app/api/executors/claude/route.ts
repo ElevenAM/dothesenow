@@ -1,9 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createRateLimiter, rateLimitResponse } from "@/lib/rate-limit";
 import Anthropic from "@anthropic-ai/sdk";
 import { timingSafeEqual } from "crypto";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+/** 10 requests per minute per org — protects against runaway API costs */
+const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 10 });
 
 function verifySecret(request: Request): boolean {
   const secret = process.env.EXECUTOR_INTERNAL_SECRET;
@@ -58,6 +62,12 @@ export async function POST(request: Request) {
     return new Response("Missing task_id or org_id", { status: 400 });
   }
 
+  // Rate limit per org to prevent runaway API costs
+  const rl = limiter.check(org_id);
+  if (!rl.allowed) {
+    return rateLimitResponse(rl.retryAfterMs);
+  }
+
   const supabase = createAdminClient();
 
   // Fetch the task
@@ -104,24 +114,42 @@ ${strategyContext ? `Here is the organization's strategy context:\n\n${strategyC
 
 Generate content that aligns with the brand voice and strategic goals described above. Be specific, actionable, and ready for human review.`;
 
-    // Task description goes in user message (prompt injection safety)
     const userPrompt = `Execute this task and generate the content:
 
+<task-description>
 Title: ${task.title}
 Type: ${task.task_type}
 Priority: ${task.priority}
 Description: ${task.description || "No additional description provided."}
+</task-description>
 
 Please generate the complete content for this task. Format it clearly so a human reviewer can approve, reject, or request revisions.`;
 
+    // Timeout: 50s leaves 10s margin before Vercel's maxDuration kills the function
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), 50_000);
+
     // Call Anthropic API
     const anthropic = new Anthropic({ apiKey });
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6-20250514",
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
+    let response: Anthropic.Message;
+    try {
+      response = await anthropic.messages.create(
+        {
+          model: "claude-sonnet-4-6-20250514",
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+        },
+        { signal: abortController.signal },
+      );
+    } catch (err) {
+      if (abortController.signal.aborted) {
+        throw new Error("Execution timed out after 50s");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const generatedContent = response.content
       .filter((block): block is Anthropic.TextBlock => block.type === "text")
@@ -163,7 +191,7 @@ Please generate the complete content for this task. Format it clearly so a human
     if (approvalError) throw approvalError;
 
     // Update task to waiting_approval + log execution metadata
-    await supabase
+    const { error: taskUpdateError } = await supabase
       .from("dtn_daily_tasks")
       .update({
         status: "waiting_approval",
@@ -181,6 +209,13 @@ Please generate the complete content for this task. Format it clearly so a human
       .eq("id", task_id)
       .eq("org_id", org_id);
 
+    if (taskUpdateError) {
+      console.error(
+        `[claude-executor] Approval created but task ${task_id} status update failed:`,
+        taskUpdateError.message,
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: true, duration_ms: durationMs }),
       { status: 200, headers: { "Content-Type": "application/json" } }
@@ -190,7 +225,7 @@ Please generate the complete content for this task. Format it clearly so a human
     console.error(`[claude-executor] Error executing task ${task_id}:`, message);
 
     // Mark task as failed
-    await supabase
+    const { error: failError } = await supabase
       .from("dtn_daily_tasks")
       .update({
         status: "failed",
@@ -199,6 +234,16 @@ Please generate the complete content for this task. Format it clearly so a human
       .eq("id", task_id)
       .eq("org_id", org_id);
 
-    return new Response(`Execution error: ${message}`, { status: 500 });
+    if (failError) {
+      console.error(
+        `[claude-executor] Also failed to mark task ${task_id} as failed:`,
+        failError.message,
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ error: "Execution failed" }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
   }
 }

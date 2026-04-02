@@ -229,28 +229,27 @@ export async function carryOverTasks(
   const departmentId = await getDepartmentId(membership.orgId, deptSlug);
   const today = todayString();
 
-  // Atomic: mark originals as carried_over and return them
-  let markQuery = supabase
+  // Step 1: Fetch eligible tasks (don't modify yet)
+  let fetchQuery = supabase
     .from("dtn_daily_tasks")
-    .update({ status: "carried_over" as const })
+    .select("*")
     .eq("org_id", membership.orgId)
     .eq("scheduled_date", fromDate)
-    .in("status", ["pending", "in_progress"])
-    .select();
+    .in("status", ["pending", "in_progress"]);
 
   if (departmentId) {
-    markQuery = markQuery.eq("department_id", departmentId);
+    fetchQuery = fetchQuery.eq("department_id", departmentId);
   }
 
-  const { data: marked, error: markError } = await markQuery;
-  if (markError) throw new Error(markError.message);
+  const { data: eligible, error: fetchError } = await fetchQuery;
+  if (fetchError) throw new Error(fetchError.message);
 
-  if (!marked || marked.length === 0) {
+  if (!eligible || eligible.length === 0) {
     return { count: 0 };
   }
 
-  // Create copies for today
-  const copies = marked.map((task: Record<string, unknown>) => ({
+  // Step 2: Insert copies FIRST — if this fails, originals are untouched (safe to retry)
+  const copies = eligible.map((task: Record<string, unknown>) => ({
     org_id: membership.orgId,
     department_id: task.department_id,
     created_by: task.created_by,
@@ -276,8 +275,23 @@ export async function carryOverTasks(
     .insert(copies);
   if (insertError) throw new Error(insertError.message);
 
+  // Step 3: Only mark originals as carried_over AFTER copies are safely inserted
+  const eligibleIds = eligible.map((t: Record<string, unknown>) => t.id as string);
+  const { error: markError } = await supabase
+    .from("dtn_daily_tasks")
+    .update({ status: "carried_over" as const })
+    .in("id", eligibleIds)
+    .eq("org_id", membership.orgId);
+
+  if (markError) {
+    console.error(
+      `[carry-over] Copies inserted but failed to mark originals as carried_over:`,
+      markError.message,
+    );
+  }
+
   revalidatePath("/", "layout");
-  return { count: marked.length };
+  return { count: eligible.length };
 }
 
 export async function getTeamMembers() {

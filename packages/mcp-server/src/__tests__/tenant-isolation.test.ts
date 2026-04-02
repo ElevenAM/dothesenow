@@ -19,6 +19,7 @@ import { strategy } from "../tools/strategy.js";
 import { marketplace } from "../tools/marketplace.js";
 import { campaigns } from "../tools/campaigns.js";
 import { dailyTasks } from "../tools/daily-tasks.js";
+import { approvals } from "../tools/approvals.js";
 
 // Fixed test UUIDs — deterministic for cleanup
 const ORG_A_ID = "00000000-aaaa-0000-0000-000000000001";
@@ -65,6 +66,7 @@ beforeAll(async () => {
 afterAll(async () => {
   // Clean up test data in reverse dependency order
   const tables = [
+    "dtn_approval_queue",
     "dtn_daily_tasks",
     "mktg_outreach_log",
     "mktg_task_messages",
@@ -264,5 +266,58 @@ describe("Campaigns tenant isolation", () => {
       result.content[0].text.replace("Campaign created: ", ""),
     );
     expect(parsed.org_id).toBe(ORG_A_ID);
+  });
+});
+
+describe("Approvals tenant isolation", () => {
+  it("submit_for_approval inserts with correct org_id", async () => {
+    const result = await approvals.handlers.submit_for_approval(clientA, {
+      title: "Test Approval A",
+      content: "Content for approval",
+      item_type: "task_submission",
+    });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.org_id).toBe(ORG_A_ID);
+    expect(parsed.status).toBe("pending");
+  });
+
+  it("list_pending_approvals returns only own org items", async () => {
+    // Submit approval to org B
+    await approvals.handlers.submit_for_approval(clientB, {
+      title: "Test Approval B",
+      content: "Content for B",
+      item_type: "blog_post",
+    });
+
+    // List from org A — should not see org B's approvals
+    const result = await approvals.handlers.list_pending_approvals(clientA, {});
+    const data = JSON.parse(result.content[0].text);
+    for (const item of data) {
+      expect(item.org_id).toBe(ORG_A_ID);
+    }
+  });
+
+  it("review_approval is scoped to org", async () => {
+    // Create approval in org A
+    const createResult = await approvals.handlers.submit_for_approval(
+      clientA,
+      {
+        title: "Cross-org review test",
+        content: "Should not be reviewable by B",
+        item_type: "task_submission",
+      },
+    );
+    const created = JSON.parse(createResult.content[0].text);
+
+    // Attempt review from org B — should fail (RPC validates org_id)
+    try {
+      await approvals.handlers.review_approval(clientB, {
+        approval_id: created.id,
+        status: "approved",
+      });
+      expect.unreachable("Should have thrown — org B cannot review org A's approval");
+    } catch {
+      // Expected: org B can't review org A's approval
+    }
   });
 });

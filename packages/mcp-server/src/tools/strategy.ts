@@ -157,9 +157,12 @@ export const strategy: ToolModule = {
     },
 
     async update_strategy_doc(client, args) {
-      // 3-query pattern with org_id scoping. The unique partial index
-      // idx_mktg_strategy_one_active_per_type prevents corruption on
-      // concurrent calls — one insert would fail cleanly.
+      // NOTE: The web app uses the update_strategy_doc RPC (migration 005) which
+      // locks with FOR UPDATE. The MCP server can't use that RPC because it runs
+      // with service_role (no auth.uid()). This 3-query pattern is safe because
+      // idx_mktg_strategy_one_active_per_type prevents two active docs of the
+      // same type. On concurrent conflict, the unique index rejects the second
+      // insert and we return a clear retry message.
       await client
         .from("mktg_strategy_docs")
         .update({ is_active: false })
@@ -191,7 +194,17 @@ export const strategy: ToolModule = {
         })
         .select()
         .single();
-      if (error) throw error;
+
+      if (error) {
+        // Unique index violation = concurrent edit. Guide the caller to retry.
+        if (error.code === "23505") {
+          throw new Error(
+            "Concurrent strategy doc update detected — another edit was saved first. " +
+            "Please retry to create a new version on top of the latest.",
+          );
+        }
+        throw error;
+      }
       return ok(
         `Strategy doc updated (v${data.version}): ${JSON.stringify(data, null, 2)}`,
       );

@@ -20,10 +20,14 @@ function getSubscriptionIdFromInvoice(
 /**
  * Map Stripe subscription status to our plan_status enum.
  * Our DB allows: 'trialing', 'active', 'past_due', 'canceled'
+ *
+ * IMPORTANT: Unknown statuses return null (no-op) rather than defaulting to
+ * "canceled" — this prevents paying customers from losing access if Stripe
+ * adds a new status we haven't mapped yet.
  */
 function mapStripeStatus(
   stripeStatus: string
-): "trialing" | "active" | "past_due" | "canceled" {
+): "trialing" | "active" | "past_due" | "canceled" | null {
   switch (stripeStatus) {
     case "trialing":
       return "trialing";
@@ -32,12 +36,16 @@ function mapStripeStatus(
     case "past_due":
       return "past_due";
     case "canceled":
-    case "incomplete":
     case "incomplete_expired":
     case "unpaid":
-    case "paused":
-    default:
       return "canceled";
+    case "incomplete":
+    case "paused":
+      // These are transitional states — don't downgrade the user
+      return null;
+    default:
+      console.warn(`[stripe-webhook] Unknown subscription status: "${stripeStatus}" — skipping plan_status update`);
+      return null;
   }
 }
 
@@ -180,23 +188,27 @@ export async function POST(request: Request) {
           break;
         }
 
-        // Update org plan and status
-        const orgUpdate: Record<string, string> = { plan_status: status };
+        // Update org plan and status (skip plan_status if unknown Stripe status)
+        const orgUpdate: Record<string, string> = {};
+        if (status) {
+          orgUpdate.plan_status = status;
+        }
         if (plan) {
           orgUpdate.plan = plan;
         }
-        await supabase
-          .from("dtn_organizations")
-          .update(orgUpdate)
-          .eq("id", org.id);
+        if (Object.keys(orgUpdate).length > 0) {
+          await supabase
+            .from("dtn_organizations")
+            .update(orgUpdate)
+            .eq("id", org.id);
+        }
 
         // Period dates are on the subscription item in Stripe SDK v21+
         const periodStart = firstItem?.current_period_start;
         const periodEnd = firstItem?.current_period_end;
 
-        // Update subscription record
+        // Update subscription record (skip status if unknown)
         const subUpdate: Record<string, string | null> = {
-          status: status,
           current_period_start: periodStart
             ? new Date(periodStart * 1000).toISOString()
             : null,
@@ -204,6 +216,9 @@ export async function POST(request: Request) {
             ? new Date(periodEnd * 1000).toISOString()
             : null,
         };
+        if (status) {
+          subUpdate.status = status;
+        }
         if (plan) {
           subUpdate.plan = plan;
         }

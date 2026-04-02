@@ -1,7 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createRateLimiter, rateLimitResponse } from "@/lib/rate-limit";
 import { timingSafeEqual } from "crypto";
 
 export const dynamic = "force-dynamic";
+
+/** 100 requests per minute per org */
+const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 100 });
 
 interface N8nCallbackBody {
   task_id: string;
@@ -51,6 +55,12 @@ export async function POST(request: Request) {
 
   if (!task_id || !org_id || !status) {
     return new Response("Missing required fields: task_id, org_id, status", { status: 400 });
+  }
+
+  // Rate limit per org
+  const rl = limiter.check(org_id);
+  if (!rl.allowed) {
+    return rateLimitResponse(rl.retryAfterMs);
   }
 
   const supabase = createAdminClient();
@@ -105,11 +115,18 @@ export async function POST(request: Request) {
 
       if (approvalError) throw approvalError;
 
-      await supabase
+      const { error: taskUpdateError } = await supabase
         .from("dtn_daily_tasks")
         .update({ status: "waiting_approval" })
         .eq("id", task_id)
         .eq("org_id", org_id);
+
+      if (taskUpdateError) {
+        console.error(
+          `[n8n-webhook] Approval created but task ${task_id} status update failed:`,
+          taskUpdateError.message,
+        );
+      }
     } else {
       // Mark task as completed directly
       await supabase

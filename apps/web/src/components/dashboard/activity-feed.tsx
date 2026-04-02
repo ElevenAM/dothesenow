@@ -16,9 +16,11 @@ interface ActivityFeedProps {
 }
 
 export async function ActivityFeed({ orgId }: ActivityFeedProps) {
-  const supabase = await createClient();
+  let outreachResult, strategyResult, contactResult;
 
-  const [outreachResult, strategyResult, contactResult] = await Promise.all([
+  try {
+    const supabase = await createClient();
+    [outreachResult, strategyResult, contactResult] = await Promise.all([
     supabase
       .from("mktg_outreach_log")
       .select("id, channel, direction, subject, created_at, mktg_contacts(first_name, last_name)")
@@ -38,7 +40,22 @@ export async function ActivityFeed({ orgId }: ActivityFeedProps) {
       .eq("org_id", orgId)
       .order("created_at", { ascending: false })
       .limit(5),
-  ]);
+    ]);
+  } catch (err) {
+    console.error("[activity-feed] Failed to load activity:", err);
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Recent Activity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Failed to load activity feed. Please refresh the page.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const items: ActivityItem[] = [];
 
