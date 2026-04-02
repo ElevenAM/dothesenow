@@ -5,8 +5,9 @@ import { strategy } from "./strategy.js";
 import { marketplace } from "./marketplace.js";
 import { campaigns } from "./campaigns.js";
 import { dailyTasks } from "./daily-tasks.js";
+import { approvals } from "./approvals.js";
 
-const modules = [crm, strategy, marketplace, campaigns, dailyTasks];
+const modules = [crm, strategy, marketplace, campaigns, dailyTasks, approvals];
 
 const allHandlers: Record<string, ToolHandler> = {};
 const allDefinitions: ToolDefinition[] = [];

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+import { dispatchTask } from "@/lib/daily-tasks/dispatch";
 
 export interface DailyTask {
   id: string;
@@ -165,8 +166,13 @@ export async function createDailyTask(
     .single();
 
   if (error) throw new Error(error.message);
+
+  // Dispatch to executor if non-self (fire-and-forget with error recovery)
+  const created = data as DailyTask;
+  dispatchTask(created);
+
   revalidatePath("/", "layout");
-  return data as DailyTask;
+  return created;
 }
 
 export async function updateDailyTask(

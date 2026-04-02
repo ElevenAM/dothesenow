@@ -6,7 +6,7 @@
 - **Auth**: Supabase magic link (email OTP)
 - **Multi-tenancy**: Shared DB, org_id on every table, RLS isolation
 - **Billing**: Stripe (Free / Premium $9.99/mo)
-- **MCP Server**: 21 existing tools in `packages/mcp-server/`, runs locally via Claude Code/Desktop
+- **MCP Server**: 27 tools in `packages/mcp-server/`, runs locally via Claude Code/Desktop
 
 ## Infrastructure
 - **Supabase project**: `ztbsawzahplvvxcgpmiu` (https://ztbsawzahplvvxcgpmiu.supabase.co)
@@ -370,16 +370,102 @@ apps/web/src/components/ui/{calendar,popover,checkbox}.tsx (auto-generated)
 
 ---
 
-## Phase 5: Automations & Approvals — NOT STARTED
+## Phase 5: Automations & Approvals — COMPLETE
 
-### Tasks
-1. n8n executor: fire webhook on task creation, `/api/webhooks/n8n/route.ts` callback handler
-2. Claude API executor: Supabase Edge Function reads task + strategy context, calls Anthropic API
-3. Approval queue page: cards for pending content, approve/reject/request-revision actions
-4. MCP tools: `submit_for_approval`, `list_pending_approvals`, `review_approval`
+### What was built
 
-### Deliverable
-Automated task execution with human-in-the-loop approval
+1. **Migration 006** (`supabase/migrations/006_approval_review_rpc.sql`)
+   - `review_approval_item()` Postgres RPC function — atomic approval review with task status sync
+   - `SECURITY DEFINER` with explicit `org_id` guard on all WHERE clauses (bypasses RLS safely)
+   - Status transition validation: only `pending` or `revision_requested` items can be reviewed
+   - On `approved` → linked task set to `completed`; `revision_requested` → `in_progress`; `rejected` → `failed`
+   - `dtn_approval_queue` added to Supabase Realtime publication
+
+2. **Task dispatch utility** (`apps/web/src/lib/daily-tasks/dispatch.ts`)
+   - Fire-and-forget dispatch after task creation in web server action
+   - `n8n`: POST to `executor_config.webhook_url` with task payload + callback URL
+   - `claude_api`: POST to internal `/api/executors/claude` with `task_id` + `org_id`
+   - Error recovery: `.catch()` marks task `failed` with error in `outcome_notes` (no zombie tasks)
+   - MCP server does NOT dispatch — tasks stay `pending` until triggered from web
+
+3. **n8n webhook callback route** (`apps/web/src/app/api/webhooks/n8n/route.ts`)
+   - Constant-time secret validation via `N8N_WEBHOOK_SECRET`
+   - Idempotency: checks `task.status = 'in_progress'` before processing (duplicate callbacks → no-op)
+   - Creates `dtn_approval_queue` entry if `needs_approval: true`, copies `department_id` from linked task
+   - Otherwise marks task `completed` or `failed` directly
+
+4. **Claude API executor route** (`apps/web/src/app/api/executors/claude/route.ts`)
+   - `maxDuration = 60` to prevent Vercel timeout
+   - Constant-time secret validation via `EXECUTOR_INTERNAL_SECRET`
+   - Fetches active strategy docs filtered by task type relevance
+   - Prompt safety: task description in `user` message, strategy context in `system` message
+   - Calls `claude-sonnet-4-6` via `@anthropic-ai/sdk`
+   - Creates approval queue entry with generated content + execution metadata (model, tokens, duration)
+   - Logs execution metadata into task's `generation_context` JSONB
+   - On error: marks task `failed` with error in `outcome_notes`
+
+5. **Dispatch integration** (`apps/web/src/lib/daily-tasks/actions.ts`)
+   - `createDailyTask` now calls `dispatchTask(task)` after successful INSERT
+   - Dispatches automatically for `executor_type = 'n8n'` or `'claude_api'`
+   - Fire-and-forget (doesn't block the response)
+
+6. **Approval server actions** (`apps/web/src/lib/approvals/actions.ts`)
+   - `getApprovalItems(deptSlug, filters?)` — paginated (20/page) with status/type/submitter filters
+   - `getApprovalItem(itemId)` — single item with joined task info + reviewer profile
+   - `reviewApprovalItem(itemId, status, notes?)` — role-gated (owner/admin only), calls atomic RPC
+   - `getApprovalStats(deptSlug)` — parallel counts: pending, approved 7d, rejected 7d
+
+7. **MCP approval tools** (`packages/mcp-server/src/tools/approvals.ts`)
+   - `submit_for_approval` — INSERT into `dtn_approval_queue`, copies `department_id` from linked task
+   - `list_pending_approvals` — SELECT with status/type/submitter filters, default: pending
+   - `review_approval` — calls `review_approval_item` RPC for atomic review
+   - Registered in `registry.ts` — **27 total MCP tools now**
+
+8. **Approval queue UI** (full page + 4 components)
+   - Server page: `[dept]/approvals/page.tsx` with `RealtimeListener`, parallel data fetch, role detection
+   - `approvals-page-client.tsx` — status tabs (All/Pending/Approved/Rejected/Revision), type/submitter dropdowns, paginated card list, empty state
+   - `approval-card.tsx` — title, badges (item_type, submitted_by_type, status), content preview, quick approve/reject buttons for pending items
+   - `approval-detail-sheet.tsx` — full content slide-over, execution metadata display, linked task info, review form (approve/reject/revision + notes textarea)
+   - `approval-stats.tsx` — summary cards (pending, approved 7d, rejected 7d)
+
+### Security measures
+- Constant-time secret comparison on both webhook routes (prevents timing attacks)
+- Idempotency guard on n8n callback (prevents duplicate approval entries)
+- Explicit `org_id` guard in SECURITY DEFINER RPC function
+- Role-gated reviews (owner/admin only via `getAuthenticatedMembership`)
+- Prompt injection safety (user content separated from system context in Claude calls)
+- `maxDuration = 60` on executor route (prevents Vercel timeout)
+
+### New dependencies
+- `@anthropic-ai/sdk` — Claude API client for content generation
+
+### Environment variables added
+- `ANTHROPIC_API_KEY` — Claude API key (Vercel + local)
+- `N8N_WEBHOOK_SECRET` — Validates n8n callbacks (Vercel + local)
+- `EXECUTOR_INTERNAL_SECRET` — Auth for internal executor calls (Vercel + local)
+
+### New files (10)
+```
+supabase/migrations/006_approval_review_rpc.sql
+apps/web/src/lib/daily-tasks/dispatch.ts
+apps/web/src/app/api/webhooks/n8n/route.ts
+apps/web/src/app/api/executors/claude/route.ts
+apps/web/src/lib/approvals/actions.ts
+packages/mcp-server/src/tools/approvals.ts
+apps/web/src/components/approvals/approvals-page-client.tsx
+apps/web/src/components/approvals/approval-card.tsx
+apps/web/src/components/approvals/approval-detail-sheet.tsx
+apps/web/src/components/approvals/approval-stats.tsx
+```
+
+### What's still needed
+- [ ] End-to-end test: create task with `executor_type='claude_api'` → verify content generated → approve in UI → verify task completed
+- [ ] End-to-end test: create task with `executor_type='n8n'` → simulate callback → verify approval flow
+- [ ] End-to-end test: MCP `submit_for_approval` → `list_pending_approvals` → `review_approval`
+- [ ] Verify Realtime updates across two browser tabs on approval queue
+- [ ] Configure n8n workflow with webhook URL (user-specific)
+- [x] Migration 006 applied to Supabase
+- [x] Environment variables set on Vercel + local
 
 ---
 
@@ -447,6 +533,7 @@ Production-ready platform
 - `src/tools/marketplace.ts` — 5 marketplace tools (org-scoped)
 - `src/tools/campaigns.ts` — 2 campaign tools (org-scoped)
 - `src/tools/daily-tasks.ts` — 5 daily task tools (org-scoped)
+- `src/tools/approvals.ts` — 3 approval tools (org-scoped)
 - `src/__tests__/tenant-isolation.test.ts` — cross-org isolation tests
 - `.env.example` — SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ORG_ID
 
@@ -467,8 +554,22 @@ Production-ready platform
 - `org/actions.ts` — switchOrg server action
 - `team/actions.ts` — inviteTeamMember, removeTeamMember, updateMemberRole, resendInvite, cancelInvite
 
-### Webhook (`apps/web/src/app/api/webhooks/stripe/`)
-- `route.ts` — Stripe webhook POST handler with signature verification + idempotency
+### Approvals (`apps/web/src/lib/approvals/`)
+- `actions.ts` — getApprovalItems, getApprovalItem, reviewApprovalItem, getApprovalStats
+
+### Approvals UI (`apps/web/src/components/approvals/`)
+- `approvals-page-client.tsx` — main wrapper with status tabs, filters, pagination
+- `approval-card.tsx` — item card with badges and quick approve/reject
+- `approval-detail-sheet.tsx` — full content slide-over with review form
+- `approval-stats.tsx` — summary stat cards
+
+### Task Dispatch (`apps/web/src/lib/daily-tasks/`)
+- `dispatch.ts` — fire-and-forget dispatch to n8n/Claude with error recovery
+
+### Webhooks & Executors (`apps/web/src/app/api/`)
+- `webhooks/stripe/route.ts` — Stripe webhook POST handler with signature verification + idempotency
+- `webhooks/n8n/route.ts` — n8n callback handler with constant-time secret + idempotency
+- `executors/claude/route.ts` — Claude API executor (maxDuration=60, prompt safety, metadata logging)
 
 ### Database (`supabase/migrations/`)
 - `001_initial_schema.sql` — 11 mktg_* tables, RLS, views, triggers
@@ -476,6 +577,7 @@ Production-ready platform
 - `003_simplify_plans.sql` — Update plan CHECK constraint to ('free', 'premium')
 - `004_profiles_and_invite_limit.sql` — profiles table, auth trigger, invite_team_member() function
 - `005_realtime_and_strategy_versioning.sql` — realtime identity, unique active doc index, update_strategy_doc() RPC
+- `006_approval_review_rpc.sql` — atomic review_approval_item() RPC with org_id guard + task status sync
 
 ### Config
 - `package.json` — root workspace (npm workspaces + turbo)
