@@ -68,9 +68,12 @@ export async function getDocHistory(
 }
 
 /**
- * Create or update a strategy doc using the atomic RPC function.
+ * Create a strategy doc using the atomic RPC function.
  * The RPC handles versioning (deactivating old, inserting new).
- * Requires an admin client (service role) for the RPC call.
+ *
+ * WARNING: The `update_strategy_doc` RPC requires `auth.uid()` — it will fail
+ * with service_role clients (e.g. MCP server). Service-role callers must use
+ * the 3-query pattern (deactivate → get version → insert) instead.
  */
 export async function createDoc(
   ctx: OrgContext,
@@ -93,6 +96,9 @@ export async function createDoc(
 /**
  * Update a strategy doc using the atomic RPC function.
  * Requires fetching the current doc_type first, then calling the RPC.
+ *
+ * WARNING: Requires `auth.uid()` — will not work with service_role clients.
+ * See createDoc JSDoc for details.
  */
 export async function updateDoc(
   ctx: OrgContext,

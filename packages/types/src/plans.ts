@@ -32,7 +32,10 @@ export const PLAN_PRICE_IDS: Partial<Record<PlanTier, string>> = {
 };
 
 export function canAccessFeature(current: PlanTier, required: PlanTier): boolean {
-  return PLAN_HIERARCHY.indexOf(current) >= PLAN_HIERARCHY.indexOf(required);
+  const curIdx = PLAN_HIERARCHY.indexOf(current);
+  const reqIdx = PLAN_HIERARCHY.indexOf(required);
+  if (curIdx === -1 || reqIdx === -1) return false;
+  return curIdx >= reqIdx;
 }
 
 export function getPlanLimits(plan: PlanTier): PlanLimits {

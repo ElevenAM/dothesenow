@@ -13,6 +13,11 @@ const CONTACTS_TABLE = "mktg_contacts";
 const OUTREACH_TABLE = "mktg_outreach_log";
 const DEFAULT_PAGE_SIZE = 20;
 
+/** Escape PostgREST filter special characters to prevent filter injection. */
+function escapeFilterValue(value: string): string {
+  return value.replace(/[\\%_(),."]/g, (ch) => `\\${ch}`);
+}
+
 export interface PaginatedContacts {
   contacts: Contact[];
   total: number;
@@ -37,7 +42,8 @@ export async function getContactsForOrg(
     .range(offset, offset + pageSize - 1);
 
   if (filters?.search) {
-    const term = `%${filters.search}%`;
+    const escaped = escapeFilterValue(filters.search);
+    const term = `%${escaped}%`;
     query = query.or(
       `first_name.ilike.${term},last_name.ilike.${term},email.ilike.${term},company.ilike.${term}`,
     );
