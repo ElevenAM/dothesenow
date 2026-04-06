@@ -22,7 +22,7 @@ import {
 import { InviteForm } from "@/components/team/invite-form";
 import { MemberActions } from "@/components/team/member-actions";
 import { CancelInviteButton } from "@/components/team/cancel-invite-button";
-import { cookies } from "next/headers";
+import { getActiveOrgId } from "@/lib/org-context";
 
 const roleBadgeVariant: Record<string, "default" | "secondary" | "outline"> = {
   owner: "default",
@@ -39,8 +39,7 @@ export default async function TeamPage() {
   if (!user) redirect("/login");
 
   // Determine current org from cookie or first membership
-  const cookieStore = await cookies();
-  const currentOrgCookie = cookieStore.get("dtn_current_org")?.value;
+  const currentOrgId = await getActiveOrgId();
 
   let membershipQuery = supabase
     .from("dtn_memberships")
@@ -48,8 +47,8 @@ export default async function TeamPage() {
     .eq("user_id", user.id)
     .eq("is_active", true);
 
-  if (currentOrgCookie) {
-    membershipQuery = membershipQuery.eq("org_id", currentOrgCookie);
+  if (currentOrgId) {
+    membershipQuery = membershipQuery.eq("org_id", currentOrgId);
   }
 
   const { data: membership } = await membershipQuery.limit(1).single();

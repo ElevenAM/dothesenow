@@ -1,5 +1,112 @@
 # DoTheseNow.com — Build Progress
 
+> **Status**: Phases 1–5 complete (scaffold, auth, billing, teams, core views, tasks, MCP, approvals). Refactor Phase 1 in progress — [1A] nearly complete, [1B] not started.
+>
+> Last updated: 2026-04-06
+
+---
+
+## Refactor Roadmap (v2)
+
+**See `ROADMAP.md` for the full phased implementation plan (v2, EM-reviewed).**
+
+The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLAUDE.md for rules). Current status:
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| **Phase 1** | Foundation: Auth safety, types & test infrastructure | **IN PROGRESS** |
+| [1A] | Auth & org context fix + Vitest setup | ~95% — PR #1 open, 1 gap remaining |
+| [1B] | Shared type & query packages (`packages/types/`, `packages/queries/`) | Not started (worktree exists, no commits) |
+| **Phase 2** | DB hardening, UI safety & first user-visible win | Blocked on Phase 1 |
+| [2A] | Database hardening (RLS, soft delete, task event log) | Planned |
+| [2B] | Error boundaries, loading states & Playwright E2E setup | Planned |
+| [2C] | Onboarding wizard — 3-step flow (first user-facing improvement) | Planned |
+| **Phase 3** | Migrate web & MCP to shared layer | Blocked on Phase 2 |
+| [3A] | MCP server → shared queries | Planned |
+| [3B] | Web server actions → shared queries | Planned |
+| **Phase 4** | Inngest & credit system (async foundation) | Blocked on Phase 3 |
+| [4A] | Inngest setup + cron functions | Planned |
+| [4B] | Credit system + pricing tier migration | Planned |
+| **Phase 5** | Integration: Wire credits to Inngest | Blocked on Phase 4 |
+| [5A] | Credits ↔ Inngest wiring | Planned |
+| **Phase 6** | Intelligence: Strategy generation & task decomposition | Blocked on Phase 5 |
+| [6A] | Strategy generation engine | Planned |
+| [6B] | Task decomposition engine | Planned |
+| **Phase 7** | Agentic: Blocker resolution | Blocked on Phase 6 |
+| [7A] | Blocker resolution agent (5-type classification) | Planned |
+| **Phase 8** | Slack integration | Blocked on Phase 7 |
+| [8A] | Slack OAuth + core handlers | Planned |
+| [8B] | Slack cron functions (morning DM, EOD summary) | Planned |
+| **Phase 9** | Closed loop: Results & feedback | Blocked on Phase 8 |
+| [9A] | Results dashboard | Planned |
+| [9B] | Feedback engine (strategy auto-refinement) | Planned |
+| **Phase 10** | Collaboration & ecosystem | Blocked on Phase 9 |
+| **Phase 11** | Scale & growth | Blocked on Phase 10 |
+
+### Testing Growth Per Phase
+| Phase | Tests Added | Cumulative |
+|-------|------------|------------|
+| 1 | ~30 (unit: auth, types, queries; integration: org isolation, dependency map) | ~30 |
+| 2 | ~25 (SQL RLS tests, E2E smoke × 3, onboarding unit tests) | ~55 |
+| 3 | ~20 (shared query coverage for MCP + web, regression) | ~75 |
+| 4 | ~20 (Inngest function tests, credit race conditions) | ~95 |
+| 5 | ~5 (integration wiring tests) | ~100 |
+| 6 | ~25 (prompt snapshots, agent output validation, decomposition) | ~125 |
+| 7–9 | ~30 each phase | ~200+ |
+
+### Known Issues Tracked
+| ID | Issue | Severity | Fixed In |
+|----|-------|----------|----------|
+| BUG-001 | Cookie name mismatch (`dtn_active_org` vs `dtn_current_org`) | High | [1A] |
+| BUG-002 | Org creation RLS edge cases in onboarding | Medium | [1A] |
+| ARCH-001 | Manual org_id filtering (no compile-time enforcement) | High | [1B] |
+| ARCH-002 | Code duplication between web actions and MCP tools | High | [3A] |
+| ARCH-005 | Invite state ambiguity (2 patterns) | Medium | [1A] |
+| DEBT-001 | review_submission: 3 sequential writes without transaction | Medium | [3A] |
+| DEBT-002 | No error boundaries or loading states | Medium | [2B] |
+| DEBT-003 | No test suite beyond tenant isolation | High | [1A], [1B] |
+| BUG-003 | `cookies().set()` called from Server Component render path | High | [1A] (fixed) |
+| BUG-004 | Layout catch-all redirects DB errors to /onboarding | Medium | [1A] (fixed) |
+| BUG-005 | `as unknown as` type assertions on DB join rows | Low | [1A] (fixed) |
+
+### [1A] Detailed Progress
+
+**Branch**: `refactor/1a-auth-test-infra` | **PR**: #1 (open)
+
+**Completed:**
+- [x] `ORG_COOKIE_NAME` constant exported; zero raw cookie strings in app code
+- [x] Legacy cookie migration (read-only in `getActiveOrgId`, write in `migrateAndSetActiveOrgId`)
+- [x] Onboarding hardened: server action `createOrganization` with admin client, rollback on failure, slug uniqueness check
+- [x] `getAuthenticatedMembership()` — single source of truth for auth + org context
+- [x] `getMembershipState()` — standardized 3-state enum (pending/active/inactive)
+- [x] Vitest configured with path aliases, Supabase client mocks, cookie mocks
+- [x] 23 unit tests passing (org-context: 10, auth-helpers: 7, membership-state: 4, + 2 constant checks)
+- [x] `npm run test` script in `apps/web/package.json`
+- [x] `loading` → `isLoading` rename in onboarding (CLAUDE.md compliance)
+- [x] Code review bugs fixed: no cookie writes from RSC, proper error discrimination in layout catch, typed DB interfaces
+
+**Remaining gap:**
+- [ ] `getRequestContext` (cache wrapper) is exported but unused — `layout.tsx` calls `getAuthenticatedMembership` directly. Either wire it up or remove the dead export.
+
+### [1B] Detailed Progress
+
+**Branch**: `refactor/1b-shared-packages` | **Worktree**: `.claude/worktrees/1b-shared-packages/`
+
+**Status**: Not started. Worktree exists with zero unique commits. 4 files have unstaged scaffolding changes (turbo.json, package.json files). `packages/types/` and `packages/queries/` do not exist yet.
+
+**Next steps:**
+- [ ] Generate Supabase types → `packages/types/src/database.ts`
+- [ ] Create domain types with camelCase mappers
+- [ ] Consolidate shared enums (TaskStatus, ExecutorType, MemberRole, PlanTier)
+- [ ] Build org-scoped query builders (reads + mutations)
+- [ ] Plan constants (`PLAN_LIMITS`, `canAccessFeature`)
+- [ ] Dependency map test (packages never import from apps)
+- [ ] Integration tests against Supabase local
+
+---
+
+## Previously Completed Phases
+
 ## Architecture
 - **Stack**: Next.js 16 (App Router) + Supabase + Vercel + Turborepo monorepo
 - **UI**: shadcn/ui + Tailwind CSS v4
