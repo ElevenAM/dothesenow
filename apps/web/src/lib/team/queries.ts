@@ -14,7 +14,11 @@ export async function getOrgMembers(orgId: string) {
     .not("user_id", "is", null)
     .order("created_at");
 
-  if (error || !data) return [];
+  if (error) {
+    console.error("[getOrgMembers] Failed to fetch members:", error.message);
+    throw new Error(`Failed to fetch org members: ${error.message}`);
+  }
+  if (!data) return [];
 
   // Fetch emails for each member from auth.users
   const memberIds = data.map((m) => m.user_id).filter(Boolean) as string[];

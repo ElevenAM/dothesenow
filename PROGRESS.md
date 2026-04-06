@@ -1,6 +1,6 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Phases 1–5 complete (scaffold, auth, billing, teams, core views, tasks, MCP, approvals). Refactor Phase 1 in progress — [1A] nearly complete, [1B] not started.
+> **Status**: Phases 1–5 complete (scaffold, auth, billing, teams, core views, tasks, MCP, approvals). Refactor Phase 1 in progress — [1A] nearly complete, [1B] complete (PR #2).
 >
 > Last updated: 2026-04-06
 
@@ -16,7 +16,7 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 |-------|-------------|--------|
 | **Phase 1** | Foundation: Auth safety, types & test infrastructure | **IN PROGRESS** |
 | [1A] | Auth & org context fix + Vitest setup | ~95% — PR #1 open, 1 gap remaining |
-| [1B] | Shared type & query packages (`packages/types/`, `packages/queries/`) | Not started (worktree exists, no commits) |
+| [1B] | Shared type & query packages (`packages/types/`, `packages/queries/`) | **Complete** — PR #2 |
 | **Phase 2** | DB hardening, UI safety & first user-visible win | Blocked on Phase 1 |
 | [2A] | Database hardening (RLS, soft delete, task event log) | Planned |
 | [2B] | Error boundaries, loading states & Playwright E2E setup | Planned |
@@ -68,6 +68,9 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | BUG-003 | `cookies().set()` called from Server Component render path | High | [1A] (fixed) |
 | BUG-004 | Layout catch-all redirects DB errors to /onboarding | Medium | [1A] (fixed) |
 | BUG-005 | `as unknown as` type assertions on DB join rows | Low | [1A] (fixed) |
+| BUG-006 | PostgREST filter injection in contacts search (unsanitized `.or()` input) | High | [1B] (fixed) |
+| BUG-007 | `canAccessFeature` returns `true` for unknown plan tiers (`indexOf` -1 bypass) | High | [1B] (fixed) |
+| BUG-008 | `getOrgMembers` silently returns `[]` on query error | Medium | [1B] (fixed) |
 
 ### [1A] Detailed Progress
 
@@ -92,16 +95,25 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 
 **Branch**: `refactor/1b-shared-packages` | **Worktree**: `.claude/worktrees/1b-shared-packages/`
 
-**Status**: Not started. Worktree exists with zero unique commits. 4 files have unstaged scaffolding changes (turbo.json, package.json files). `packages/types/` and `packages/queries/` do not exist yet.
+**Status**: Complete. PR #2 open.
 
-**Next steps:**
-- [ ] Generate Supabase types → `packages/types/src/database.ts`
-- [ ] Create domain types with camelCase mappers
-- [ ] Consolidate shared enums (TaskStatus, ExecutorType, MemberRole, PlanTier)
-- [ ] Build org-scoped query builders (reads + mutations)
-- [ ] Plan constants (`PLAN_LIMITS`, `canAccessFeature`)
-- [ ] Dependency map test (packages never import from apps)
-- [ ] Integration tests against Supabase local
+**Completed:**
+- [x] `packages/types/` — `@dothesenow/types` package with database types, domain types, enums, filters, plans
+- [x] `packages/queries/` — `@dothesenow/queries` package with org-scoped query functions (tasks, contacts, approvals, strategy, memberships, org)
+- [x] Shared enums consolidated (TaskStatus, ExecutorType, MemberRole, PlanTier, ContactType, etc.)
+- [x] Plan constants (`PLAN_LIMITS`, `PLAN_HIERARCHY`, `canAccessFeature`, `planFromPriceId`)
+- [x] `OrgContext` interface for dependency injection (Supabase client + orgId)
+- [x] `QueryError` class for consistent error handling across all queries
+- [x] Wired into `apps/web` and `packages/mcp-server` via workspace dependencies
+- [x] Turbo pipeline entries for `type-check` and `test` tasks
+- [x] Tests: no-circular-deps, org-isolation, error handling, tasks, domain types, enums, plans
+- [x] Code review fixes: PostgREST filter injection sanitized, `canAccessFeature` unknown-tier guard, strategy RPC `auth.uid()` warning, OrgContext comment corrected
+- [x] Pre-existing fix: `getOrgMembers` silent error → throws with `console.error`
+
+**Known limitations (deferred to Phase 3):**
+- `apps/web` still uses local type definitions — migration to `@dothesenow/types` imports is [3B]
+- MCP server still uses its own `OrgScopedClient` — migration to shared queries is [3A]
+- Strategy `createDoc`/`updateDoc` require `auth.uid()` (user-scoped client only); MCP server uses 3-query pattern instead
 
 ---
 
