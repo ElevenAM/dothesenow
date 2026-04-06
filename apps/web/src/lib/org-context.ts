@@ -16,15 +16,25 @@ export async function getActiveOrgId(): Promise<string | null> {
   const value = cookieStore.get(ORG_COOKIE_NAME)?.value;
   if (value) return value;
 
-  // One-time migration: copy legacy cookie to new name, then delete legacy
+  // Read-only fallback: return legacy cookie value without writing.
+  // Cookie migration happens in setActiveOrgId (called from server actions).
   const legacyValue = cookieStore.get(LEGACY_COOKIE_NAME)?.value;
-  if (legacyValue) {
-    cookieStore.set(ORG_COOKIE_NAME, legacyValue, COOKIE_OPTIONS);
-    cookieStore.delete(LEGACY_COOKIE_NAME);
-    return legacyValue;
-  }
+  if (legacyValue) return legacyValue;
 
   return null;
+}
+
+/**
+ * Migrate legacy cookie to new name and set the active org.
+ * Must only be called from Server Actions or Route Handlers.
+ */
+export async function migrateAndSetActiveOrgId(orgId: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(ORG_COOKIE_NAME, orgId, COOKIE_OPTIONS);
+  // Clean up legacy cookie if it exists
+  if (cookieStore.get(LEGACY_COOKIE_NAME)?.value) {
+    cookieStore.delete(LEGACY_COOKIE_NAME);
+  }
 }
 
 export async function setActiveOrgId(orgId: string): Promise<void> {

@@ -18,7 +18,12 @@ export default async function DashboardLayout({
     if (message === "Not authenticated") {
       redirect("/login");
     }
-    redirect("/onboarding");
+    if (message === "No active organization membership") {
+      redirect("/onboarding");
+    }
+    // Transient errors (DB timeout, network failure, etc.) — don't silently
+    // redirect to onboarding, surface the error instead.
+    throw err;
   }
 
   const { user, org, allOrgs } = ctx;

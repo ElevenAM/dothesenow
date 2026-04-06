@@ -1,9 +1,26 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveOrgId, setActiveOrgId } from "@/lib/org-context";
+import { getActiveOrgId } from "@/lib/org-context";
 import type { User } from "@supabase/supabase-js";
 
 export type OrgRole = "owner" | "admin" | "member";
+
+/** Shape returned by the dtn_organizations join in the memberships query. */
+interface OrgJoinRow {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  plan_status: string;
+}
+
+/** Shape of a single membership row with its org join. */
+interface MembershipRow {
+  id: string;
+  org_id: string;
+  role: string;
+  dtn_organizations: OrgJoinRow;
+}
 
 export interface AuthenticatedMembership {
   user: User;
@@ -60,26 +77,19 @@ export async function getAuthenticatedMembership(
     throw new Error("No active organization membership");
   }
 
-  // Determine which org to use: prefer cookie, fall back to first
+  // Cast once at the boundary — matches the .select() column list above
+  const typedMemberships = memberships as unknown as MembershipRow[];
+
+  // Determine which org to use: prefer cookie, fall back to first.
+  // Note: no cookie writes here — safe to call from Server Components.
+  // Cookie sync happens in server actions (switchOrg, createOrganization).
   const activeOrgId = await getActiveOrgId();
-  let membership = activeOrgId
-    ? memberships.find((m) => m.org_id === activeOrgId)
-    : undefined;
+  const membership =
+    (activeOrgId
+      ? typedMemberships.find((m) => m.org_id === activeOrgId)
+      : undefined) ?? typedMemberships[0];
 
-  if (!membership) {
-    membership = memberships[0];
-    // Sync cookie to actual org when the cookie was stale or missing
-    await setActiveOrgId(membership.org_id);
-  }
-
-  const org = membership.dtn_organizations as unknown as {
-    id: string;
-    name: string;
-    slug: string;
-    plan: string;
-    plan_status: string;
-  };
-
+  const org = membership.dtn_organizations;
   const role = membership.role as OrgRole;
 
   // Enforce role requirement if specified
@@ -90,19 +100,12 @@ export async function getAuthenticatedMembership(
   }
 
   // Build allOrgs array for org switcher
-  const allOrgs = memberships.map((m) => {
-    const mOrg = m.dtn_organizations as unknown as {
-      id: string;
-      name: string;
-      slug: string;
-    };
-    return {
-      id: mOrg.id,
-      name: mOrg.name,
-      slug: mOrg.slug,
-      role: m.role as OrgRole,
-    };
-  });
+  const allOrgs = typedMemberships.map((m) => ({
+    id: m.dtn_organizations.id,
+    name: m.dtn_organizations.name,
+    slug: m.dtn_organizations.slug,
+    role: m.role as OrgRole,
+  }));
 
   return {
     user,

@@ -5,6 +5,7 @@ import {
   getActiveOrgId,
   setActiveOrgId,
   clearActiveOrgId,
+  migrateAndSetActiveOrgId,
 } from "@/lib/org-context";
 import {
   setMockCookie,
@@ -48,16 +49,13 @@ describe("org-context", () => {
       expect(result).toBe("org-legacy-456");
     });
 
-    it("deletes legacy cookie after migration", async () => {
+    it("does not write cookies during read (read-only)", async () => {
       setMockCookie("dtn_current_org", "org-legacy-456");
       await getActiveOrgId();
-      expect(getMockCookie("dtn_current_org")).toBeUndefined();
-    });
-
-    it("copies legacy value to new cookie during migration", async () => {
-      setMockCookie("dtn_current_org", "org-legacy-456");
-      await getActiveOrgId();
-      expect(getMockCookie("dtn_active_org")).toBe("org-legacy-456");
+      // Legacy cookie should still exist — getActiveOrgId is read-only
+      expect(getMockCookie("dtn_current_org")).toBe("org-legacy-456");
+      // New cookie should not be set by getActiveOrgId
+      expect(getMockCookie("dtn_active_org")).toBeUndefined();
     });
 
     it("prefers new cookie over legacy when both exist", async () => {
@@ -80,6 +78,25 @@ describe("org-context", () => {
       setMockCookie("dtn_active_org", "org-123");
       await clearActiveOrgId();
       expect(getMockCookie("dtn_active_org")).toBeUndefined();
+    });
+  });
+
+  describe("migrateAndSetActiveOrgId", () => {
+    it("sets the new cookie", async () => {
+      await migrateAndSetActiveOrgId("org-new");
+      expect(getMockCookie("dtn_active_org")).toBe("org-new");
+    });
+
+    it("deletes legacy cookie if it exists", async () => {
+      setMockCookie("dtn_current_org", "org-legacy");
+      await migrateAndSetActiveOrgId("org-new");
+      expect(getMockCookie("dtn_current_org")).toBeUndefined();
+      expect(getMockCookie("dtn_active_org")).toBe("org-new");
+    });
+
+    it("works fine when no legacy cookie exists", async () => {
+      await migrateAndSetActiveOrgId("org-new");
+      expect(getMockCookie("dtn_active_org")).toBe("org-new");
     });
   });
 });
