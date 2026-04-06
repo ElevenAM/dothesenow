@@ -1,6 +1,6 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Phases 1–5 complete (scaffold, auth, billing, teams, core views, tasks, MCP, approvals). Refactor Phase 1 in progress — [1A] nearly complete, [1B] complete (PR #2).
+> **Status**: Refactor Phase 1 complete (merged to main). Phase 2 in progress — [2A] DB hardening complete (3 migrations applied), [2B] and [2C] not started.
 >
 > Last updated: 2026-04-06
 
@@ -14,13 +14,13 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| **Phase 1** | Foundation: Auth safety, types & test infrastructure | **IN PROGRESS** |
-| [1A] | Auth & org context fix + Vitest setup | ~95% — PR #1 open, 1 gap remaining |
-| [1B] | Shared type & query packages (`packages/types/`, `packages/queries/`) | **Complete** — PR #2 |
-| **Phase 2** | DB hardening, UI safety & first user-visible win | Blocked on Phase 1 |
-| [2A] | Database hardening (RLS, soft delete, task event log) | Planned |
-| [2B] | Error boundaries, loading states & Playwright E2E setup | Planned |
-| [2C] | Onboarding wizard — 3-step flow (first user-facing improvement) | Planned |
+| **Phase 1** | Foundation: Auth safety, types & test infrastructure | **COMPLETE** |
+| [1A] | Auth & org context fix + Vitest setup | **Merged to main** |
+| [1B] | Shared type & query packages (`packages/types/`, `packages/queries/`) | **Merged to main** |
+| **Phase 2** | DB hardening, UI safety & first user-visible win | **IN PROGRESS** |
+| [2A] | Database hardening (RLS, soft delete, task event log) | **Complete** — 3 migrations applied |
+| [2B] | Error boundaries, loading states & Playwright E2E setup | Not started |
+| [2C] | Onboarding wizard — 3-step flow (first user-facing improvement) | Not started |
 | **Phase 3** | Migrate web & MCP to shared layer | Blocked on Phase 2 |
 | [3A] | MCP server → shared queries | Planned |
 | [3B] | Web server actions → shared queries | Planned |
@@ -61,7 +61,10 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | BUG-002 | Org creation RLS edge cases in onboarding | Medium | [1A] |
 | ARCH-001 | Manual org_id filtering (no compile-time enforcement) | High | [1B] |
 | ARCH-002 | Code duplication between web actions and MCP tools | High | [3A] |
+| ARCH-004 | SECURITY DEFINER functions need manual org_id guards | Medium | [2A] (fixed) |
 | ARCH-005 | Invite state ambiguity (2 patterns) | Medium | [1A] |
+| ARCH-006 | Freelancer RLS policies from 001 not updated for multi-tenancy | Low | [2A] (fixed) |
+| ARCH-007 | No DELETE policies on any table | Low | [2A] (documented — FOR ALL covers DELETE) |
 | DEBT-001 | review_submission: 3 sequential writes without transaction | Medium | [3A] |
 | DEBT-002 | No error boundaries or loading states | Medium | [2B] |
 | DEBT-003 | No test suite beyond tenant isolation | High | [1A], [1B] |
@@ -114,6 +117,38 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 - `apps/web` still uses local type definitions — migration to `@dothesenow/types` imports is [3B]
 - MCP server still uses its own `OrgScopedClient` — migration to shared queries is [3A]
 - Strategy `createDoc`/`updateDoc` require `auth.uid()` (user-scoped client only); MCP server uses 3-query pattern instead
+
+### [2A] Detailed Progress
+
+**Branch**: `refactor/2a-db-hardening` | **Status**: Complete — 3 migrations applied to production
+
+**Completed:**
+- [x] Migration 011 — Freelancer RLS hardening: dropped 4 email-based policies, replaced with org-scoped `get_user_org_ids()` policies
+- [x] Migration 012 — Soft delete: `deleted_at` column on `dtn_daily_tasks`, `mktg_contacts`, `mktg_strategy_docs`, `mktg_campaigns`; partial indexes; split RLS policies (SELECT filters `deleted_at IS NULL`); 4 per-table SECURITY DEFINER soft-delete functions with caller auth
+- [x] Migration 013 — Task event log: `dtn_task_events` table with RLS; `transition_task_status()` state machine with complete transition map (including `blocked` and `waiting_approval`), caller auth, lock timeout, source validation
+- [x] Added `blocked` to `dtn_daily_tasks` status CHECK constraint (was missing from original schema)
+- [x] All SECURITY DEFINER functions include `get_user_org_ids()` membership check (cross-tenant protection)
+- [x] RLS test script: 7 test groups, 20+ assertions — cross-org isolation, soft-delete visibility, valid/invalid transitions, cross-tenant SECURITY DEFINER rejection, soft-delete functions
+- [x] All tests passed against production Supabase
+
+**EM review fixes applied:**
+- Added `blocked` to CHECK constraint (Critical — would have caused runtime failures)
+- Caller auth on all SECURITY DEFINER functions (Critical — cross-tenant vulnerability)
+- Complete `waiting_approval` transition map (Critical — incomplete state machine)
+- Removed `dtn_organizations` from soft-delete list (no FK cascade on ~15 child tables)
+- Lock timeout (`SET LOCAL lock_timeout = '5s'`) on `FOR UPDATE` in state machine
+- Cross-tenant test coverage for SECURITY DEFINER functions
+
+**Phase 3 follow-ups (tracked):**
+- [ ] Migrate all app code (`updateDailyTask`, MCP `update_daily_task`, `carry_over_tasks`) to use `transition_task_status()` — currently bypass the state machine with direct UPDATEs
+- [ ] Update `review_approval_item()` to check `deleted_at IS NULL` and use state machine
+- [ ] Evaluate soft delete on child tables (`mktg_outreach_log`, `mktg_task_submissions`) for ghost relationship prevention
+
+**Files created:**
+- `supabase/migrations/011_harden_freelancer_rls.sql`
+- `supabase/migrations/012_soft_delete.sql`
+- `supabase/migrations/013_task_event_log.sql`
+- `supabase/__tests__/rls-policies.test.sql`
 
 ---
 
