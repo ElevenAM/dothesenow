@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId, setActiveOrgId } from "@/lib/org-context";
 import type { User } from "@supabase/supabase-js";
@@ -119,4 +120,24 @@ export async function getAuthenticatedMembership(
     },
     allOrgs,
   };
+}
+
+/**
+ * Request-scoped cached version of getAuthenticatedMembership.
+ * Deduplicates within a single RSC render tree (layout + page + nested server components).
+ * Does NOT cache across server actions or API routes.
+ */
+export const getRequestContext = cache(getAuthenticatedMembership);
+
+// --- Membership state helpers ---
+
+export type MembershipState = "pending" | "active" | "inactive";
+
+export function getMembershipState(m: {
+  user_id: string | null;
+  is_active: boolean;
+}): MembershipState {
+  if (!m.is_active) return "inactive";
+  if (m.user_id === null) return "pending";
+  return "active";
 }

@@ -1,37 +1,12 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+import { setActiveOrgId } from "@/lib/org-context";
 
 type ActionResult = { error: string } | { success: true };
-
-async function getAuthenticatedUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
-
-async function getCallerMembership(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const cookieStore = await cookies();
-  const currentOrgCookie = cookieStore.get("dtn_current_org")?.value;
-
-  let query = supabase
-    .from("dtn_memberships")
-    .select("id, org_id, role, dtn_organizations(id, name, slug, plan, plan_status)")
-    .eq("user_id", userId)
-    .eq("is_active", true);
-
-  if (currentOrgCookie) {
-    query = query.eq("org_id", currentOrgCookie);
-  }
-
-  const { data } = await query.limit(1).single();
-  return data;
-}
 
 /**
  * Invite a team member via email. Owner/admin only.
@@ -41,27 +16,22 @@ export async function inviteTeamMember(
   email: string,
   role: "admin" | "member"
 ): Promise<ActionResult> {
-  const { user } = await getAuthenticatedUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const supabase = await createClient();
-  const membership = await getCallerMembership(supabase, user.id);
-  if (!membership) return { error: "No active organization membership" };
-
-  if (membership.role !== "owner" && membership.role !== "admin") {
-    return { error: "Only owners and admins can invite members" };
+  let ctx;
+  try {
+    ctx = await getAuthenticatedMembership(["owner", "admin"]);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Not authenticated" };
   }
 
   const admin = createAdminClient();
   const { error } = await admin.rpc("check_and_insert_invite", {
-    p_org_id: membership.org_id,
+    p_org_id: ctx.membership.orgId,
     p_email: email,
     p_role: role,
-    p_invited_by: user.id,
+    p_invited_by: ctx.user.id,
   });
 
   if (error) {
-    // PL/pgSQL exceptions come back as error.message
     if (error.message.includes("idx_dtn_memberships_pending_unique")) {
       return { error: "This email has already been invited." };
     }
@@ -77,7 +47,8 @@ export async function inviteTeamMember(
  * Uses atomic PL/pgSQL function for email verification and plan limit re-check.
  */
 export async function acceptInvite(membershipId: string): Promise<ActionResult> {
-  const { user } = await getAuthenticatedUser();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user || !user.email) return { error: "Not authenticated" };
 
   const admin = createAdminClient();
@@ -99,7 +70,8 @@ export async function acceptInvite(membershipId: string): Promise<ActionResult> 
  * Decline a pending invite. Authenticated user only.
  */
 export async function declineInvite(membershipId: string): Promise<ActionResult> {
-  const { user } = await getAuthenticatedUser();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user || !user.email) return { error: "Not authenticated" };
 
   const admin = createAdminClient();
@@ -127,15 +99,11 @@ export async function declineInvite(membershipId: string): Promise<ActionResult>
  * Remove a member from the org. Owner/admin only.
  */
 export async function removeMember(membershipId: string): Promise<ActionResult> {
-  const { user } = await getAuthenticatedUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const supabase = await createClient();
-  const callerMembership = await getCallerMembership(supabase, user.id);
-  if (!callerMembership) return { error: "No active organization membership" };
-
-  if (callerMembership.role !== "owner" && callerMembership.role !== "admin") {
-    return { error: "Only owners and admins can remove members" };
+  let ctx;
+  try {
+    ctx = await getAuthenticatedMembership(["owner", "admin"]);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Not authenticated" };
   }
 
   const admin = createAdminClient();
@@ -145,7 +113,7 @@ export async function removeMember(membershipId: string): Promise<ActionResult> 
     .from("dtn_memberships")
     .select("id, org_id, user_id, role")
     .eq("id", membershipId)
-    .eq("org_id", callerMembership.org_id)
+    .eq("org_id", ctx.membership.orgId)
     .eq("is_active", true)
     .single();
 
@@ -156,7 +124,7 @@ export async function removeMember(membershipId: string): Promise<ActionResult> 
     const { count } = await admin
       .from("dtn_memberships")
       .select("id", { count: "exact", head: true })
-      .eq("org_id", callerMembership.org_id)
+      .eq("org_id", ctx.membership.orgId)
       .eq("role", "owner")
       .eq("is_active", true);
 
@@ -166,7 +134,7 @@ export async function removeMember(membershipId: string): Promise<ActionResult> 
   }
 
   // Admins cannot remove owners
-  if (callerMembership.role === "admin" && target.role === "owner") {
+  if (ctx.membership.role === "admin" && target.role === "owner") {
     return { error: "Admins cannot remove owners" };
   }
 
@@ -186,15 +154,11 @@ export async function updateMemberRole(
   membershipId: string,
   newRole: "admin" | "member"
 ): Promise<ActionResult> {
-  const { user } = await getAuthenticatedUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const supabase = await createClient();
-  const callerMembership = await getCallerMembership(supabase, user.id);
-  if (!callerMembership) return { error: "No active organization membership" };
-
-  if (callerMembership.role !== "owner") {
-    return { error: "Only owners can change member roles" };
+  let ctx;
+  try {
+    ctx = await getAuthenticatedMembership(["owner"]);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Not authenticated" };
   }
 
   const admin = createAdminClient();
@@ -204,7 +168,7 @@ export async function updateMemberRole(
     .from("dtn_memberships")
     .select("id, org_id, role")
     .eq("id", membershipId)
-    .eq("org_id", callerMembership.org_id)
+    .eq("org_id", ctx.membership.orgId)
     .eq("is_active", true)
     .single();
 
@@ -215,7 +179,7 @@ export async function updateMemberRole(
     const { count } = await admin
       .from("dtn_memberships")
       .select("id", { count: "exact", head: true })
-      .eq("org_id", callerMembership.org_id)
+      .eq("org_id", ctx.membership.orgId)
       .eq("role", "owner")
       .eq("is_active", true);
 
@@ -237,15 +201,11 @@ export async function updateMemberRole(
  * Cancel a pending invite. Owner/admin only.
  */
 export async function cancelInvite(membershipId: string): Promise<ActionResult> {
-  const { user } = await getAuthenticatedUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const supabase = await createClient();
-  const callerMembership = await getCallerMembership(supabase, user.id);
-  if (!callerMembership) return { error: "No active organization membership" };
-
-  if (callerMembership.role !== "owner" && callerMembership.role !== "admin") {
-    return { error: "Only owners and admins can cancel invites" };
+  let ctx;
+  try {
+    ctx = await getAuthenticatedMembership(["owner", "admin"]);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Not authenticated" };
   }
 
   const admin = createAdminClient();
@@ -253,7 +213,7 @@ export async function cancelInvite(membershipId: string): Promise<ActionResult> 
     .from("dtn_memberships")
     .delete()
     .eq("id", membershipId)
-    .eq("org_id", callerMembership.org_id)
+    .eq("org_id", ctx.membership.orgId)
     .is("user_id", null);
 
   revalidatePath("/settings/team");
@@ -264,11 +224,11 @@ export async function cancelInvite(membershipId: string): Promise<ActionResult> 
  * Switch the active org. Sets an httpOnly cookie.
  */
 export async function switchOrg(orgId: string): Promise<ActionResult> {
-  const { user } = await getAuthenticatedUser();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
   // Verify user has active membership in this org
-  const supabase = await createClient();
   const { data: membership } = await supabase
     .from("dtn_memberships")
     .select("id")
@@ -279,14 +239,7 @@ export async function switchOrg(orgId: string): Promise<ActionResult> {
 
   if (!membership) return { error: "No active membership in this organization" };
 
-  const cookieStore = await cookies();
-  cookieStore.set("dtn_current_org", orgId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365, // 1 year
-  });
+  await setActiveOrgId(orgId);
 
   revalidatePath("/");
   return { success: true };

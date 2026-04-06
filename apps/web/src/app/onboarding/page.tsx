@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createOrganization } from "@/lib/org/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,78 +16,20 @@ import {
 
 export default function OnboardingPage() {
   const [orgName, setOrgName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
   async function handleCreateOrg(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
     setError("");
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const result = await createOrganization(orgName);
 
-    if (!user) {
-      setError("Not authenticated");
-      setLoading(false);
-      return;
-    }
-
-    // Generate slug from org name
-    const slug = orgName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-
-    // Create org
-    const { data: org, error: orgError } = await supabase
-      .from("dtn_organizations")
-      .insert({ name: orgName, slug })
-      .select()
-      .single();
-
-    if (orgError) {
-      if (orgError.code === "23505") {
-        setError("An organization with this name already exists. Try a different name.");
-      } else {
-        setError(orgError.message);
-      }
-      setLoading(false);
-      return;
-    }
-
-    // Create membership (owner)
-    const { error: memberError } = await supabase
-      .from("dtn_memberships")
-      .insert({
-        org_id: org.id,
-        user_id: user.id,
-        role: "owner",
-        accepted_at: new Date().toISOString(),
-      });
-
-    if (memberError) {
-      setError(memberError.message);
-      setLoading(false);
-      return;
-    }
-
-    // Seed Marketing department
-    const { error: deptError } = await supabase
-      .from("dtn_departments")
-      .insert({
-        org_id: org.id,
-        slug: "marketing",
-        name: "Marketing",
-        icon: "megaphone",
-      });
-
-    if (deptError) {
-      setError(deptError.message);
-      setLoading(false);
+    if ("error" in result) {
+      setError(result.error);
+      setIsLoading(false);
       return;
     }
 
@@ -121,8 +63,8 @@ export default function OnboardingPage() {
               </p>
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating..." : "Create organization"}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Creating..." : "Create organization"}
             </Button>
           </form>
         </CardContent>
