@@ -1,0 +1,171 @@
+// ─── Task Enums ───────────────────────────────────────────────
+
+export const TaskStatus = {
+  Pending: "pending",
+  InProgress: "in_progress",
+  WaitingApproval: "waiting_approval",
+  Completed: "completed",
+  Skipped: "skipped",
+  Failed: "failed",
+  CarriedOver: "carried_over",
+} as const;
+export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
+
+export const Priority = {
+  Low: "low",
+  Medium: "medium",
+  High: "high",
+  Urgent: "urgent",
+} as const;
+export type Priority = (typeof Priority)[keyof typeof Priority];
+
+export const TaskType = {
+  Action: "action",
+  Review: "review",
+  Create: "create",
+  Outreach: "outreach",
+  Analysis: "analysis",
+} as const;
+export type TaskType = (typeof TaskType)[keyof typeof TaskType];
+
+export const ExecutorType = {
+  Self: "self",
+  N8n: "n8n",
+  ClaudeApi: "claude_api",
+  Freelancer: "freelancer",
+} as const;
+export type ExecutorType = (typeof ExecutorType)[keyof typeof ExecutorType];
+
+export const GeneratedBy = {
+  User: "user",
+  Claude: "claude",
+  System: "system",
+} as const;
+export type GeneratedBy = (typeof GeneratedBy)[keyof typeof GeneratedBy];
+
+// ─── Contact / CRM Enums ─────────────────────────────────────
+
+export const ContactType = {
+  Lead: "lead",
+  Prospect: "prospect",
+  Customer: "customer",
+  Partner: "partner",
+  Therapist: "therapist",
+  Influencer: "influencer",
+  Media: "media",
+  Other: "other",
+} as const;
+export type ContactType = (typeof ContactType)[keyof typeof ContactType];
+
+export const ContactStatus = {
+  Active: "active",
+  Inactive: "inactive",
+  DoNotContact: "do_not_contact",
+  Churned: "churned",
+} as const;
+export type ContactStatus = (typeof ContactStatus)[keyof typeof ContactStatus];
+
+export const LifecycleStage = {
+  Awareness: "awareness",
+  Consideration: "consideration",
+  Decision: "decision",
+  Customer: "customer",
+  Advocate: "advocate",
+} as const;
+export type LifecycleStage = (typeof LifecycleStage)[keyof typeof LifecycleStage];
+
+export const OutreachChannel = {
+  Email: "email",
+  LinkedIn: "linkedin",
+  Reddit: "reddit",
+  Twitter: "twitter",
+  Phone: "phone",
+  InPerson: "in_person",
+  TikTok: "tiktok",
+  Instagram: "instagram",
+  Other: "other",
+} as const;
+export type OutreachChannel = (typeof OutreachChannel)[keyof typeof OutreachChannel];
+
+export const OutreachDirection = {
+  Outbound: "outbound",
+  Inbound: "inbound",
+} as const;
+export type OutreachDirection = (typeof OutreachDirection)[keyof typeof OutreachDirection];
+
+export const OutreachStatus = {
+  Drafted: "drafted",
+  Sent: "sent",
+  Delivered: "delivered",
+  Opened: "opened",
+  Replied: "replied",
+  Bounced: "bounced",
+  NoResponse: "no_response",
+} as const;
+export type OutreachStatus = (typeof OutreachStatus)[keyof typeof OutreachStatus];
+
+// ─── Strategy Enums ───────────────────────────────────────────
+
+export const DocType = {
+  MasterStrategy: "master_strategy",
+  CompetitiveAnalysis: "competitive_analysis",
+  ValueProps: "value_props",
+  BrandVoice: "brand_voice",
+  Personas: "personas",
+  Positioning: "positioning",
+  ContentCalendar: "content_calendar",
+  ChannelStrategy: "channel_strategy",
+  PricingStrategy: "pricing_strategy",
+  Playbook: "playbook",
+  Other: "other",
+} as const;
+export type DocType = (typeof DocType)[keyof typeof DocType];
+
+// ─── Approval Enums ──────────────────────────────────────────
+
+export const ApprovalItemType = {
+  SocialPost: "social_post",
+  BlogPost: "blog_post",
+  EmailDraft: "email_draft",
+  TaskSubmission: "task_submission",
+  StrategyChange: "strategy_change",
+} as const;
+export type ApprovalItemType = (typeof ApprovalItemType)[keyof typeof ApprovalItemType];
+
+export const ApprovalStatus = {
+  Pending: "pending",
+  Approved: "approved",
+  Rejected: "rejected",
+  RevisionRequested: "revision_requested",
+} as const;
+export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
+
+export const SubmittedByType = {
+  Freelancer: "freelancer",
+  N8n: "n8n",
+  ClaudeApi: "claude_api",
+  Member: "member",
+} as const;
+export type SubmittedByType = (typeof SubmittedByType)[keyof typeof SubmittedByType];
+
+// ─── Campaign Enums ──────────────────────────────────────────
+
+export const CampaignType = {
+  EmailSequence: "email_sequence",
+  ContentSeries: "content_series",
+  SocialCampaign: "social_campaign",
+  Launch: "launch",
+  Partnership: "partnership",
+  Event: "event",
+  Other: "other",
+} as const;
+export type CampaignType = (typeof CampaignType)[keyof typeof CampaignType];
+
+// ─── Membership Enums ────────────────────────────────────────
+
+export const MemberRole = {
+  Owner: "owner",
+  Admin: "admin",
+  Member: "member",
+} as const;
+export type MemberRole = (typeof MemberRole)[keyof typeof MemberRole];

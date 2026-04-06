@@ -1,0 +1,57 @@
+import type { OrgContext } from "./context.js";
+import type { Organization } from "@dothesenow/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { QueryError } from "./errors.js";
+
+const TABLE = "dtn_organizations";
+
+/**
+ * Get org by ID. Does not require OrgContext since the caller
+ * may not yet know which org they belong to.
+ */
+export async function getOrgById(
+  client: SupabaseClient,
+  orgId: string,
+): Promise<Organization | null> {
+  const { data, error } = await client
+    .from(TABLE)
+    .select("*")
+    .eq("id", orgId)
+    .maybeSingle();
+
+  if (error) throw new QueryError(error.message, TABLE, "getOrgById", orgId, error);
+  return data as Organization | null;
+}
+
+/**
+ * Get org by slug. Does not require OrgContext since the caller
+ * may be looking up an org by slug before establishing context.
+ */
+export async function getOrgBySlug(
+  client: SupabaseClient,
+  slug: string,
+): Promise<Organization | null> {
+  const { data, error } = await client
+    .from(TABLE)
+    .select("*")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) throw new QueryError(error.message, TABLE, "getOrgBySlug", slug, error);
+  return data as Organization | null;
+}
+
+export async function updateOrg(
+  ctx: OrgContext,
+  updates: Partial<Pick<Organization, "name" | "slug" | "logo_url" | "settings">>,
+): Promise<Organization> {
+  const { data, error } = await ctx.client
+    .from(TABLE)
+    .update(updates)
+    .eq("id", ctx.orgId)
+    .select()
+    .single();
+
+  if (error) throw new QueryError(error.message, TABLE, "updateOrg", ctx.orgId, error);
+  return data as Organization;
+}
