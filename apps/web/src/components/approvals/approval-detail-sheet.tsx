@@ -173,11 +173,11 @@ export function ApprovalDetailSheet({
                   rows={3}
                 />
                 {reviewError && (
-                  <p className="text-sm text-red-600">{reviewError}</p>
+                  <p className="text-sm text-destructive">{reviewError}</p>
                 )}
                 <div className="flex gap-2">
                   <Button
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-success hover:bg-success/90 text-white"
                     onClick={() => handleReview("approved")}
                     disabled={isPending}
                   >
@@ -185,7 +185,7 @@ export function ApprovalDetailSheet({
                   </Button>
                   <Button
                     variant="outline"
-                    className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                    className="text-[var(--label-orange-fg)] border-[var(--label-orange-fg)]/30 hover:bg-[var(--label-orange-bg)]"
                     onClick={() => handleReview("revision_requested")}
                     disabled={isPending}
                   >
@@ -193,7 +193,7 @@ export function ApprovalDetailSheet({
                   </Button>
                   <Button
                     variant="outline"
-                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    className="text-destructive border-destructive/30 hover:bg-[var(--label-red-bg)]"
                     onClick={() => handleReview("rejected")}
                     disabled={isPending}
                   >

@@ -45,28 +45,28 @@ export default async function DepartmentOverview({
       value: tasksResult.count ?? 0,
       icon: CheckSquare,
       href: `/${dept}/tasks`,
-      color: "text-blue-600",
+      color: "text-[var(--label-blue-fg)]",
     },
     {
       label: "Active Contacts",
       value: contactsResult.count ?? 0,
       icon: Users,
       href: `/${dept}/contacts`,
-      color: "text-green-600",
+      color: "text-[var(--label-green-fg)]",
     },
     {
       label: "Pending Approvals",
       value: approvalsResult.count ?? 0,
       icon: ShieldCheck,
       href: `/${dept}/approvals`,
-      color: "text-amber-600",
+      color: "text-[var(--label-yellow-fg)]",
     },
     {
       label: "Strategy Docs",
       value: strategyResult.count ?? 0,
       icon: FileText,
       href: `/${dept}/strategy`,
-      color: "text-purple-600",
+      color: "text-[var(--label-purple-fg)]",
     },
   ];
 
@@ -74,14 +74,14 @@ export default async function DepartmentOverview({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold capitalize">{dept}</h1>
-        <p className="text-gray-500">Department overview</p>
+        <p className="text-muted-foreground">Department overview</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 {stat.label}
               </CardTitle>
               <stat.icon className={`h-4 w-4 ${stat.color}`} />

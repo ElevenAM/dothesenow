@@ -68,7 +68,7 @@ export default async function BillingPage() {
     <div className="space-y-8 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">Billing</h1>
-        <p className="text-gray-500 mt-1">
+        <p className="text-muted-foreground mt-1">
           Manage your subscription and billing details
         </p>
       </div>
@@ -81,7 +81,7 @@ export default async function BillingPage() {
               <CardTitle>Current plan</CardTitle>
               <CardDescription className="mt-1">
                 {org.name} is on the{" "}
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-foreground">
                   {currentPlan.name}
                 </span>{" "}
                 plan
@@ -97,11 +97,11 @@ export default async function BillingPage() {
         </CardHeader>
         {subscription && (
           <CardContent>
-            <div className="text-sm text-gray-500 space-y-1">
+            <div className="text-sm text-muted-foreground space-y-1">
               {subscription.current_period_end && (
                 <p>
                   Current period ends:{" "}
-                  <span className="text-gray-700">
+                  <span className="text-foreground">
                     {new Date(
                       subscription.current_period_end
                     ).toLocaleDateString("en-US", {
@@ -113,7 +113,7 @@ export default async function BillingPage() {
                 </p>
               )}
               {subscription.cancel_at && (
-                <p className="text-amber-600">
+                <p className="text-[var(--label-yellow-fg)]">
                   Cancels on:{" "}
                   {new Date(subscription.cancel_at).toLocaleDateString(
                     "en-US",
@@ -132,8 +132,8 @@ export default async function BillingPage() {
 
       {/* Past Due Warning */}
       {org.plan_status === "past_due" && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <p className="text-sm font-medium text-amber-800">
+        <div className="rounded-md border border-[var(--label-yellow-fg)]/20 bg-[var(--label-yellow-bg)] p-4">
+          <p className="text-sm font-medium text-[var(--label-yellow-fg)]">
             Your payment failed. Please update your payment method to avoid
             losing access to premium features.
           </p>
@@ -151,7 +151,7 @@ export default async function BillingPage() {
                   key={planId}
                   className={
                     org.plan === planId
-                      ? "border-2 border-gray-900"
+                      ? "border-2 border-foreground"
                       : undefined
                   }
                 >
@@ -168,7 +168,7 @@ export default async function BillingPage() {
                         ${plan.monthlyPrice}
                       </span>
                       {plan.monthlyPrice > 0 && (
-                        <span className="text-gray-500 ml-1">/month</span>
+                        <span className="text-muted-foreground ml-1">/month</span>
                       )}
                     </div>
                   </CardHeader>
@@ -177,10 +177,10 @@ export default async function BillingPage() {
                       {plan.features.map((feature) => (
                         <li
                           key={feature}
-                          className="flex items-center text-sm text-gray-600"
+                          className="flex items-center text-sm text-muted-foreground"
                         >
                           <svg
-                            className="w-4 h-4 mr-2 text-green-500 shrink-0"
+                            className="w-4 h-4 mr-2 text-success shrink-0"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -209,7 +209,7 @@ export default async function BillingPage() {
       {!isOwnerOrAdmin && (
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Only organization owners and admins can manage billing. Contact
               your organization admin to change plans.
             </p>
@@ -223,29 +223,13 @@ export default async function BillingPage() {
 function PlanStatusBadge({ status }: { status: string }) {
   switch (status) {
     case "active":
-      return (
-        <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-          Active
-        </Badge>
-      );
+      return <Badge variant="green">Active</Badge>;
     case "trialing":
-      return (
-        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-          Trial
-        </Badge>
-      );
+      return <Badge variant="blue">Trial</Badge>;
     case "past_due":
-      return (
-        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-          Past due
-        </Badge>
-      );
+      return <Badge variant="yellow">Past due</Badge>;
     case "canceled":
-      return (
-        <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">
-          Canceled
-        </Badge>
-      );
+      return <Badge variant="default">Canceled</Badge>;
     default:
       return null;
   }

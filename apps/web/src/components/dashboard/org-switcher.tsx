@@ -39,12 +39,12 @@ export function OrgSwitcher({
   if (allOrgs.length <= 1) {
     return (
       <div className="flex items-center gap-2 px-4 py-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-blue)] text-sm font-bold text-white">
           {currentOrgName.charAt(0).toUpperCase()}
         </div>
         <div className="flex flex-col">
           <span className="text-sm font-semibold">{currentOrgName}</span>
-          <span className="text-xs text-gray-500 capitalize">{dept}</span>
+          <span className="text-xs text-muted-foreground capitalize">{dept}</span>
         </div>
       </div>
     );
@@ -53,17 +53,17 @@ export function OrgSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex w-full items-center gap-2 px-4 py-4 hover:bg-gray-50 transition-colors"
+        className="flex w-full items-center gap-2 px-4 py-4 hover:bg-sidebar-accent transition-colors"
         disabled={isPending}
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-blue)] text-sm font-bold text-white">
           {currentOrgName.charAt(0).toUpperCase()}
         </div>
         <div className="flex flex-1 flex-col text-left">
           <span className="text-sm font-semibold">{currentOrgName}</span>
-          <span className="text-xs text-gray-500 capitalize">{dept}</span>
+          <span className="text-xs text-muted-foreground capitalize">{dept}</span>
         </div>
-        <ChevronsUpDown className="h-4 w-4 text-gray-400" />
+        <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
         {allOrgs.map((org) => (
@@ -73,13 +73,13 @@ export function OrgSwitcher({
             className="flex items-center justify-between"
           >
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-blue-600 text-xs font-bold text-white">
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-[var(--accent-blue)] text-xs font-bold text-white">
                 {org.name.charAt(0).toUpperCase()}
               </div>
               <span className="text-sm">{org.name}</span>
             </div>
             {org.id === currentOrgId && (
-              <Check className="h-4 w-4 text-blue-600" />
+              <Check className="h-4 w-4 text-[var(--accent-blue)]" />
             )}
           </DropdownMenuItem>
         ))}

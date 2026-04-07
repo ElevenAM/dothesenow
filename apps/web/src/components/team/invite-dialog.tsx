@@ -98,14 +98,14 @@ export function InviteDialog({ atLimit, planName }: InviteDialogProps) {
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Admins can invite and manage team members. Members can view and
                 work on tasks.
               </p>
             </div>
 
             {error && (
-              <p className="text-sm text-red-600">{error}</p>
+              <p className="text-sm text-destructive">{error}</p>
             )}
           </div>
 

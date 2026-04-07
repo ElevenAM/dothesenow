@@ -6,10 +6,10 @@ const EXECUTOR_META: Record<
   string,
   { label: string; icon: typeof User; color: string }
 > = {
-  self: { label: "You", icon: User, color: "text-blue-600" },
-  n8n: { label: "n8n", icon: Cpu, color: "text-orange-600" },
-  claude_api: { label: "Claude API", icon: Bot, color: "text-purple-600" },
-  freelancer: { label: "Freelancer", icon: Briefcase, color: "text-green-600" },
+  self: { label: "You", icon: User, color: "text-[var(--label-blue-fg)]" },
+  n8n: { label: "n8n", icon: Cpu, color: "text-[var(--label-orange-fg)]" },
+  claude_api: { label: "Claude API", icon: Bot, color: "text-[var(--label-purple-fg)]" },
+  freelancer: { label: "Freelancer", icon: Briefcase, color: "text-[var(--label-green-fg)]" },
 };
 
 interface SummaryCardsProps {
@@ -35,7 +35,7 @@ export function SummaryCards({ summary, totalTasks }: SummaryCardsProps) {
         return (
           <Card key={type}>
             <CardHeader className="flex flex-row items-center justify-between pb-1 pt-3 px-4">
-              <CardTitle className="text-xs font-medium text-gray-500">
+              <CardTitle className="text-xs font-medium text-muted-foreground">
                 {meta.label}
               </CardTitle>
               <meta.icon className={`h-3.5 w-3.5 ${meta.color}`} />
@@ -44,7 +44,7 @@ export function SummaryCards({ summary, totalTasks }: SummaryCardsProps) {
               <div className="text-xl font-bold">
                 {completed}/{total}
               </div>
-              <p className="text-xs text-gray-500">completed</p>
+              <p className="text-xs text-muted-foreground">completed</p>
             </CardContent>
           </Card>
         );

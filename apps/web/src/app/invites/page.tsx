@@ -25,14 +25,14 @@ export default async function InvitesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Pending Invites</h1>
-        <p className="text-gray-500">
+        <p className="text-muted-foreground">
           You&apos;ve been invited to join these organizations.
         </p>
       </div>
 
       {pendingInvites.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-gray-500">
+          <CardContent className="py-8 text-center text-muted-foreground">
             No pending invites.
           </CardContent>
         </Card>

@@ -81,19 +81,19 @@ export function Sidebar({
   const showOrgSwitcher = allOrgs.length > 1;
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r bg-white">
+    <aside className="flex h-full w-64 flex-col border-r bg-sidebar">
       <div className="px-4 py-4">
         {showOrgSwitcher ? (
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex w-full items-center gap-2 rounded-md px-1 py-1 hover:bg-gray-50 transition-colors cursor-pointer border-0 bg-transparent">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
+            <DropdownMenuTrigger className="flex w-full items-center gap-2 rounded-md px-1 py-1 hover:bg-sidebar-accent transition-colors cursor-pointer border-0 bg-transparent">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--accent-blue)] text-sm font-bold text-white">
                   {orgName.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex flex-1 flex-col text-left min-w-0">
                   <span className="text-sm font-semibold truncate">{orgName}</span>
-                  <span className="text-xs text-gray-500 capitalize">{dept}</span>
+                  <span className="text-xs text-muted-foreground capitalize">{dept}</span>
                 </div>
-                <ChevronsUpDown className="h-4 w-4 shrink-0 text-gray-400" />
+                <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
               {allOrgs.map((org) => (
@@ -102,12 +102,12 @@ export function Sidebar({
                   onClick={() => handleSwitchOrg(org.id)}
                   className="flex items-center gap-2"
                 >
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-blue-600 text-xs font-bold text-white">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--accent-blue)] text-xs font-bold text-white">
                     {org.name.charAt(0).toUpperCase()}
                   </div>
                   <span className="flex-1 truncate">{org.name}</span>
                   {org.id === currentOrgId && (
-                    <Check className="h-4 w-4 text-blue-600" />
+                    <Check className="h-4 w-4 text-[var(--accent-blue)]" />
                   )}
                 </DropdownMenuItem>
               ))}
@@ -115,12 +115,12 @@ export function Sidebar({
           </DropdownMenu>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--accent-blue)] text-sm font-bold text-white">
               {orgName.charAt(0).toUpperCase()}
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-semibold">{orgName}</span>
-              <span className="text-xs text-gray-500 capitalize">{dept}</span>
+              <span className="text-xs text-muted-foreground capitalize">{dept}</span>
             </div>
           </div>
         )}
@@ -148,8 +148,8 @@ export function Sidebar({
               href={fullHref}
               className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                 isActive
-                  ? "bg-blue-50 text-blue-700 font-medium"
-                  : "text-gray-700 hover:bg-gray-100"
+                  ? "bg-[var(--label-blue-bg)] text-[var(--label-blue-fg)] font-medium"
+                  : "text-foreground hover:bg-sidebar-accent"
               }`}
             >
               <item.icon className="h-4 w-4" />
@@ -168,8 +168,8 @@ export function Sidebar({
               href={item.href}
               className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                 isActive
-                  ? "bg-blue-50 text-blue-700 font-medium"
-                  : "text-gray-700 hover:bg-gray-100"
+                  ? "bg-[var(--label-blue-bg)] text-[var(--label-blue-fg)] font-medium"
+                  : "text-foreground hover:bg-sidebar-accent"
               }`}
             >
               <item.icon className="h-4 w-4" />
@@ -182,7 +182,7 @@ export function Sidebar({
       <div className="border-t px-2 py-3">
         <Button
           variant="ghost"
-          className="w-full justify-start gap-3 text-gray-700"
+          className="w-full justify-start gap-3 text-foreground"
           onClick={handleSignOut}
         >
           <LogOut className="h-4 w-4" />

@@ -39,7 +39,7 @@ export default function LoginPage() {
 
   if (sent) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="flex min-h-screen items-center justify-center bg-muted px-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Check your email</CardTitle>
@@ -62,7 +62,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-muted px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Sign in to DoTheseNow</CardTitle>
@@ -84,15 +84,15 @@ export default function LoginPage() {
               />
             </div>
             {error && (
-              <p className="text-sm text-red-600">{error}</p>
+              <p className="text-sm text-destructive">{error}</p>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Sending..." : "Send magic link"}
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm text-gray-500">
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-blue-600 hover:underline">
+            <Link href="/signup" className="text-[var(--accent-blue)] hover:underline">
               Sign up
             </Link>
           </p>

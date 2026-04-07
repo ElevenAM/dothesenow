@@ -25,25 +25,25 @@ export function EngagementCards({ data }: EngagementCardsProps) {
       label: "Total Active",
       value: totalContacts,
       icon: Users,
-      color: "text-blue-600",
+      color: "text-[var(--label-blue-fg)]",
     },
     {
       label: "Engaged (7d)",
       value: totalEngaged7d,
       icon: Activity,
-      color: "text-green-600",
+      color: "text-[var(--label-green-fg)]",
     },
     {
       label: "Engaged (30d)",
       value: totalEngaged30d,
       icon: TrendingUp,
-      color: "text-indigo-600",
+      color: "text-[var(--label-purple-fg)]",
     },
     {
       label: "Avg Lead Score",
       value: avgLeadScore,
       icon: Target,
-      color: "text-amber-600",
+      color: "text-[var(--label-yellow-fg)]",
     },
   ];
 

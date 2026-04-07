@@ -243,6 +243,7 @@ ACCESS_TOKEN=$(cat ~/.supabase/access-token) && curl -s -X POST \
 ### 8. Cross-App Single Source of Truth
 
 - **Colors**: All app Tailwind/theme configs must import from the shared package — never hardcode hex values
+- **Design system**: All UI components MUST follow `DESIGN.md` (GitHub Primer spec) for colors, typography, spacing, shadows, border radius, motion, and accessibility. See §10 below.
 - **Validation constants**: Shared between all apps and edge functions via `packages/shared/`
 - **Types**: Entity types used by multiple apps must be defined once in `packages/shared/src/types/`
 - **Edge functions can't import workspace packages** (Deno limitation) — Keep synced copies or use a build step
@@ -252,6 +253,22 @@ ACCESS_TOKEN=$(cat ~/.supabase/access-token) && curl -s -X POST \
 - **Don't re-fetch data the parent already has** — Pass data via props, don't make independent API calls from child components
 - **Demo/mock data lives in a shared location** — Never define mock data inline in view components
 - **Types live in a shared location** — Entity types used by multiple components must be defined once, not redeclared locally
+- **Follow `DESIGN.md`** — When creating or modifying any UI component, consult `DESIGN.md` for correct colors, spacing, radius, shadows, typography, and interaction states
+
+### 10. Design System (`DESIGN.md`)
+
+All UI work MUST follow the GitHub Primer design system defined in `DESIGN.md` at the project root. Key rules:
+
+- **Never hardcode Tailwind palette colors** — No `bg-red-100`, `text-blue-600`, `bg-gray-50`, etc. Use CSS variable tokens defined in `globals.css` (e.g., `bg-muted`, `text-destructive`, `bg-[var(--label-danger-bg)]`)
+- **Colors come from Primer** — Primary button = green (`#1f883d`), accent/links/focus = blue (`#0969da`), danger = red (`#d1242f`), success = green (`#1a7f37`)
+- **Border radius** — 6px (`rounded-md`) for buttons, inputs, cards. 12px (`rounded-lg`) for modals/dialogs only
+- **Shadows** — Use Primer shadow tokens (`--shadow-resting-small`, `--shadow-floating-medium`, etc.), not `ring-*` utilities for elevation
+- **Typography** — System font stack (no Geist). See `DESIGN.md` §2 for the full type scale
+- **Focus states** — 2px solid blue (`#0969da`) with -2px offset. Not ring-based
+- **Motion** — 150ms (fast), 200ms (normal), 300ms (slow). Always include `prefers-reduced-motion` handling
+- **Accessibility** — WCAG AA contrast (4.5:1 body text, 3:1 UI components). All interactive elements need visible focus indicators and keyboard support
+- **Status/label colors** — Use the 7 Primer semantic label pairs (blue, green, red, yellow, orange, purple, gray) via CSS variables, not hardcoded Tailwind colors
+- **Consult `DESIGN.md`** for the full spec before making any visual change
 
 ---
 
@@ -280,25 +297,37 @@ ACCESS_TOKEN=$(cat ~/.supabase/access-token) && curl -s -X POST \
 
 > **Fill in these sections as the project takes shape.**
 
-### Color System
+### Color System (GitHub Primer — see `DESIGN.md`)
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `primary` | `[#hex]` | Primary accent, CTAs |
-| `secondary` | `[#hex]` | Secondary elements |
-| `background` | `[#hex]` | Page backgrounds |
-| `text` | `[#hex]` | Body text |
-| `error` | `[#hex]` | Error states |
-| `success` | `[#hex]` | Success states |
-| `warning` | `[#hex]` | Warning states |
+| `accent` (blue) | `#0969da` | Links, focus states, selected items |
+| `primary` (green) | `#1f883d` | Primary CTA buttons |
+| `success` | `#1a7f37` | Success states, open issues |
+| `danger` | `#d1242f` | Error states, destructive actions, closed |
+| `attention` | `#9a6700` | Warnings, attention required |
+| `severe` | `#bc4c00` | Critical warnings |
+| `done` | `#8250df` | Completed states, merged PRs |
+| `sponsors` | `#bf3989` | Sponsorship, heart actions |
+| `background` | `#ffffff` | Page backgrounds |
+| `background-muted` | `#f6f8fa` | Muted backgrounds, input rest state |
+| `text` | `#1f2328` | Body text |
+| `text-muted` | `#59636e` | Secondary text |
+| `border` | `#d1d9e0` | Default borders |
 
-### Design Tokens
+### Design Tokens (GitHub Primer — see `DESIGN.md`)
 
-- **Border radius (cards)**: `[value]`
-- **Border radius (buttons)**: `[value]`
-- **Border radius (inputs)**: `[value]`
-- **Font stack**: `[fonts]`
-- **Body line-height**: `[value]`
+- **Border radius (cards)**: `6px` (`--borderRadius-medium`)
+- **Border radius (buttons)**: `6px` (`--borderRadius-medium`)
+- **Border radius (inputs)**: `6px` (`--borderRadius-medium`)
+- **Border radius (modals)**: `12px` (`--borderRadius-large`)
+- **Font stack**: `-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif`
+- **Monospace font**: `ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace`
+- **Body line-height**: `1.5`
+- **Focus outline**: `2px solid #0969da`, offset `-2px`
+- **Motion (fast)**: `150ms` — micro-interactions, hover
+- **Motion (normal)**: `200ms` — standard transitions
+- **Motion (slow)**: `300ms` — page transitions, complex animations
 
 ### Key Domain Terminology
 

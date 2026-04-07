@@ -67,7 +67,7 @@ export default async function TeamPage() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Team</h1>
-        <p className="text-gray-500">
+        <p className="text-muted-foreground">
           You don&apos;t have permission to manage team members. Contact your
           organization owner or admin.
         </p>
@@ -88,7 +88,7 @@ export default async function TeamPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Team</h1>
-        <p className="text-gray-500">
+        <p className="text-muted-foreground">
           Manage members and invitations for {org.name}.
           {memberLimit > 0 && (
             <span className="ml-1">
@@ -130,7 +130,7 @@ export default async function TeamPage() {
                   <TableCell className="font-medium">
                     {m.email}
                     {m.user_id === user.id && (
-                      <span className="ml-2 text-xs text-gray-400">(you)</span>
+                      <span className="ml-2 text-xs text-muted-foreground">(you)</span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -138,7 +138,7 @@ export default async function TeamPage() {
                       {m.role}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-gray-500">
+                  <TableCell className="text-muted-foreground">
                     {m.accepted_at
                       ? new Date(m.accepted_at).toLocaleDateString()
                       : "—"}
@@ -182,7 +182,7 @@ export default async function TeamPage() {
                     <TableCell>
                       <Badge variant="outline">{inv.role}</Badge>
                     </TableCell>
-                    <TableCell className="text-gray-500">
+                    <TableCell className="text-muted-foreground">
                       {inv.invited_at
                         ? new Date(inv.invited_at).toLocaleDateString()
                         : "—"}

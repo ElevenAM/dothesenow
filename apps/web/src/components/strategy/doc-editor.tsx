@@ -107,7 +107,7 @@ export function DocEditor({ doc, onBack }: DocEditorProps) {
             <span className="text-xs text-muted-foreground">Unsaved changes</span>
           )}
           {saved && (
-            <span className="text-xs text-green-600">Saved</span>
+            <span className="text-xs text-success">Saved</span>
           )}
           <Button onClick={handleSave} disabled={!isDirty || isPending} size="sm">
             {isPending ? (
