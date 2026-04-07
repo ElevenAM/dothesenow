@@ -6,6 +6,7 @@ import type {
   StrategyFilters,
 } from "@dothesenow/types";
 import { QueryError } from "./errors.js";
+import { escapeFilterValue } from "./contacts.js";
 
 const TABLE = "mktg_strategy_docs";
 
@@ -157,12 +158,13 @@ export async function searchStrategyDocs(
   query: string,
   filters?: { doc_types?: string[]; limit?: number },
 ): Promise<Pick<StrategyDoc, "id" | "doc_type" | "title" | "content" | "version" | "updated_at">[]> {
+  const escaped = escapeFilterValue(query);
   let q = ctx.client
     .from(TABLE)
     .select("id, doc_type, title, content, version, updated_at")
     .eq("org_id", ctx.orgId)
     .eq("is_active", true)
-    .ilike("content", `%${query}%`);
+    .ilike("content", `%${escaped}%`);
 
   if (filters?.doc_types) {
     q = q.in("doc_type", filters.doc_types);

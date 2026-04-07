@@ -3,12 +3,13 @@ import { ok } from "./types.js";
 import { toOrgContext } from "../lib/supabase.js";
 import {
   getTasksForOrg,
+  getTaskById,
   createTaskForOrg,
   updateTaskForOrg,
   transitionTaskStatus,
   carryOverTasks,
+  getStrategyDocs,
 } from "@dothesenow/queries";
-import { getStrategyDocs } from "@dothesenow/queries";
 import { TransitionSource, type TaskStatus } from "@dothesenow/types";
 
 const ORG_ID_PROP = {
@@ -210,11 +211,12 @@ export const dailyTasks: ToolModule = {
       // Apply non-status field updates if any
       const nonEmpty = Object.keys(fieldUpdates).length > 0;
       if (nonEmpty) {
-        const data = await updateTaskForOrg(ctx, taskId, fieldUpdates as Parameters<typeof updateTaskForOrg>[2]);
-        return ok(`Task updated: ${JSON.stringify(data, null, 2)}`);
+        await updateTaskForOrg(ctx, taskId, fieldUpdates as Parameters<typeof updateTaskForOrg>[2]);
       }
 
-      return ok(`Task status updated to: ${status}`);
+      // Always return the full updated task for consistent response format
+      const updated = await getTaskById(ctx, taskId);
+      return ok(`Task updated: ${JSON.stringify(updated, null, 2)}`);
     },
 
     async generate_daily_tasks(client, args) {

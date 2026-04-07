@@ -16,7 +16,7 @@ const OUTREACH_TABLE = "mktg_outreach_log";
 const DEFAULT_PAGE_SIZE = 20;
 
 /** Escape PostgREST filter special characters to prevent filter injection. */
-function escapeFilterValue(value: string): string {
+export function escapeFilterValue(value: string): string {
   return value.replace(/[\\%_(),."]/g, (ch) => `\\${ch}`);
 }
 
@@ -172,11 +172,15 @@ export async function logOutreach(
   if (error) throw new QueryError(error.message, OUTREACH_TABLE, "logOutreach", ctx.orgId, error);
 
   // Update the contact's last_engaged timestamp
-  await ctx.client
+  const { error: engageError } = await ctx.client
     .from(CONTACTS_TABLE)
     .update({ last_engaged: new Date().toISOString() })
     .eq("id", entry.contact_id)
     .eq("org_id", ctx.orgId);
+
+  if (engageError) {
+    console.error("logOutreach: failed to update last_engaged", engageError);
+  }
 
   return data as OutreachEntry;
 }
@@ -202,10 +206,10 @@ export async function getPipelineSummary(
 export async function getOutreachHistory(
   ctx: OrgContext,
   filters?: OutreachFilters,
-): Promise<OutreachEntry[]> {
+): Promise<(OutreachEntry & { mktg_contacts?: { first_name: string; last_name: string | null; email: string | null; company: string | null } | null })[]> {
   let query = ctx.client
     .from(OUTREACH_TABLE)
-    .select("*")
+    .select("*, mktg_contacts(first_name, last_name, email, company)")
     .eq("org_id", ctx.orgId);
 
   if (filters?.contact_id) query = query.eq("contact_id", filters.contact_id);
@@ -214,13 +218,13 @@ export async function getOutreachHistory(
   if (filters?.since_days) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - filters.since_days);
-    query = query.gte("created_at", cutoff.toISOString());
+    query = query.gte("sent_at", cutoff.toISOString());
   }
 
   const { data, error } = await query
-    .order("created_at", { ascending: false })
+    .order("sent_at", { ascending: false })
     .limit(filters?.limit ?? 50);
 
   if (error) throw new QueryError(error.message, OUTREACH_TABLE, "getOutreachHistory", ctx.orgId, error);
-  return (data ?? []) as OutreachEntry[];
+  return data ?? [];
 }
