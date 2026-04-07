@@ -1,6 +1,6 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Refactor Phase 1 complete (merged to main). Phase 2 in progress — [2A] DB hardening complete (3 migrations applied), [2B] and [2C] not started.
+> **Status**: Phase 1 complete, [2A] DB hardening complete, [3A] MCP→shared queries complete (5 code review fixes applied, migration 016 live). [2B], [2C], [3B] not started.
 >
 > Last updated: 2026-04-06
 
@@ -21,8 +21,8 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | [2A] | Database hardening (RLS, soft delete, task event log) | **Complete** — 3 migrations applied |
 | [2B] | Error boundaries, loading states & Playwright E2E setup | Not started |
 | [2C] | Onboarding wizard — 3-step flow (first user-facing improvement) | Not started |
-| **Phase 3** | Migrate web & MCP to shared layer | Blocked on Phase 2 |
-| [3A] | MCP server → shared queries | Planned |
+| **Phase 3** | Migrate web & MCP to shared layer | **IN PROGRESS** |
+| [3A] | MCP server → shared queries | **Complete** — merged + review fixes applied |
 | [3B] | Web server actions → shared queries | Planned |
 | **Phase 4** | Inngest & credit system (async foundation) | Blocked on Phase 3 |
 | [4A] | Inngest setup + cron functions | Planned |
@@ -65,7 +65,7 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | ARCH-005 | Invite state ambiguity (2 patterns) | Medium | [1A] |
 | ARCH-006 | Freelancer RLS policies from 001 not updated for multi-tenancy | Low | [2A] (fixed) |
 | ARCH-007 | No DELETE policies on any table | Low | [2A] (documented — FOR ALL covers DELETE) |
-| DEBT-001 | review_submission: 3 sequential writes without transaction | Medium | [3A] |
+| DEBT-001 | review_submission: 3 sequential writes without transaction | Medium | [3A] (fixed — `review_marketplace_submission` RPC) |
 | DEBT-002 | No error boundaries or loading states | Medium | [2B] |
 | DEBT-003 | No test suite beyond tenant isolation | High | [1A], [1B] |
 | BUG-003 | `cookies().set()` called from Server Component render path | High | [1A] (fixed) |
@@ -116,7 +116,7 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 **Known limitations (deferred to Phase 3):**
 - `apps/web` still uses local type definitions — migration to `@dothesenow/types` imports is [3B]
 - MCP server still uses its own `OrgScopedClient` — migration to shared queries is [3A]
-- Strategy `createDoc`/`updateDoc` require `auth.uid()` (user-scoped client only); MCP server uses 3-query pattern instead
+- Strategy `createDoc`/`updateDoc` require `auth.uid()` (user-scoped client only); MCP server uses `createDocDirect()` RPC instead
 
 ### [2A] Detailed Progress
 
@@ -149,6 +149,34 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 - `supabase/migrations/012_soft_delete.sql`
 - `supabase/migrations/013_task_event_log.sql`
 - `supabase/__tests__/rls-policies.test.sql`
+
+### [3A] Detailed Progress
+
+**Branch**: `main` (direct merge) | **Status**: Complete — 2 migrations applied (015, 016)
+
+**Completed:**
+- [x] Eliminated all 37 inline Supabase queries from MCP server tool handlers
+- [x] 4 new query modules: `marketplace.ts`, `campaigns.ts`, `competitors.ts`, `insights.ts`
+- [x] 7 new query functions in existing modules: `contacts.ts`, `strategy.ts`, `tasks.ts`
+- [x] Migration 015 — 4 atomic RPCs: `transition_task_status` (service_role fix), `review_marketplace_submission` (DEBT-001), `carry_over_tasks_v2`, `create_strategy_doc_direct`
+- [x] Migration 016 — Review fixes: FK for PostgREST reviewer_profile join, expanded RPC return type
+- [x] 15+ domain types added, 9 enums (CampaignStatus, MarketplaceTaskStatus, SubmissionStatus, etc.)
+- [x] `toOrgContext()` adapter: MCP client → shared OrgContext
+- [x] Filter injection prevention via `escapeFilterValue()` in all `.ilike()` calls
+- [x] Audit trail: all task status changes via `transition_task_status` RPC with source tracking
+- [x] `createDocDirect()` — atomic strategy doc versioning without `auth.uid()` dependency
+
+**Code review fixes applied (commit 184be6f):**
+- [x] Fixed `reviewer_profile` PostgREST join (FK pointed to `auth.users`, not `profiles`)
+- [x] Restored 23505 concurrent-edit handling in `update_strategy_doc`
+- [x] Added `notes` field to `search_contacts` filter (matched tool description)
+- [x] Expanded `review_marketplace_submission` return to include reviewer fields
+- [x] Updated stale WARNING comments to recommend `createDocDirect()`
+
+**Files created:**
+- `packages/queries/src/marketplace.ts`, `campaigns.ts`, `competitors.ts`, `insights.ts`, `strategy.ts` (new functions), `tasks.ts` (new functions)
+- `packages/types/src/enums.ts` (9 new enums), `domain.ts` (15+ types), `filters.ts` (12 filter types)
+- `supabase/migrations/015_service_role_rpcs.sql`, `016_review_fixes.sql`
 
 ---
 
