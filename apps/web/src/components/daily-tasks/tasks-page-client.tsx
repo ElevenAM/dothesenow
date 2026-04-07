@@ -4,7 +4,8 @@ import { Suspense, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Bot, Cpu, Briefcase, RotateCcw } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { User, Bot, Cpu, Briefcase, RotateCcw, CheckSquare } from "lucide-react";
 import { DatePicker } from "./date-picker";
 import { SummaryCards } from "./summary-cards";
 import { TaskList } from "./task-list";
@@ -117,16 +118,11 @@ export function TasksPageClient({
 
       {/* Task list with executor tabs */}
       {tasks.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-gray-500">
-              No tasks for {date === today ? "today" : date}
-            </p>
-            <p className="text-sm text-gray-400 mt-1">
-              Click &quot;Add Task&quot; to create one
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={CheckSquare}
+          title={`No tasks for ${date === today ? "today" : date}`}
+          description='Click "Add Task" above to create one.'
+        />
       ) : (
         <Card>
           <Tabs defaultValue="all">

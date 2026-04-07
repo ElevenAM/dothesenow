@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -58,6 +59,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -67,8 +69,13 @@ export function Sidebar({
 
   async function handleSwitchOrg(orgId: string) {
     if (orgId === currentOrgId) return;
-    await switchOrg(orgId);
-    router.refresh();
+    setSwitchError(null);
+    try {
+      await switchOrg(orgId);
+      router.refresh();
+    } catch {
+      setSwitchError("Failed to switch organization. Please try again.");
+    }
   }
 
   const showOrgSwitcher = allOrgs.length > 1;
@@ -118,6 +125,12 @@ export function Sidebar({
           </div>
         )}
       </div>
+
+      {switchError && (
+        <div className="mx-4 mt-1 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {switchError}
+        </div>
+      )}
 
       <Separator />
 

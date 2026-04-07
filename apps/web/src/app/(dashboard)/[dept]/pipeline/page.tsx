@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PipelineFunnel } from "@/components/pipeline/pipeline-funnel";
 import { EngagementCards } from "@/components/pipeline/engagement-cards";
-import { BarChart3, Users } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { BarChart3 } from "lucide-react";
 
 export default async function PipelinePage({
   params,
@@ -20,19 +21,7 @@ export default async function PipelinePage({
     .eq("org_id", membership.orgId);
 
   if (error) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Pipeline</h1>
-          <p className="text-muted-foreground">
-            Your sales and marketing pipeline overview.
-          </p>
-        </div>
-        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-          Failed to load pipeline data. Please try again later.
-        </div>
-      </div>
-    );
+    throw error;
   }
 
   const pipelineData = data ?? [];
@@ -46,20 +35,13 @@ export default async function PipelinePage({
             Your sales and marketing pipeline overview.
           </p>
         </div>
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <BarChart3 className="h-12 w-12 text-muted-foreground/40 mb-4" />
-          <h3 className="text-lg font-medium">No pipeline data yet</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Add contacts to see your pipeline funnel and engagement metrics.
-          </p>
-          <a
-            href={`/${dept}/contacts`}
-            className="mt-4 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-          >
-            <Users className="h-4 w-4" />
-            Go to Contacts
-          </a>
-        </div>
+        <EmptyState
+          icon={BarChart3}
+          title="No pipeline data yet"
+          description="Add contacts to see your pipeline funnel and engagement metrics."
+          actionLabel="Go to Contacts"
+          actionHref={`/${dept}/contacts`}
+        />
       </div>
     );
   }

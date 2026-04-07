@@ -3,6 +3,7 @@ import { getAuthenticatedMembership } from "@/lib/auth-helpers";
 import { getApprovalItems, getApprovalStats } from "@/lib/approvals/actions";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { ApprovalsPageClient } from "@/components/approvals/approvals-page-client";
+import { PageSkeleton } from "@/components/ui/page-skeleton";
 
 export default async function ApprovalsPage({
   params,
@@ -37,7 +38,7 @@ export default async function ApprovalsPage({
             Review content from automated executors and team members.
           </p>
         </div>
-        <Suspense>
+        <Suspense fallback={<PageSkeleton variant="table" />}>
           <ApprovalsPageClient
             items={result.items}
             stats={stats}
