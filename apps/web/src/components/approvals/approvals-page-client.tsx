@@ -11,7 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ApprovalStatsCards } from "./approval-stats";
 import { ApprovalCard } from "./approval-card";
 import { ApprovalDetailSheet } from "./approval-detail-sheet";
@@ -153,13 +154,11 @@ export function ApprovalsPageClient({
 
       {/* Items list */}
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-          <p className="text-lg font-medium">No approval items</p>
-          <p className="text-sm mt-1">
-            Items submitted by automated executors (Claude, n8n) or team members
-            will appear here for review.
-          </p>
-        </div>
+        <EmptyState
+          icon={ShieldCheck}
+          title="No approval items"
+          description="Items submitted by automated executors (Claude, n8n) or team members will appear here for review."
+        />
       ) : (
         <div className="space-y-3">
           {items.map((item) => (

@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DocEditor } from "./doc-editor";
 import { VersionHistory } from "./version-history";
 import { CreateDocDialog } from "./create-doc-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { StrategyDoc } from "@/lib/strategy/actions";
 import { DOC_TYPE_LABELS } from "@/lib/strategy/constants";
 import { FileText } from "lucide-react";
@@ -54,13 +55,15 @@ export function DocList({ docs }: DocListProps) {
 
   if (docs.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <FileText className="h-12 w-12 text-muted-foreground/40 mb-4" />
-        <h3 className="text-lg font-medium">No strategy documents yet</h3>
-        <p className="text-sm text-muted-foreground mt-1 mb-4">
-          Create your first strategy document to get started.
-        </p>
-        <CreateDocDialog existingTypes={[]} />
+      <div className="space-y-4">
+        <EmptyState
+          icon={FileText}
+          title="No strategy documents yet"
+          description="Create your first strategy document to get started."
+        />
+        <div className="flex justify-center">
+          <CreateDocDialog existingTypes={[]} />
+        </div>
       </div>
     );
   }
