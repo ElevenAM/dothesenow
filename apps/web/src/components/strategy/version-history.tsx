@@ -17,7 +17,7 @@ type VersionEntry = {
   id: string;
   version: number;
   change_summary: string | null;
-  changed_by: string;
+  changed_by: string | null;
   created_at: string;
   title: string;
 };

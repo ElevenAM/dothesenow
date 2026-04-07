@@ -176,6 +176,8 @@ export async function bulkCreateTasks(
  * Transition a task's status through the state machine.
  * Uses the transition_task_status() RPC which validates transitions,
  * records audit events, and handles completed_at.
+ * Requires a user-scoped client (not admin/service_role) because the RPC
+ * validates org membership via auth.uid().
  */
 export async function transitionTaskStatus(
   ctx: OrgContext,

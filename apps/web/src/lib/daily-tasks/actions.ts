@@ -2,54 +2,29 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { dispatchTask, getExecutorAvailability } from "@/lib/daily-tasks/dispatch";
 import { getDepartmentId } from "@/lib/departments";
+import {
+  getTasksForOrg,
+  getTasksSummary,
+  createTaskForOrg,
+  updateTaskForOrg,
+  transitionTaskStatus,
+  getMembershipsForOrg,
+} from "@dothesenow/queries";
+import type {
+  DailyTask,
+  DailyTaskWithProfiles,
+  DailyTasksSummary,
+  CreateTaskInput,
+  UpdateTaskInput,
+} from "@dothesenow/types";
 
-export interface DailyTask {
-  id: string;
-  org_id: string;
-  department_id: string | null;
-  created_by: string | null;
-  assigned_to: string | null;
-  title: string;
-  description: string | null;
-  task_type: "action" | "review" | "create" | "outreach" | "analysis";
-  priority: "low" | "medium" | "high" | "urgent";
-  executor_type: "self" | "n8n" | "claude_api" | "freelancer";
-  executor_config: Record<string, unknown>;
-  mktg_task_id: string | null;
-  status:
-    | "pending"
-    | "in_progress"
-    | "waiting_approval"
-    | "completed"
-    | "skipped"
-    | "failed"
-    | "carried_over";
-  scheduled_date: string;
-  outcome_notes: string | null;
-  completed_at: string | null;
-  source_strategy: string | null;
-  campaign_id: string | null;
-  contact_id: string | null;
-  generated_by: "user" | "claude" | "system";
-  generation_context: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-  // Joined profile fields
-  assigned_profile?: { display_name: string | null; email: string } | null;
-  creator_profile?: { display_name: string | null; email: string } | null;
-}
-
-export interface DailyTasksSummary {
-  executor_type: string;
-  total: number;
-  completed: number;
-  pending: number;
-  in_progress: number;
-  failed: number;
-}
+export type { DailyTasksSummary } from "@dothesenow/types";
+// Re-export DailyTaskWithProfiles as DailyTask for backward compatibility —
+// the old local DailyTask interface included the joined profile fields.
+export type { DailyTaskWithProfiles as DailyTask } from "@dothesenow/types";
 
 export interface TeamMember {
   userId: string;
@@ -69,33 +44,20 @@ function todayString(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-export async function getDailyTasks(deptSlug: string, date?: string) {
-  const { membership } = await getAuthenticatedMembership();
-  const supabase = await createClient();
+export async function getDailyTasks(
+  deptSlug: string,
+  date?: string,
+): Promise<DailyTaskWithProfiles[]> {
+  const { ctx } = await getAuthenticatedOrgContext();
   const targetDate = date || todayString();
+  const departmentId = await getDepartmentId(ctx.orgId, deptSlug);
 
-  const departmentId = await getDepartmentId(membership.orgId, deptSlug);
-
-  let query = supabase
-    .from("dtn_daily_tasks")
-    .select(
-      "*, assigned_profile:profiles!dtn_daily_tasks_assigned_to_fkey(display_name, email), creator_profile:profiles!dtn_daily_tasks_created_by_fkey(display_name, email)",
-    )
-    .eq("org_id", membership.orgId)
-    .eq("scheduled_date", targetDate);
-
-  if (departmentId) {
-    query = query.eq("department_id", departmentId);
-  }
-
-  const { data, error } = await query.order("created_at", {
-    ascending: true,
+  const tasks = await getTasksForOrg(ctx, {
+    scheduled_date: targetDate,
+    department_id: departmentId ?? undefined,
   });
 
-  if (error) throw new Error(error.message);
-
   // Client-side priority sort (one day's tasks is a small set)
-  const tasks = (data ?? []) as DailyTask[];
   tasks.sort(
     (a, b) =>
       (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3),
@@ -104,58 +66,31 @@ export async function getDailyTasks(deptSlug: string, date?: string) {
   return tasks;
 }
 
-export async function getDailyTasksSummary(deptSlug: string, date?: string) {
-  const { membership } = await getAuthenticatedMembership();
-  const supabase = await createClient();
+export async function getDailyTasksSummary(
+  deptSlug: string,
+  date?: string,
+): Promise<DailyTasksSummary[]> {
+  const { ctx } = await getAuthenticatedOrgContext();
   const targetDate = date || todayString();
-
-  const { data, error } = await supabase
-    .from("dtn_daily_tasks_summary")
-    .select("*")
-    .eq("org_id", membership.orgId)
-    .eq("scheduled_date", targetDate);
-
-  if (error) throw new Error(error.message);
-  return (data ?? []) as DailyTasksSummary[];
+  return getTasksSummary(ctx, targetDate);
 }
 
 export async function createDailyTask(
   deptSlug: string,
-  taskData: {
-    title: string;
-    description?: string;
-    task_type?: DailyTask["task_type"];
-    priority?: DailyTask["priority"];
-    executor_type?: DailyTask["executor_type"];
-    executor_config?: Record<string, unknown>;
-    scheduled_date?: string;
-    assigned_to?: string;
-    source_strategy?: string;
-    campaign_id?: string;
-    contact_id?: string;
-  },
-) {
-  const { membership, user } = await getAuthenticatedMembership();
-  const supabase = await createClient();
-  const departmentId = await getDepartmentId(membership.orgId, deptSlug);
+  taskData: CreateTaskInput & { assigned_to?: string },
+): Promise<DailyTask> {
+  const { auth, ctx } = await getAuthenticatedOrgContext();
+  const departmentId = await getDepartmentId(ctx.orgId, deptSlug);
 
-  const { data, error } = await supabase
-    .from("dtn_daily_tasks")
-    .insert({
-      ...taskData,
-      org_id: membership.orgId,
-      department_id: departmentId,
-      created_by: user.id,
-      assigned_to: taskData.assigned_to || user.id,
-      scheduled_date: taskData.scheduled_date || todayString(),
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
+  const created = await createTaskForOrg(ctx, {
+    ...taskData,
+    department_id: departmentId,
+    created_by: auth.user.id,
+    assigned_to: taskData.assigned_to || auth.user.id,
+    scheduled_date: taskData.scheduled_date || todayString(),
+  });
 
   // Dispatch to executor if non-self (awaited to prevent serverless termination)
-  const created = data as DailyTask;
   await dispatchTask(created);
 
   revalidatePath("/", "layout");
@@ -164,76 +99,101 @@ export async function createDailyTask(
 
 export async function updateDailyTask(
   taskId: string,
-  updates: Partial<
-    Pick<
-      DailyTask,
-      | "title"
-      | "description"
-      | "task_type"
-      | "priority"
-      | "executor_type"
-      | "executor_config"
-      | "status"
-      | "scheduled_date"
-      | "assigned_to"
-      | "outcome_notes"
-      | "source_strategy"
-      | "campaign_id"
-      | "contact_id"
-    >
-  >,
-) {
-  const { membership } = await getAuthenticatedMembership();
-  const supabase = await createClient();
+  updates: UpdateTaskInput,
+): Promise<DailyTask> {
+  const { auth, ctx } = await getAuthenticatedOrgContext();
 
-  const updatePayload: Record<string, unknown> = { ...updates };
-
-  // Auto-set completed_at when completing
-  if (updates.status === "completed") {
-    updatePayload.completed_at = new Date().toISOString();
+  // If status is changing, use the state machine RPC
+  if (updates.status) {
+    await transitionTaskStatus(
+      ctx,
+      taskId,
+      updates.status,
+      "web_ui",
+      auth.user.id,
+    );
   }
 
-  const { data, error } = await supabase
-    .from("dtn_daily_tasks")
-    .update(updatePayload)
-    .eq("id", taskId)
-    .eq("org_id", membership.orgId)
-    .select()
-    .single();
+  // Apply remaining non-status fields
+  const { status: _status, ...nonStatusUpdates } = updates;
+  let result: DailyTask | undefined;
+  if (Object.keys(nonStatusUpdates).length > 0) {
+    result = await updateTaskForOrg(ctx, taskId, nonStatusUpdates);
+  }
 
-  if (error) throw new Error(error.message);
+  // If only status changed, fetch the updated task
+  if (!result) {
+    const { getTaskById } = await import("@dothesenow/queries");
+    const task = await getTaskById(ctx, taskId);
+    if (!task) throw new Error("Task not found after status transition");
+    result = task;
+  }
+
   revalidatePath("/", "layout");
-  return data as DailyTask;
+  return result;
 }
 
 export async function completeDailyTask(
   taskId: string,
   outcomeNotes?: string,
-) {
-  return updateDailyTask(taskId, {
-    status: "completed",
-    outcome_notes: outcomeNotes || undefined,
-  });
+): Promise<DailyTask> {
+  const { auth, ctx } = await getAuthenticatedOrgContext();
+
+  await transitionTaskStatus(ctx, taskId, "completed", "web_ui", auth.user.id);
+
+  let task: DailyTask;
+  if (outcomeNotes) {
+    task = await updateTaskForOrg(ctx, taskId, { outcome_notes: outcomeNotes });
+  } else {
+    const { getTaskById } = await import("@dothesenow/queries");
+    const fetched = await getTaskById(ctx, taskId);
+    if (!fetched) throw new Error("Task not found after completion");
+    task = fetched;
+  }
+
+  revalidatePath("/", "layout");
+  return task;
 }
 
-export async function skipDailyTask(taskId: string) {
-  return updateDailyTask(taskId, { status: "skipped" });
+export async function skipDailyTask(taskId: string): Promise<DailyTask> {
+  const { auth, ctx } = await getAuthenticatedOrgContext();
+
+  await transitionTaskStatus(ctx, taskId, "skipped", "web_ui", auth.user.id);
+
+  const { getTaskById } = await import("@dothesenow/queries");
+  const task = await getTaskById(ctx, taskId);
+  if (!task) throw new Error("Task not found after skip");
+
+  revalidatePath("/", "layout");
+  return task;
 }
 
+/**
+ * Carry over incomplete tasks from a previous date to today.
+ *
+ * Uses a 2-step approach: INSERT copies for today, then batch UPDATE originals
+ * to 'carried_over' status.
+ *
+ * NOTE: The batch UPDATE intentionally bypasses transition_task_status() RPC.
+ * Using the RPC in a loop would introduce N+1 round-trips, lock contention,
+ * and partial-failure risk with no rollback. The batch approach is atomic per
+ * org and the state machine transitions (pending→carried_over, in_progress→
+ * carried_over) are all valid per migration 013.
+ */
 export async function carryOverTasks(
   deptSlug: string,
   fromDate: string,
-) {
-  const { membership } = await getAuthenticatedMembership();
+): Promise<{ count: number }> {
+  const { ctx } = await getAuthenticatedOrgContext();
   const supabase = await createClient();
-  const departmentId = await getDepartmentId(membership.orgId, deptSlug);
+  const departmentId = await getDepartmentId(ctx.orgId, deptSlug);
   const today = todayString();
 
   // Step 1: Fetch eligible tasks (don't modify yet)
   let fetchQuery = supabase
     .from("dtn_daily_tasks")
     .select("*")
-    .eq("org_id", membership.orgId)
+    .eq("org_id", ctx.orgId)
     .eq("scheduled_date", fromDate)
     .in("status", ["pending", "in_progress"]);
 
@@ -250,7 +210,7 @@ export async function carryOverTasks(
 
   // Step 2: Insert copies FIRST — if this fails, originals are untouched (safe to retry)
   const copies = eligible.map((task: Record<string, unknown>) => ({
-    org_id: membership.orgId,
+    org_id: ctx.orgId,
     department_id: task.department_id,
     created_by: task.created_by,
     assigned_to: task.assigned_to,
@@ -276,12 +236,13 @@ export async function carryOverTasks(
   if (insertError) throw new Error(insertError.message);
 
   // Step 3: Only mark originals as carried_over AFTER copies are safely inserted
+  // (intentional state-machine bypass — see JSDoc above)
   const eligibleIds = eligible.map((t: Record<string, unknown>) => t.id as string);
   const { error: markError } = await supabase
     .from("dtn_daily_tasks")
     .update({ status: "carried_over" as const })
     .in("id", eligibleIds)
-    .eq("org_id", membership.orgId);
+    .eq("org_id", ctx.orgId);
 
   if (markError) {
     console.error(
@@ -294,33 +255,20 @@ export async function carryOverTasks(
   return { count: eligible.length };
 }
 
-export async function fetchExecutorAvailability() {
+export async function fetchExecutorAvailability(): Promise<ReturnType<typeof getExecutorAvailability>> {
   return getExecutorAvailability();
 }
 
-export async function getTeamMembers() {
-  const { membership } = await getAuthenticatedMembership();
-  const supabase = await createClient();
+export async function getTeamMembers(): Promise<TeamMember[]> {
+  const { ctx } = await getAuthenticatedOrgContext();
+  const memberships = await getMembershipsForOrg(ctx);
 
-  const { data, error } = await supabase
-    .from("dtn_memberships")
-    .select("user_id, role, profiles(display_name, email)")
-    .eq("org_id", membership.orgId)
-    .eq("is_active", true)
-    .not("user_id", "is", null);
-
-  if (error) throw new Error(error.message);
-
-  return (data ?? []).map((m) => {
-    const profile = m.profiles as unknown as {
-      display_name: string | null;
-      email: string;
-    } | null;
-    return {
+  return memberships
+    .filter((m) => m.user_id !== null)
+    .map((m) => ({
       userId: m.user_id as string,
-      displayName: profile?.display_name ?? null,
-      email: profile?.email ?? "",
+      displayName: m.profile?.display_name ?? null,
+      email: m.profile?.email ?? "",
       role: m.role,
-    } as TeamMember;
-  });
+    }));
 }
