@@ -1,12 +1,14 @@
-import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { getStrategyDocs } from "@/lib/strategy/actions";
+import { getCreditBalance } from "@dothesenow/queries";
 import { DocList } from "@/components/strategy/doc-list";
 import { StrategyGeneratorDialog } from "@/components/strategy/strategy-generator-dialog";
 import { RealtimeListener } from "@/components/realtime-listener";
 
 export default async function StrategyPage() {
-  const { membership, org } = await getAuthenticatedMembership();
+  const { auth: { membership, org }, ctx } = await getAuthenticatedOrgContext();
   const docs = await getStrategyDocs();
+  const { remaining } = await getCreditBalance(ctx);
 
   const existingTypes = docs.map((d) => d.doc_type);
 
@@ -24,6 +26,7 @@ export default async function StrategyPage() {
             orgIndustry={org.industry}
             orgBudgetTier={org.budgetTier}
             existingTypes={existingTypes}
+            creditBalance={remaining}
           />
         </div>
         <DocList docs={docs} />

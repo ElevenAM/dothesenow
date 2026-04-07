@@ -126,6 +126,7 @@ export interface StrategyDoc {
   changed_by: string | null;
   is_active: boolean;
   embedding: string | null;
+  generation_metadata: Json | null;
   created_at: string;
   updated_at: string;
 }

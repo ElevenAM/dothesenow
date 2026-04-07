@@ -1,8 +1,8 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Phase 1 complete, [2A] DB hardening complete, [3A] MCP→shared queries complete, [3B] Web→shared queries complete. [2B], [2C] not started.
+> **Status**: Phase 1–5 complete. [6A] Strategy generation engine — implementation complete (code written, builds pass, tests written, migration ready). [2B], [2C] not started. [6B], [6C] planned.
 >
-> Last updated: 2026-04-06
+> Last updated: 2026-04-07
 
 ---
 
@@ -24,13 +24,13 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | **Phase 3** | Migrate web & MCP to shared layer | **IN PROGRESS** |
 | [3A] | MCP server → shared queries | **Complete** — merged + review fixes applied |
 | [3B] | Web server actions → shared queries | **Complete** — merged to main |
-| **Phase 4** | Inngest & credit system (async foundation) | Blocked on Phase 3 |
-| [4A] | Inngest setup + cron functions | Planned |
-| [4B] | Credit system + pricing tier migration | Planned |
-| **Phase 5** | Integration: Wire credits to Inngest | Blocked on Phase 4 |
-| [5A] | Credits ↔ Inngest wiring | Planned |
-| **Phase 6** | Intelligence: Strategy generation & task decomposition | Blocked on Phase 5 |
-| [6A] | Strategy generation engine | Planned |
+| **Phase 4** | Inngest & credit system (async foundation) | **COMPLETE** |
+| [4A] | Inngest setup + cron functions | **Complete** — merged to main |
+| [4B] | Credit system + pricing tier migration | **Complete** — merged to main (3 migrations: 017, 018, 019) |
+| **Phase 5** | Integration: Wire credits to Inngest | **COMPLETE** |
+| [5A] | Credits ↔ Inngest wiring | **Complete** — merged to main |
+| **Phase 6** | Intelligence: Strategy generation & task decomposition | **IN PROGRESS** |
+| [6A] | Strategy generation engine | **Implementation complete** — code written, builds pass, migration 020 ready |
 | [6B] | Task decomposition engine | Planned |
 | **Phase 7** | Agentic: Blocker resolution | Blocked on Phase 6 |
 | [7A] | Blocker resolution agent (5-type classification) | Planned |
@@ -196,6 +196,55 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 - [x] Net reduction: ~280 lines (362 added, 690 removed across 14 files)
 
 **ARCH-002 resolution**: With 3A (MCP) and 3B (web) both complete, the code duplication between web actions and MCP tools is fully resolved. Both consume `@dothesenow/queries` as the single source of truth.
+
+### [6A] Detailed Progress
+
+**Branch**: `main` (local, uncommitted) | **Status**: Implementation complete — pending commit, migration apply, and deploy
+
+**What was built:**
+- [x] `packages/prompts/` — New `@dothesenow/prompts` workspace package
+  - `src/types.ts` — `FrameworkId`, `OrgProfile`, `PromptFragment`, `GenerationMetadata`, `ValidationResult` types + `STRATEGY_GENERATION_COST` constant
+  - `src/frameworks/index.ts` — `selectFrameworks(industry, budgetTier)` with decision logic from `reference/framework-selection-matrix.md`
+  - `src/frameworks/bullseye.ts` — 19 traction channel ranking with CAC benchmarks by industry, budget tier pruning
+  - `src/frameworks/aarrr.ts` — Pirate metrics funnel with industry-specific metric definitions
+  - `src/frameworks/growth-matrix.ts` — 5 growth lever analysis with attribution model guidance
+  - `src/frameworks/gaccs.ts` — Exact GACCS markdown output schema with validation rules
+  - `src/frameworks/ice.ts` — ICE scoring calibration with primary metrics by industry
+  - `src/strategy-generator.ts` — `assembleStrategyPrompt()` orchestrator (system + user prompt assembly), `validateGaccsOutput()` structural validator, `buildCorrectionPrompt()` for retry
+  - `src/index.ts` — Package exports
+- [x] `supabase/migrations/020_strategy_generation_metadata.sql` — Adds `generation_metadata JSONB` to `mktg_strategy_docs` + functional index
+- [x] `apps/web/src/lib/inngest/functions/strategy-generation.ts` — 6-step durable Inngest workflow:
+  1. Load org + create placeholder doc for Realtime progress
+  2. Select frameworks + assemble prompt
+  3. Reserve credits (5 credits via `generation_id` reference)
+  4. Call Claude API (sonnet, 8192 max_tokens)
+  5. Validate GACCS output + retry with correction prompt if invalid + save
+  6. Confirm credits (refund on failure)
+- [x] `apps/web/src/lib/strategy/generate.ts` — Server action: pre-flight credit check → validate org profile → fire Inngest event with unique `generation_id`
+- [x] `apps/web/src/components/strategy/strategy-generator-dialog.tsx` — Upgraded from template-only to AI generation: credit balance display, progress indicator, Realtime auto-refresh via parent `RealtimeListener`, template fallback on failure
+- [x] `apps/web/src/app/(dashboard)/[dept]/strategy/page.tsx` — Updated to pass `creditBalance` prop to dialog
+- [x] `apps/web/src/lib/inngest/client.ts` — Added `strategy/generate` event type with `generation_id`
+- [x] `apps/web/src/lib/inngest/functions/index.ts` — Registered `strategyGeneration` function
+- [x] `packages/types/src/domain.ts` — Added `generation_metadata: Json | null` to `StrategyDoc`
+- [x] Tests: `framework-selection.test.ts` (15 cases), `strategy-generator.test.ts` (20+ cases including validation)
+- [x] All packages build cleanly (`turbo build`), zero type errors in Phase 6A files
+
+**EM review fixes applied (pre-implementation):**
+- Used unique `generation_id` UUID as idempotency key (not org_id — avoids 24h collision window)
+- Used `generation_id` as credit `reference_id` (not org_id — prevents double-refund on concurrent generations)
+- Added placeholder doc insertion in step 1 for Realtime progress tracking
+- Shared `STRATEGY_GENERATION_COST = 5` constant in `@dothesenow/prompts` (single source of truth)
+
+**What's still needed before merge:**
+- [ ] Apply migration 020 to Supabase production
+- [ ] Commit and push to git
+- [ ] Run tests (blocked by Node.js 19.5 — Vitest 4.x requires Node 20+; tests parse correctly but can't execute locally)
+- [ ] Deploy to Vercel
+- [ ] End-to-end smoke test: generate strategy → verify GACCS structure → verify credit deduction
+
+**Next steps (Phase 6 remaining):**
+- [ ] [6B] Task decomposition engine — consumes GACCS Schedule + Experiment Backlog → daily tasks
+- [ ] [6C] Executor integration framework + Jasper BYOS
 
 ---
 
