@@ -47,10 +47,10 @@ export interface DailyTask {
   source_strategy: string | null;
   campaign_id: string | null;
   contact_id: string | null;
-  generated_by: GeneratedBy | null;
-  generation_context: Json | null;
-  created_at: string | null;
-  updated_at: string | null;
+  generated_by: GeneratedBy;
+  generation_context: Json;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DailyTaskWithProfiles extends DailyTask {
@@ -81,16 +81,16 @@ export interface Contact {
   title: string | null;
   contact_type: ContactType;
   status: ContactStatus;
-  lifecycle_stage: LifecycleStage | null;
-  tags: string[] | null;
+  lifecycle_stage: LifecycleStage;
+  tags: string[];
   location: string | null;
   source: string | null;
   persona: string | null;
-  lead_score: number | null;
+  lead_score: number;
   last_engaged: string | null;
   notes: string | null;
-  created_at: string | null;
-  updated_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface OutreachEntry {
@@ -107,7 +107,7 @@ export interface OutreachEntry {
   sent_at: string | null;
   response_at: string | null;
   notes: string | null;
-  created_at: string | null;
+  created_at: string;
 }
 
 // ─── Strategy Docs ───────────────────────────────────────────
@@ -118,15 +118,15 @@ export interface StrategyDoc {
   doc_type: DocType;
   title: string;
   content: string;
-  version: number | null;
-  tags: string[] | null;
+  version: number;
+  tags: string[];
   previous_version_id: string | null;
   change_summary: string | null;
   changed_by: string | null;
-  is_active: boolean | null;
+  is_active: boolean;
   embedding: string | null;
-  created_at: string | null;
-  updated_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ─── Approval Queue ──────────────────────────────────────────
@@ -147,8 +147,8 @@ export interface ApprovalItem {
   reviewer_notes: string | null;
   reviewed_at: string | null;
   publish_config: Json | null;
-  created_at: string | null;
-  updated_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ApprovalItemWithTask extends ApprovalItem {
@@ -186,8 +186,8 @@ export interface Organization {
   growth_motion: string | null;
   timezone: string | null;
   onboarding_completed_at: string | null;
-  created_at: string | null;
-  updated_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ─── Memberships ─────────────────────────────────────────────
@@ -197,12 +197,12 @@ export interface Membership {
   org_id: string;
   user_id: string | null;
   role: MemberRole;
-  is_active: boolean | null;
+  is_active: boolean;
   invited_email: string | null;
   invited_by: string | null;
   invited_at: string | null;
   accepted_at: string | null;
-  created_at: string | null;
+  created_at: string;
 }
 
 // ─── Departments ─────────────────────────────────────────────
@@ -213,8 +213,8 @@ export interface Department {
   name: string;
   slug: string;
   icon: string | null;
-  is_active: boolean | null;
-  created_at: string | null;
+  is_active: boolean;
+  created_at: string;
 }
 
 // ─── Input types for mutations ───────────────────────────────

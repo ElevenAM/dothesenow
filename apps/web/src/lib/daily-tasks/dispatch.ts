@@ -1,20 +1,22 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { DailyTask } from "@dothesenow/types";
 
-interface DispatchableTask {
-  id: string;
-  org_id: string;
-  title: string;
-  description: string | null;
-  task_type: string;
-  priority: string;
-  executor_type: string;
-  executor_config: Record<string, unknown>;
-  department_id: string | null;
-  scheduled_date: string;
-  source_strategy: string | null;
-  campaign_id: string | null;
-  contact_id: string | null;
-}
+type DispatchableTask = Pick<
+  DailyTask,
+  | "id"
+  | "org_id"
+  | "title"
+  | "description"
+  | "task_type"
+  | "priority"
+  | "executor_type"
+  | "executor_config"
+  | "department_id"
+  | "scheduled_date"
+  | "source_strategy"
+  | "campaign_id"
+  | "contact_id"
+>;
 
 /**
  * Returns a human-readable reason if the executor can't run, or null if it's ready.
@@ -59,6 +61,11 @@ export function getExecutorAvailability(): Record<string, { available: boolean; 
  * Returns a promise that resolves when dispatch completes (or fails).
  * Caller should await this or use waitUntil() in serverless contexts.
  * Only called from the web app server actions (not MCP).
+ *
+ * NOTE: This file uses createAdminClient() and direct .update() calls for task
+ * status changes instead of the transition_task_status() RPC. This is intentional:
+ * the RPC requires auth.uid() which returns NULL for service_role clients. Dispatch
+ * runs in a background/serverless context where no authenticated user session exists.
  */
 export async function dispatchTask(task: DispatchableTask): Promise<void> {
   if (task.executor_type === "self" || task.executor_type === "freelancer") {
@@ -175,7 +182,8 @@ async function doDispatch(task: DispatchableTask): Promise<void> {
 }
 
 async function dispatchToN8n(task: DispatchableTask): Promise<void> {
-  const webhookUrl = task.executor_config?.webhook_url as string | undefined;
+  const config = task.executor_config as Record<string, unknown> | null;
+  const webhookUrl = config?.webhook_url as string | undefined;
   if (!webhookUrl) {
     throw new Error("n8n task missing executor_config.webhook_url");
   }

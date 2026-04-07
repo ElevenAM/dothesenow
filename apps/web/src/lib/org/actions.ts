@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { setActiveOrgId } from "@/lib/org-context";
+import { getMembershipByUserId } from "@dothesenow/queries";
 
-export async function switchOrg(orgId: string) {
+export async function switchOrg(orgId: string): Promise<void> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,15 +16,7 @@ export async function switchOrg(orgId: string) {
     throw new Error("Not authenticated");
   }
 
-  // Verify user has active membership in the target org
-  const { data: membership } = await supabase
-    .from("dtn_memberships")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .eq("org_id", orgId)
-    .eq("is_active", true)
-    .single();
-
+  const membership = await getMembershipByUserId(supabase, orgId, user.id);
   if (!membership) {
     throw new Error("You are not a member of this organization");
   }

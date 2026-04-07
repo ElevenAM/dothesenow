@@ -2,6 +2,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org-context";
 import type { User } from "@supabase/supabase-js";
+import type { OrgContext } from "@dothesenow/queries";
 
 export type OrgRole = "owner" | "admin" | "member";
 
@@ -132,6 +133,18 @@ export async function getAuthenticatedMembership(
     },
     allOrgs,
   };
+}
+
+/**
+ * Authenticate and return both the membership context and a ready-to-use
+ * OrgContext for shared query functions from @dothesenow/queries.
+ */
+export async function getAuthenticatedOrgContext(
+  requiredRoles?: OrgRole[],
+): Promise<{ auth: AuthenticatedMembership; ctx: OrgContext }> {
+  const auth = await getAuthenticatedMembership(requiredRoles);
+  const client = await createClient();
+  return { auth, ctx: { client, orgId: auth.membership.orgId } };
 }
 
 /**

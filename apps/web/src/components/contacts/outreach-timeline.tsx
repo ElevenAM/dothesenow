@@ -55,9 +55,9 @@ export function OutreachTimeline({ entries }: OutreachTimelineProps) {
                 <span className="font-medium capitalize">{entry.channel}</span>
                 <DirectionIcon className="h-3 w-3 text-muted-foreground" />
                 <span
-                  className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[entry.status] || ""}`}
+                  className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${entry.status ? STATUS_COLORS[entry.status] || "" : ""}`}
                 >
-                  {entry.status.replace("_", " ")}
+                  {(entry.status ?? "unknown").replace("_", " ")}
                 </span>
                 {entry.persona_used && (
                   <Badge variant="outline" className="text-[10px]">

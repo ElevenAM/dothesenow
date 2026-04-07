@@ -95,6 +95,8 @@ export function ApprovalDetailSheet({
 
           {/* Execution metadata (Claude API) */}
           {item.metadata &&
+            typeof item.metadata === "object" &&
+            !Array.isArray(item.metadata) &&
             ("model" in item.metadata || "duration_ms" in item.metadata) && (
               <div className="rounded-md border p-3 text-sm">
                 <p className="font-medium mb-1">Execution Details</p>

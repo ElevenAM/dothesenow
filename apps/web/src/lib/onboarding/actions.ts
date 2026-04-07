@@ -12,7 +12,7 @@ export type { Industry, BudgetTier } from "@dothesenow/types";
  * Step 1: Create org with owner membership and default department.
  * Delegates to the existing createOrganization() action.
  */
-export async function onboardingCreateOrg(orgName: string) {
+export async function onboardingCreateOrg(orgName: string): ReturnType<typeof createOrganization> {
   return createOrganization(orgName);
 }
 

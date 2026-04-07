@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
 import { setActiveOrgId } from "@/lib/org-context";
+import { getMembershipByUserId } from "@dothesenow/queries";
+import type { MemberRole } from "@dothesenow/types";
 
 type ActionResult = { error: string } | { success: true };
 
@@ -228,16 +230,12 @@ export async function switchOrg(orgId: string): Promise<ActionResult> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Verify user has active membership in this org
-  const { data: membership } = await supabase
-    .from("dtn_memberships")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("org_id", orgId)
-    .eq("is_active", true)
-    .single();
-
-  if (!membership) return { error: "No active membership in this organization" };
+  try {
+    const membership = await getMembershipByUserId(supabase, orgId, user.id);
+    if (!membership) return { error: "No active membership in this organization" };
+  } catch {
+    return { error: "Failed to verify membership" };
+  }
 
   await setActiveOrgId(orgId);
 
