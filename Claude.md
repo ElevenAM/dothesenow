@@ -274,11 +274,11 @@ All UI work MUST follow the GitHub Primer design system defined in `DESIGN.md` a
 
 ## Pre-Push Checklist
 
-**Before any `git push`, you MUST check:**
+**Before any `git push`, you MUST apply pending migrations and deploy changed edge functions — do not just surface findings, execute them.**
 
-1. **Unapplied migrations** — Compare `supabase/migrations/` against production. Query: `SELECT name FROM supabase_migrations.schema_migrations ORDER BY name;`
-2. **Undeployed edge functions** — Run `git diff origin/[main-branch] -- supabase/functions/` to detect local changes not yet deployed
-3. **Surface findings before pushing** — If unapplied migrations or undeployed functions exist, list them and ask whether to apply/deploy before pushing
+1. **Apply unapplied migrations** — Compare `supabase/migrations/` against production (query `supabase_migrations.schema_migrations` via the Supabase MCP `list_migrations` tool or `execute_sql`). For each migration not yet applied, use the Supabase MCP `apply_migration` tool to apply it immediately. Do not push with unapplied migrations.
+2. **Deploy changed edge functions** — Run `git diff origin/main -- supabase/functions/` to detect local changes not yet deployed. For each changed function, use the Supabase MCP `deploy_edge_function` tool to deploy it immediately. Do not push with undeployed functions.
+3. **Verify before pushing** — Confirm all migrations are applied and all edge functions are deployed, then push.
 
 ---
 
