@@ -1,6 +1,6 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Phase 1 complete, [2A] DB hardening complete, [3A] MCP→shared queries complete (5 code review fixes applied, migration 016 live). [2B], [2C], [3B] not started.
+> **Status**: Phase 1 complete, [2A] DB hardening complete, [3A] MCP→shared queries complete, [3B] Web→shared queries complete. [2B], [2C] not started.
 >
 > Last updated: 2026-04-06
 
@@ -23,7 +23,7 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | [2C] | Onboarding wizard — 3-step flow (first user-facing improvement) | Not started |
 | **Phase 3** | Migrate web & MCP to shared layer | **IN PROGRESS** |
 | [3A] | MCP server → shared queries | **Complete** — merged + review fixes applied |
-| [3B] | Web server actions → shared queries | Planned |
+| [3B] | Web server actions → shared queries | **Complete** — merged to main |
 | **Phase 4** | Inngest & credit system (async foundation) | Blocked on Phase 3 |
 | [4A] | Inngest setup + cron functions | Planned |
 | [4B] | Credit system + pricing tier migration | Planned |
@@ -60,7 +60,7 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | BUG-001 | Cookie name mismatch (`dtn_active_org` vs `dtn_current_org`) | High | [1A] |
 | BUG-002 | Org creation RLS edge cases in onboarding | Medium | [1A] |
 | ARCH-001 | Manual org_id filtering (no compile-time enforcement) | High | [1B] |
-| ARCH-002 | Code duplication between web actions and MCP tools | High | [3A] |
+| ARCH-002 | Code duplication between web actions and MCP tools | High | [3A]+[3B] (fully resolved) |
 | ARCH-004 | SECURITY DEFINER functions need manual org_id guards | Medium | [2A] (fixed) |
 | ARCH-005 | Invite state ambiguity (2 patterns) | Medium | [1A] |
 | ARCH-006 | Freelancer RLS policies from 001 not updated for multi-tenancy | Low | [2A] (fixed) |
@@ -114,7 +114,7 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 - [x] Pre-existing fix: `getOrgMembers` silent error → throws with `console.error`
 
 **Known limitations (deferred to Phase 3):**
-- `apps/web` still uses local type definitions — migration to `@dothesenow/types` imports is [3B]
+- ~~`apps/web` still uses local type definitions — migration to `@dothesenow/types` imports is [3B]~~ **Done in [3B]**
 - MCP server still uses its own `OrgScopedClient` — migration to shared queries is [3A]
 - Strategy `createDoc`/`updateDoc` require `auth.uid()` (user-scoped client only); MCP server uses `createDocDirect()` RPC instead
 
@@ -177,6 +177,25 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 - `packages/queries/src/marketplace.ts`, `campaigns.ts`, `competitors.ts`, `insights.ts`, `strategy.ts` (new functions), `tasks.ts` (new functions)
 - `packages/types/src/enums.ts` (9 new enums), `domain.ts` (15+ types), `filters.ts` (12 filter types)
 - `supabase/migrations/015_service_role_rpcs.sql`, `016_review_fixes.sql`
+
+### [3B] Detailed Progress
+
+**Branch**: `refactor/3b-web-shared-queries` (rebased + merged to main) | **Status**: Complete
+
+**Completed:**
+- [x] Migrated inline Supabase queries in 8 web action files to `@dothesenow/queries` functions
+- [x] `approvals/actions.ts` — replaced inline queries with shared approval query functions
+- [x] `contacts/actions.ts` — replaced inline queries with shared contact query functions
+- [x] `daily-tasks/actions.ts` — replaced inline queries with shared task query functions
+- [x] `daily-tasks/dispatch.ts` — wired to shared task transition functions
+- [x] `strategy/actions.ts` — replaced inline queries with shared strategy query functions
+- [x] `team/actions.ts`, `org/actions.ts`, `onboarding/actions.ts` — minor shared query migrations
+- [x] `auth-helpers.ts` — added shared helper for user-scoped client creation
+- [x] Updated 3 components (`approval-detail-sheet`, `outreach-timeline`, `version-history`) for type alignment
+- [x] `packages/types/src/domain.ts` — consolidated type definitions, removed web-local duplicates
+- [x] Net reduction: ~280 lines (362 added, 690 removed across 14 files)
+
+**ARCH-002 resolution**: With 3A (MCP) and 3B (web) both complete, the code duplication between web actions and MCP tools is fully resolved. Both consume `@dothesenow/queries` as the single source of truth.
 
 ---
 
