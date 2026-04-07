@@ -198,6 +198,61 @@ export const GrowthMotion = {
 } as const;
 export type GrowthMotion = (typeof GrowthMotion)[keyof typeof GrowthMotion];
 
+// ─── Marketplace Enums ──────────────────────────────────────
+
+export const MarketplaceTaskStatus = {
+  Draft: "draft",
+  Open: "open",
+  Claimed: "claimed",
+  InProgress: "in_progress",
+  Review: "review",
+  Revision: "revision",
+  Completed: "completed",
+  Cancelled: "cancelled",
+} as const;
+export type MarketplaceTaskStatus = (typeof MarketplaceTaskStatus)[keyof typeof MarketplaceTaskStatus];
+
+export const SubmissionStatus = {
+  Submitted: "submitted",
+  UnderReview: "under_review",
+  Approved: "approved",
+  RevisionRequested: "revision_requested",
+  Rejected: "rejected",
+} as const;
+export type SubmissionStatus = (typeof SubmissionStatus)[keyof typeof SubmissionStatus];
+
+export const EngagementType = {
+  Freelance: "freelance",
+  WorkToHire: "work_to_hire",
+} as const;
+export type EngagementType = (typeof EngagementType)[keyof typeof EngagementType];
+
+export const PaymentType = {
+  Fixed: "fixed",
+  Hourly: "hourly",
+  Milestone: "milestone",
+} as const;
+export type PaymentType = (typeof PaymentType)[keyof typeof PaymentType];
+
+export const MessageSenderType = {
+  Owner: "owner",
+  Freelancer: "freelancer",
+  Ai: "ai",
+} as const;
+export type MessageSenderType = (typeof MessageSenderType)[keyof typeof MessageSenderType];
+
+// ─── Transition Source ──────────────────────────────────────
+
+export const TransitionSource = {
+  WebUi: "web_ui",
+  SlackBot: "slack_bot",
+  Mcp: "mcp",
+  Cron: "cron",
+  Agent: "agent",
+  Api: "api",
+} as const;
+export type TransitionSource = (typeof TransitionSource)[keyof typeof TransitionSource];
+
 // ─── Membership Enums ────────────────────────────────────────
 
 export const MemberRole = {

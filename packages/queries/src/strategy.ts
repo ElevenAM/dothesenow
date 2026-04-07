@@ -122,3 +122,54 @@ export async function updateDoc(
   if (error) throw new QueryError(error.message, TABLE, "updateDoc", ctx.orgId, error);
   return data as string;
 }
+
+/**
+ * Create/update a strategy doc using the atomic RPC that does NOT require auth.uid().
+ * Uses create_strategy_doc_direct() which handles deactivate → version → insert
+ * atomically with FOR UPDATE locking.
+ *
+ * Safe for service_role callers (MCP server, edge functions).
+ */
+export async function createDocDirect(
+  ctx: OrgContext,
+  input: CreateStrategyDocInput & { change_summary?: string },
+): Promise<string> {
+  const { data, error } = await ctx.client.rpc("create_strategy_doc_direct", {
+    p_org_id: ctx.orgId,
+    p_doc_type: input.doc_type,
+    p_title: input.title,
+    p_content: input.content,
+    p_change_summary: input.change_summary ?? null,
+    p_changed_by: input.changed_by ?? "claude",
+    p_tags: input.tags ?? [],
+  });
+
+  if (error) throw new QueryError(error.message, TABLE, "createDocDirect", ctx.orgId, error);
+  return data as string;
+}
+
+/**
+ * Text search across active strategy docs.
+ * Uses ilike for content matching.
+ */
+export async function searchStrategyDocs(
+  ctx: OrgContext,
+  query: string,
+  filters?: { doc_types?: string[]; limit?: number },
+): Promise<Pick<StrategyDoc, "id" | "doc_type" | "title" | "content" | "version" | "updated_at">[]> {
+  let q = ctx.client
+    .from(TABLE)
+    .select("id, doc_type, title, content, version, updated_at")
+    .eq("org_id", ctx.orgId)
+    .eq("is_active", true)
+    .ilike("content", `%${query}%`);
+
+  if (filters?.doc_types) {
+    q = q.in("doc_type", filters.doc_types);
+  }
+
+  const { data, error } = await q.limit(filters?.limit ?? 5);
+
+  if (error) throw new QueryError(error.message, TABLE, "searchStrategyDocs", ctx.orgId, error);
+  return data ?? [];
+}

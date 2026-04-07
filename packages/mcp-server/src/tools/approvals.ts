@@ -1,5 +1,14 @@
 import type { ToolModule } from "./types.js";
 import { ok } from "./types.js";
+import { toOrgContext } from "../lib/supabase.js";
+import {
+  getTaskById,
+  transitionTaskStatus,
+  getApprovalsForOrg,
+  createApproval,
+  reviewApproval,
+} from "@dothesenow/queries";
+import { TransitionSource } from "@dothesenow/types";
 
 const ORG_ID_PROP = {
   org_id: {
@@ -115,104 +124,62 @@ export const approvals: ToolModule = {
 
   handlers: {
     async submit_for_approval(client, args) {
-      const {
-        org_id: _,
-        title,
-        content,
-        item_type,
-        submitted_by_type,
-        submitted_by_id,
-        daily_task_id,
-        department_id,
-        metadata,
-        assigned_reviewer,
-      } = args;
-
-      let deptId = department_id as string | null;
+      const ctx = toOrgContext(client);
+      let deptId = args.department_id as string | null;
 
       // If daily_task_id is provided, copy department_id from the task
-      if (daily_task_id && !deptId) {
-        const { data: task } = await client
-          .from("dtn_daily_tasks")
-          .select("department_id")
-          .eq("id", daily_task_id as string)
-          .eq("org_id", client.orgId)
-          .single();
+      if (args.daily_task_id && !deptId) {
+        const task = await getTaskById(ctx, args.daily_task_id as string);
         deptId = task?.department_id ?? null;
       }
 
-      const { data, error } = await client
-        .from("dtn_approval_queue")
-        .insert({
-          org_id: client.orgId,
-          department_id: deptId,
-          title: title as string,
-          content: content as string,
-          item_type: item_type as string,
-          submitted_by_type: (submitted_by_type as string) || "member",
-          submitted_by_id: (submitted_by_id as string) || null,
-          daily_task_id: (daily_task_id as string) || null,
-          metadata: (metadata as Record<string, unknown>) || {},
-          assigned_reviewer: (assigned_reviewer as string) || null,
-          status: "pending",
-        })
-        .select()
-        .single();
+      const data = await createApproval(ctx, {
+        title: args.title as string,
+        content: args.content as string,
+        item_type: args.item_type as string,
+        submitted_by_type: (args.submitted_by_type as string) || "member",
+        submitted_by_id: (args.submitted_by_id as string) || null,
+        daily_task_id: (args.daily_task_id as string) || null,
+        department_id: deptId,
+        metadata: (args.metadata as Record<string, unknown>) || null,
+        assigned_reviewer: (args.assigned_reviewer as string) || null,
+      } as Parameters<typeof createApproval>[1]);
 
-      if (error) throw error;
-
-      // If linked to a task, update task status to waiting_approval
-      if (daily_task_id) {
-        await client
-          .from("dtn_daily_tasks")
-          .update({ status: "waiting_approval" })
-          .eq("id", daily_task_id as string)
-          .eq("org_id", client.orgId);
+      // If linked to a task, transition to waiting_approval via state machine
+      if (args.daily_task_id) {
+        await transitionTaskStatus(
+          ctx,
+          args.daily_task_id as string,
+          "waiting_approval",
+          TransitionSource.Mcp,
+        );
       }
 
       return ok(JSON.stringify(data, null, 2));
     },
 
     async list_pending_approvals(client, args) {
-      const status = (args.status as string) || "pending";
-      const limit = (args.limit as number) || 20;
-
-      let query = client
-        .from("dtn_approval_queue")
-        .select("*")
-        .eq("org_id", client.orgId)
-        .eq("status", status)
-        .order("created_at", { ascending: false })
-        .limit(limit);
-
-      if (args.item_type) {
-        query = query.eq("item_type", args.item_type as string);
-      }
-      if (args.submitted_by_type) {
-        query = query.eq("submitted_by_type", args.submitted_by_type as string);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      return ok(JSON.stringify(data, null, 2));
+      const ctx = toOrgContext(client);
+      const result = await getApprovalsForOrg(ctx, {
+        status: (args.status as string) || "pending",
+        item_type: args.item_type,
+        submitted_by_type: args.submitted_by_type,
+        pageSize: (args.limit as number) || 20,
+      } as Parameters<typeof getApprovalsForOrg>[1]);
+      return ok(JSON.stringify(result.items, null, 2));
     },
 
     async review_approval(client, args) {
-      const { approval_id, status, reviewer_notes, reviewer_id } = args;
-
-      // Use the atomic RPC function for review
-      // MCP reviews may not have a user context — pass null if no reviewer_id provided
-      const { data, error } = await client.rpc("review_approval_item", {
-        p_approval_id: approval_id as string,
-        p_org_id: client.orgId,
-        p_reviewer_id: (reviewer_id as string) || null,
-        p_status: status as string,
-        p_reviewer_notes: (reviewer_notes as string) || null,
-      });
-
-      if (error) throw error;
-
+      const ctx = toOrgContext(client);
+      const data = await reviewApproval(
+        ctx,
+        args.approval_id as string,
+        (args.reviewer_id as string) || null,
+        {
+          status: args.status as string,
+          reviewer_notes: (args.reviewer_notes as string) || null,
+        } as Parameters<typeof reviewApproval>[3],
+      );
       return ok(JSON.stringify(data, null, 2));
     },
   },

@@ -2,10 +2,12 @@ import type { OrgContext } from "./context.js";
 import type {
   Contact,
   OutreachEntry,
+  PipelineSummary,
   CreateContactInput,
   UpdateContactInput,
   LogOutreachInput,
   ContactFilters,
+  OutreachFilters,
 } from "@dothesenow/types";
 import { QueryError } from "./errors.js";
 
@@ -59,6 +61,19 @@ export async function getContactsForOrg(
   }
   if (filters?.owner_id) {
     query = query.eq("owner_id", filters.owner_id);
+  }
+  if (filters?.source) {
+    const escapedSource = escapeFilterValue(filters.source);
+    query = query.ilike("source", `%${escapedSource}%`);
+  }
+  if (filters?.tags && filters.tags.length > 0) {
+    query = query.overlaps("tags", filters.tags);
+  }
+  if (filters?.not_contacted_since_days) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - filters.not_contacted_since_days);
+    const cutoffStr = cutoff.toISOString();
+    query = query.or(`last_engaged.is.null,last_engaged.lt.${cutoffStr}`);
   }
 
   const { data, count, error } = await query;
@@ -155,5 +170,57 @@ export async function logOutreach(
     .single();
 
   if (error) throw new QueryError(error.message, OUTREACH_TABLE, "logOutreach", ctx.orgId, error);
+
+  // Update the contact's last_engaged timestamp
+  await ctx.client
+    .from(CONTACTS_TABLE)
+    .update({ last_engaged: new Date().toISOString() })
+    .eq("id", entry.contact_id)
+    .eq("org_id", ctx.orgId);
+
   return data as OutreachEntry;
+}
+
+const PIPELINE_VIEW = "mktg_pipeline_summary";
+
+export async function getPipelineSummary(
+  ctx: OrgContext,
+): Promise<PipelineSummary[]> {
+  const { data, error } = await ctx.client
+    .from(PIPELINE_VIEW)
+    .select("*")
+    .eq("org_id", ctx.orgId);
+
+  if (error) throw new QueryError(error.message, PIPELINE_VIEW, "getPipelineSummary", ctx.orgId, error);
+  return (data ?? []) as PipelineSummary[];
+}
+
+/**
+ * Get outreach history with flexible filtering.
+ * contactId is optional — omit it to get outreach across all contacts.
+ */
+export async function getOutreachHistory(
+  ctx: OrgContext,
+  filters?: OutreachFilters,
+): Promise<OutreachEntry[]> {
+  let query = ctx.client
+    .from(OUTREACH_TABLE)
+    .select("*")
+    .eq("org_id", ctx.orgId);
+
+  if (filters?.contact_id) query = query.eq("contact_id", filters.contact_id);
+  if (filters?.channel) query = query.eq("channel", filters.channel);
+  if (filters?.status) query = query.eq("status", filters.status);
+  if (filters?.since_days) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - filters.since_days);
+    query = query.gte("created_at", cutoff.toISOString());
+  }
+
+  const { data, error } = await query
+    .order("created_at", { ascending: false })
+    .limit(filters?.limit ?? 50);
+
+  if (error) throw new QueryError(error.message, OUTREACH_TABLE, "getOutreachHistory", ctx.orgId, error);
+  return (data ?? []) as OutreachEntry[];
 }

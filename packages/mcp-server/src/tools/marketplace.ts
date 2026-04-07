@@ -1,5 +1,13 @@
 import type { ToolModule } from "./types.js";
 import { ok } from "./types.js";
+import { toOrgContext } from "../lib/supabase.js";
+import {
+  getMarketplaceTasks,
+  createMarketplaceTask,
+  reviewSubmission,
+  getFreelancerLeaderboard,
+  sendTaskMessage,
+} from "@dothesenow/queries";
 
 const ORG_ID_PROP = {
   org_id: {
@@ -91,7 +99,7 @@ export const marketplace: ToolModule = {
     {
       name: "review_submission",
       description:
-        "Review a freelancer's task submission. Approve, request revision, or reject. Optionally include AI-assisted quality assessment.",
+        "Review a freelancer's task submission. Approve, request revision, or reject. Atomically updates submission, task, and freelancer stats.",
       inputSchema: {
         type: "object",
         properties: {
@@ -160,132 +168,52 @@ export const marketplace: ToolModule = {
 
   handlers: {
     async create_task(client, args) {
+      const ctx = toOrgContext(client);
       const { org_id: _, ...taskData } = args;
-      const { data, error } = await client
-        .from("mktg_tasks")
-        .insert({
-          ...taskData,
-          org_id: client.orgId,
-          generated_by_ai: true,
-          status: (taskData.status as string) || "draft",
-        })
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await createMarketplaceTask(ctx, taskData as unknown as Parameters<typeof createMarketplaceTask>[1]);
       return ok(`Task created: ${JSON.stringify(data, null, 2)}`);
     },
 
     async list_tasks(client, args) {
-      let query = client
-        .from("mktg_tasks")
-        .select("*, mktg_freelancers(name, email)")
-        .eq("org_id", client.orgId);
-
-      if (args.status) query = query.eq("status", args.status);
-      if (args.task_type) query = query.eq("task_type", args.task_type);
-      if (args.assigned_to) query = query.eq("assigned_to", args.assigned_to);
-      if (args.campaign_id) query = query.eq("campaign_id", args.campaign_id);
-
-      const { data, error } = await query
-        .order("created_at", { ascending: false })
-        .limit((args.limit as number) || 20);
-      if (error) throw error;
+      const ctx = toOrgContext(client);
+      const data = await getMarketplaceTasks(ctx, {
+        status: args.status as string | undefined,
+        task_type: args.task_type as string | undefined,
+        assigned_to: args.assigned_to as string | undefined,
+        campaign_id: args.campaign_id as string | undefined,
+        limit: args.limit as number | undefined,
+      });
       return ok(JSON.stringify(data, null, 2));
     },
 
     async review_submission(client, args) {
-      const { org_id: _, submission_id, ...reviewData } = args;
-      const { data, error } = await client
-        .from("mktg_task_submissions")
-        .update({
-          ...reviewData,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", submission_id as string)
-        .eq("org_id", client.orgId)
-        .select()
-        .single();
-      if (error) throw error;
-
-      // TODO: Phase 5 — wrap these 3 writes in a Postgres function for atomicity.
-      // Currently, if the freelancer stats update fails, task is marked completed
-      // but stats are inconsistent.
-      if (reviewData.status === "approved") {
-        await client
-          .from("mktg_tasks")
-          .update({
-            status: "completed",
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", data.task_id)
-          .eq("org_id", client.orgId);
-
-        if (data.freelancer_id) {
-          const { data: freelancer } = await client
-            .from("mktg_freelancers")
-            .select("tasks_completed, avg_rating")
-            .eq("id", data.freelancer_id)
-            .eq("org_id", client.orgId)
-            .single();
-          if (freelancer) {
-            const newCount = (freelancer.tasks_completed || 0) + 1;
-            const newRating = reviewData.rating
-              ? ((freelancer.avg_rating || 0) * (newCount - 1) +
-                  (reviewData.rating as number)) /
-                newCount
-              : freelancer.avg_rating;
-            await client
-              .from("mktg_freelancers")
-              .update({ tasks_completed: newCount, avg_rating: newRating })
-              .eq("id", data.freelancer_id)
-              .eq("org_id", client.orgId);
-          }
-        }
-      }
-
-      return ok(
-        `Submission reviewed: ${JSON.stringify(data, null, 2)}`,
-      );
+      const ctx = toOrgContext(client);
+      const data = await reviewSubmission(ctx, args.submission_id as string, {
+        status: args.status as "approved" | "revision_requested" | "rejected",
+        reviewer_notes: args.reviewer_notes as string | undefined,
+        ai_review: args.ai_review as string | undefined,
+        rating: args.rating as number | undefined,
+      });
+      return ok(`Submission reviewed: ${JSON.stringify(data, null, 2)}`);
     },
 
     async get_freelancer_leaderboard(client, args) {
-      let query;
-
-      if (args.skills) {
-        query = client
-          .from("mktg_freelancers")
-          .select("*")
-          .eq("org_id", client.orgId)
-          .eq("available", true)
-          .overlaps("skills", args.skills as string[]);
-      } else {
-        query = client
-          .from("mktg_freelancer_leaderboard")
-          .select("*")
-          .eq("org_id", client.orgId);
-      }
-      if (args.engagement_type && args.engagement_type !== "both")
-        query = query.eq("engagement_type", args.engagement_type);
-      if (args.min_rating)
-        query = query.gte("avg_rating", args.min_rating);
-
-      const { data, error } = await query;
-      if (error) throw error;
+      const ctx = toOrgContext(client);
+      const data = await getFreelancerLeaderboard(ctx, {
+        skills: args.skills as string[] | undefined,
+        engagement_type: args.engagement_type as string | undefined,
+        min_rating: args.min_rating as number | undefined,
+      });
       return ok(JSON.stringify(data, null, 2));
     },
 
     async send_task_message(client, args) {
-      const { data, error } = await client
-        .from("mktg_task_messages")
-        .insert({
-          task_id: args.task_id,
-          content: args.content,
-          sender_type: (args.sender_type as string) || "owner",
-          org_id: client.orgId,
-        })
-        .select()
-        .single();
-      if (error) throw error;
+      const ctx = toOrgContext(client);
+      const data = await sendTaskMessage(ctx, {
+        task_id: args.task_id as string,
+        content: args.content as string,
+        sender_type: args.sender_type as string | undefined,
+      } as Parameters<typeof sendTaskMessage>[1]);
       return ok(`Message sent: ${JSON.stringify(data, null, 2)}`);
     },
   },

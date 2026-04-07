@@ -1,5 +1,17 @@
 import type { ToolModule } from "./types.js";
 import { ok } from "./types.js";
+import { toOrgContext } from "../lib/supabase.js";
+import {
+  getStrategyDocs,
+  createDocDirect,
+  searchStrategyDocs,
+} from "@dothesenow/queries";
+import {
+  getCompetitorsForOrg,
+  upsertCompetitor,
+} from "@dothesenow/queries";
+import { createInsight } from "@dothesenow/queries";
+import type { DocType } from "@dothesenow/types";
 
 const ORG_ID_PROP = {
   org_id: {
@@ -141,142 +153,67 @@ export const strategy: ToolModule = {
 
   handlers: {
     async get_strategy_doc(client, args) {
-      const { data, error } = await client
-        .from("mktg_strategy_docs")
-        .select("*")
-        .eq("org_id", client.orgId)
-        .eq("doc_type", args.doc_type as string)
-        .eq("is_active", true)
-        .single();
-      if (error && error.code !== "PGRST116") throw error;
+      const ctx = toOrgContext(client);
+      const docs = await getStrategyDocs(ctx, {
+        doc_type: args.doc_type as DocType,
+        is_active: true,
+      });
+      const doc = docs[0] ?? null;
       return ok(
-        data
-          ? JSON.stringify(data, null, 2)
+        doc
+          ? JSON.stringify(doc, null, 2)
           : `No active ${args.doc_type} document found. Use update_strategy_doc to create one.`,
       );
     },
 
     async update_strategy_doc(client, args) {
-      // NOTE: The web app uses the update_strategy_doc RPC (migration 005) which
-      // locks with FOR UPDATE. The MCP server can't use that RPC because it runs
-      // with service_role (no auth.uid()). This 3-query pattern is safe because
-      // idx_mktg_strategy_one_active_per_type prevents two active docs of the
-      // same type. On concurrent conflict, the unique index rejects the second
-      // insert and we return a clear retry message.
-      await client
-        .from("mktg_strategy_docs")
-        .update({ is_active: false })
-        .eq("org_id", client.orgId)
-        .eq("doc_type", args.doc_type as string)
-        .eq("is_active", true);
-
-      const { data: prev } = await client
-        .from("mktg_strategy_docs")
-        .select("id, version")
-        .eq("org_id", client.orgId)
-        .eq("doc_type", args.doc_type as string)
-        .order("version", { ascending: false })
-        .limit(1)
-        .single();
-
-      const { data, error } = await client
-        .from("mktg_strategy_docs")
-        .insert({
-          org_id: client.orgId,
-          doc_type: args.doc_type,
-          title: (args.title as string) || (args.doc_type as string),
-          content: args.content,
-          version: prev ? (prev.version as number) + 1 : 1,
-          previous_version_id: prev?.id || null,
-          change_summary: args.change_summary,
-          changed_by: (args.changed_by as string) || "claude",
-          is_active: true,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        // Unique index violation = concurrent edit. Guide the caller to retry.
-        if (error.code === "23505") {
-          throw new Error(
-            "Concurrent strategy doc update detected — another edit was saved first. " +
-            "Please retry to create a new version on top of the latest.",
-          );
-        }
-        throw error;
-      }
-      return ok(
-        `Strategy doc updated (v${data.version}): ${JSON.stringify(data, null, 2)}`,
-      );
+      const ctx = toOrgContext(client);
+      const docId = await createDocDirect(ctx, {
+        doc_type: args.doc_type as DocType,
+        title: (args.title as string) || (args.doc_type as string),
+        content: args.content as string,
+        change_summary: args.change_summary as string,
+        changed_by: (args.changed_by as string) || "claude",
+      });
+      return ok(`Strategy doc updated: ${docId}`);
     },
 
     async search_strategy(client, args) {
-      let query = client
-        .from("mktg_strategy_docs")
-        .select("id, doc_type, title, content, version, updated_at")
-        .eq("org_id", client.orgId)
-        .eq("is_active", true)
-        .ilike("content", `%${args.query}%`);
-
-      if (args.doc_types)
-        query = query.in("doc_type", args.doc_types as string[]);
-
-      const { data, error } = await query.limit(
-        (args.limit as number) || 5,
-      );
-      if (error) throw error;
+      const ctx = toOrgContext(client);
+      const data = await searchStrategyDocs(ctx, args.query as string, {
+        doc_types: args.doc_types as string[] | undefined,
+        limit: args.limit as number | undefined,
+      });
       return ok(JSON.stringify(data, null, 2));
     },
 
     async get_competitors(client, args) {
-      let query = client
-        .from("mktg_competitors")
-        .select("*")
-        .eq("org_id", client.orgId);
-      if (args.threat_level) query = query.eq("threat_level", args.threat_level);
-      const { data, error } = await query.order("threat_level");
-      if (error) throw error;
+      const ctx = toOrgContext(client);
+      const data = await getCompetitorsForOrg(ctx, {
+        threat_level: args.threat_level as string | undefined,
+      });
       return ok(JSON.stringify(data, null, 2));
     },
 
     async update_competitor(client, args) {
+      const ctx = toOrgContext(client);
       const { org_id: _, id, ...competitorData } = args;
-      if (id) {
-        const { data, error } = await client
-          .from("mktg_competitors")
-          .update({
-            ...competitorData,
-            last_analyzed: new Date().toISOString(),
-          })
-          .eq("id", id as string)
-          .eq("org_id", client.orgId)
-          .select()
-          .single();
-        if (error) throw error;
-        return ok(`Competitor updated: ${JSON.stringify(data, null, 2)}`);
-      } else {
-        const { data, error } = await client
-          .from("mktg_competitors")
-          .insert({
-            ...competitorData,
-            org_id: client.orgId,
-            last_analyzed: new Date().toISOString(),
-          })
-          .select()
-          .single();
-        if (error) throw error;
-        return ok(`Competitor added: ${JSON.stringify(data, null, 2)}`);
-      }
+      const data = await upsertCompetitor(
+        ctx,
+        id as string | undefined,
+        competitorData as Parameters<typeof upsertCompetitor>[2],
+      );
+      return ok(
+        id
+          ? `Competitor updated: ${JSON.stringify(data, null, 2)}`
+          : `Competitor added: ${JSON.stringify(data, null, 2)}`,
+      );
     },
 
     async log_insight(client, args) {
+      const ctx = toOrgContext(client);
       const { org_id: _, ...insightData } = args;
-      const { data, error } = await client
-        .from("mktg_insights")
-        .insert({ ...insightData, org_id: client.orgId })
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await createInsight(ctx, insightData as unknown as Parameters<typeof createInsight>[1]);
       return ok(`Insight logged: ${JSON.stringify(data, null, 2)}`);
     },
   },

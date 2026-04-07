@@ -1,5 +1,15 @@
 import type { ToolModule } from "./types.js";
 import { ok } from "./types.js";
+import { toOrgContext } from "../lib/supabase.js";
+import {
+  getTasksForOrg,
+  createTaskForOrg,
+  updateTaskForOrg,
+  transitionTaskStatus,
+  carryOverTasks,
+} from "@dothesenow/queries";
+import { getStrategyDocs } from "@dothesenow/queries";
+import { TransitionSource, type TaskStatus } from "@dothesenow/types";
 
 const ORG_ID_PROP = {
   org_id: {
@@ -100,7 +110,7 @@ export const dailyTasks: ToolModule = {
     {
       name: "update_daily_task",
       description:
-        "Update a daily task. Auto-sets completed_at when status changes to 'completed'.",
+        "Update a daily task. Status changes go through the state machine with audit trail. Non-status fields are updated directly.",
       inputSchema: {
         type: "object",
         properties: {
@@ -142,7 +152,7 @@ export const dailyTasks: ToolModule = {
     {
       name: "carry_over_tasks",
       description:
-        "Copy incomplete tasks (pending/in_progress) from a given date to today. Marks originals as 'carried_over'. Idempotent — already carried-over tasks are skipped.",
+        "Copy incomplete tasks (pending/in_progress) from a given date to today. Marks originals as 'carried_over' with audit trail. Atomic — all or nothing.",
       inputSchema: {
         type: "object",
         properties: {
@@ -159,111 +169,81 @@ export const dailyTasks: ToolModule = {
 
   handlers: {
     async get_daily_tasks(client, args) {
+      const ctx = toOrgContext(client);
       const date = (args.date as string) || todayString();
-
-      let query = client
-        .from("dtn_daily_tasks")
-        .select("*")
-        .eq("org_id", client.orgId)
-        .eq("scheduled_date", date);
-
-      if (args.executor_type)
-        query = query.eq("executor_type", args.executor_type);
-      if (args.status) query = query.eq("status", args.status);
-      if (args.assigned_to)
-        query = query.eq("assigned_to", args.assigned_to);
-      if (args.priority) query = query.eq("priority", args.priority);
-
-      const { data, error } = await query.order("created_at", {
-        ascending: true,
-      });
-      if (error) throw error;
+      const data = await getTasksForOrg(ctx, {
+        scheduled_date: date,
+        executor_type: args.executor_type,
+        status: args.status,
+        assigned_to: args.assigned_to as string | undefined,
+        priority: args.priority,
+      } as Parameters<typeof getTasksForOrg>[1]);
       return ok(JSON.stringify(data, null, 2));
     },
 
     async create_daily_task(client, args) {
-      const {
-        org_id: _,
-        ...taskData
-      } = args;
-
-      const { data, error } = await client
-        .from("dtn_daily_tasks")
-        .insert({
-          ...taskData,
-          org_id: client.orgId,
-          scheduled_date:
-            (taskData.scheduled_date as string) || todayString(),
-          generated_by: "claude",
-        })
-        .select()
-        .single();
-      if (error) throw error;
+      const ctx = toOrgContext(client);
+      const { org_id: _, ...taskData } = args;
+      const data = await createTaskForOrg(ctx, {
+        ...taskData,
+        scheduled_date: (taskData.scheduled_date as string) || todayString(),
+        generated_by: "claude",
+      } as unknown as Parameters<typeof createTaskForOrg>[1]);
       return ok(`Task created: ${JSON.stringify(data, null, 2)}`);
     },
 
     async update_daily_task(client, args) {
-      const { org_id: _, task_id, ...updates } = args;
+      const ctx = toOrgContext(client);
+      const { org_id: _, task_id, status, ...fieldUpdates } = args;
+      const taskId = task_id as string;
 
-      const updatePayload: Record<string, unknown> = { ...updates };
-      if (updates.status === "completed") {
-        updatePayload.completed_at = new Date().toISOString();
+      // Status change goes through the state machine first
+      if (status) {
+        await transitionTaskStatus(
+          ctx,
+          taskId,
+          status as TaskStatus,
+          TransitionSource.Mcp,
+        );
       }
 
-      const { data, error } = await client
-        .from("dtn_daily_tasks")
-        .update(updatePayload)
-        .eq("id", task_id as string)
-        .eq("org_id", client.orgId)
-        .select()
-        .single();
-      if (error) throw error;
-      return ok(`Task updated: ${JSON.stringify(data, null, 2)}`);
+      // Apply non-status field updates if any
+      const nonEmpty = Object.keys(fieldUpdates).length > 0;
+      if (nonEmpty) {
+        const data = await updateTaskForOrg(ctx, taskId, fieldUpdates as Parameters<typeof updateTaskForOrg>[2]);
+        return ok(`Task updated: ${JSON.stringify(data, null, 2)}`);
+      }
+
+      return ok(`Task status updated to: ${status}`);
     },
 
     async generate_daily_tasks(client, args) {
+      const ctx = toOrgContext(client);
       const targetDate = (args.date as string) || todayString();
       const yesterday = yesterdayString();
 
-      // Fetch active strategy docs
-      const { data: strategies, error: stratErr } = await client
-        .from("mktg_strategy_docs")
-        .select("doc_type, title, content")
-        .eq("org_id", client.orgId)
-        .eq("is_active", true);
-      if (stratErr) throw stratErr;
-
-      // Fetch yesterday's tasks with outcomes
-      const { data: yesterdayTasks, error: taskErr } = await client
-        .from("dtn_daily_tasks")
-        .select("*")
-        .eq("org_id", client.orgId)
-        .eq("scheduled_date", yesterday);
-      if (taskErr) throw taskErr;
+      const strategies = await getStrategyDocs(ctx, { is_active: true });
+      const yesterdayTasks = await getTasksForOrg(ctx, { scheduled_date: yesterday });
 
       const tasks = yesterdayTasks ?? [];
       const result = {
         targetDate,
-        strategies: strategies ?? [],
+        strategies: strategies.map((s) => ({
+          doc_type: s.doc_type,
+          title: s.title,
+          content: s.content,
+        })),
         yesterdayTasks: {
-          completed: tasks.filter(
-            (t: Record<string, unknown>) => t.status === "completed",
-          ),
-          failed: tasks.filter(
-            (t: Record<string, unknown>) => t.status === "failed",
-          ),
-          skipped: tasks.filter(
-            (t: Record<string, unknown>) => t.status === "skipped",
-          ),
+          completed: tasks.filter((t) => t.status === "completed"),
+          failed: tasks.filter((t) => t.status === "failed"),
+          skipped: tasks.filter((t) => t.status === "skipped"),
           carriedOver: tasks.filter(
-            (t: Record<string, unknown>) =>
-              t.status === "pending" || t.status === "in_progress",
+            (t) => t.status === "pending" || t.status === "in_progress",
           ),
         },
         suggestedFocus: [] as string[],
       };
 
-      // Auto-derive suggested focus areas
       if (result.yesterdayTasks.failed.length > 0) {
         result.suggestedFocus.push(
           "Retry or reassign failed tasks from yesterday",
@@ -279,52 +259,16 @@ export const dailyTasks: ToolModule = {
     },
 
     async carry_over_tasks(client, args) {
+      const ctx = toOrgContext(client);
       const fromDate = (args.from_date as string) || yesterdayString();
-      const today = todayString();
+      const result = await carryOverTasks(ctx, fromDate, todayString(), TransitionSource.Mcp);
 
-      // Atomic: mark originals as carried_over and return them
-      const { data: marked, error: markError } = await client
-        .from("dtn_daily_tasks")
-        .update({ status: "carried_over" })
-        .eq("org_id", client.orgId)
-        .eq("scheduled_date", fromDate)
-        .in("status", ["pending", "in_progress"])
-        .select();
-      if (markError) throw markError;
-
-      if (!marked || marked.length === 0) {
+      if (result.carried_count === 0) {
         return ok("No incomplete tasks to carry over.");
       }
 
-      // Create copies for today
-      const copies = marked.map((task: Record<string, unknown>) => ({
-        org_id: client.orgId,
-        department_id: task.department_id,
-        created_by: task.created_by,
-        assigned_to: task.assigned_to,
-        title: task.title,
-        description: task.description,
-        task_type: task.task_type,
-        priority: task.priority,
-        executor_type: task.executor_type,
-        executor_config: task.executor_config,
-        mktg_task_id: task.mktg_task_id,
-        status: "pending",
-        scheduled_date: today,
-        source_strategy: task.source_strategy,
-        campaign_id: task.campaign_id,
-        contact_id: task.contact_id,
-        generated_by: task.generated_by,
-        generation_context: task.generation_context,
-      }));
-
-      const { error: insertError } = await client
-        .from("dtn_daily_tasks")
-        .insert(copies);
-      if (insertError) throw insertError;
-
       return ok(
-        `Carried over ${marked.length} task(s) from ${fromDate} to ${today}.`,
+        `Carried over ${result.carried_count} task(s) from ${result.from_date} to ${result.to_date}.`,
       );
     },
   },
