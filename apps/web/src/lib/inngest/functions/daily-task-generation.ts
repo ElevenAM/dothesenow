@@ -1,7 +1,8 @@
 import { inngest } from "../client";
 import { filterOrgsByLocalHour } from "../utils";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getActiveOrgs } from "@dothesenow/queries";
+import { getActiveOrgs, getCreditBalance } from "@dothesenow/queries";
+import type { OrgContext } from "@dothesenow/queries";
 
 /**
  * Daily task generation — stub for Phase 6.
@@ -29,6 +30,13 @@ export const dailyTaskGeneration = inngest.createFunction(
 
     for (const org of orgs) {
       await step.run(`generate-org-${org.id}`, async () => {
+        const ctx: OrgContext = { client: supabase, orgId: org.id };
+        const { remaining } = await getCreditBalance(ctx);
+        if (remaining <= 0) {
+          console.log(`[inngest:daily-gen] Org ${org.id} has zero credits — skipping generation`);
+          return;
+        }
+
         console.log("[inngest:daily-gen] Generation requested for org:", org.id);
         // Stub: real LLM pipeline deferred to Phase 6
       });

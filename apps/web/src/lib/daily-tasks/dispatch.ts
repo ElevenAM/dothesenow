@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inngest } from "@/lib/inngest/client";
+import { getCreditBalance } from "@dothesenow/queries";
+import type { OrgContext } from "@dothesenow/queries";
 import type { DailyTask } from "@dothesenow/types";
 
 type DispatchableTask = Pick<
@@ -129,6 +131,23 @@ async function doDispatch(task: DispatchableTask): Promise<void> {
   const supabase = createAdminClient();
 
   try {
+    // Check credit balance before dispatching AI executors
+    if (task.executor_type === "claude_api") {
+      const ctx: OrgContext = { client: supabase, orgId: task.org_id };
+      const { remaining } = await getCreditBalance(ctx);
+      if (remaining <= 0) {
+        await supabase
+          .from("dtn_daily_tasks")
+          .update({
+            status: "pending",
+            outcome_notes: "Insufficient credits — add credits in Settings > Billing to enable AI execution.",
+          })
+          .eq("id", task.id)
+          .eq("org_id", task.org_id);
+        return;
+      }
+    }
+
     // Check if the executor is actually configured before dispatching
     const unavailable = getUnavailableReason(task.executor_type);
     if (unavailable) {

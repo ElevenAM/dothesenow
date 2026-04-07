@@ -51,23 +51,3 @@ export function filterOrgsByLocalHour(
     return hour === targetHour;
   });
 }
-
-// ------------------------------------------------------------------
-// Credit stubs — signatures match Phase 5's packages/queries/credits.ts
-// so wiring is a find-and-replace of imports.
-// ------------------------------------------------------------------
-
-/** Reserve credits before executing an AI task. Stub: always succeeds. */
-export async function reserveCredits(
-  _orgId: string,
-  _amount: number,
-  _reason: string,
-): Promise<string> {
-  return "stub-ledger-id";
-}
-
-/** Confirm a previously reserved credit charge. Stub: no-op. */
-export async function confirmCredits(_ledgerId: string): Promise<void> {}
-
-/** Refund a previously reserved credit charge. Stub: no-op. */
-export async function refundCredits(_ledgerId: string): Promise<void> {}

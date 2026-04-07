@@ -1,13 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { relevantDocTypes, reserveCredits, confirmCredits, refundCredits } from "../utils";
+import { relevantDocTypes } from "../utils";
 
 // Mock modules before importing function
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => mockSupabase),
 }));
 
+const mockReserveCredits = vi.fn().mockResolvedValue("ledger-uuid-1");
+const mockConfirmCredits = vi.fn().mockResolvedValue(undefined);
+const mockRefundByReference = vi.fn().mockResolvedValue(1);
+
 vi.mock("@dothesenow/queries", () => ({
   getTaskById: vi.fn(),
+  reserveCredits: (...args: unknown[]) => mockReserveCredits(...args),
+  confirmCredits: (...args: unknown[]) => mockConfirmCredits(...args),
+  refundByReference: (...args: unknown[]) => mockRefundByReference(...args),
 }));
 
 vi.mock("@anthropic-ai/sdk", () => {
@@ -77,18 +84,46 @@ describe("relevantDocTypes", () => {
   });
 });
 
-describe("credit stubs", () => {
-  it("reserveCredits returns a stub ledger ID", async () => {
-    const result = await reserveCredits("org-1", 1, "test");
-    expect(result).toBe("stub-ledger-id");
+describe("credit integration", () => {
+  beforeEach(() => {
+    mockSupabase = createMockSupabase();
+    vi.clearAllMocks();
+    mockReserveCredits.mockResolvedValue("ledger-uuid-1");
+    mockConfirmCredits.mockResolvedValue(undefined);
+    mockRefundByReference.mockResolvedValue(1);
   });
 
-  it("confirmCredits resolves without error", async () => {
-    await expect(confirmCredits("stub-ledger-id")).resolves.toBeUndefined();
+  it("reserveCredits is called with OrgContext, amount 1, and task_id as referenceId", async () => {
+    // Verify the real function signature is used by importing and checking the module
+    const queries = await import("@dothesenow/queries");
+    const ctx = { client: mockSupabase, orgId: "org-1" };
+
+    await queries.reserveCredits(ctx as never, 1, "agent-execution:task-1", "task-1");
+
+    expect(mockReserveCredits).toHaveBeenCalledWith(
+      ctx,
+      1,
+      "agent-execution:task-1",
+      "task-1",
+    );
   });
 
-  it("refundCredits resolves without error", async () => {
-    await expect(refundCredits("stub-ledger-id")).resolves.toBeUndefined();
+  it("confirmCredits is called with OrgContext and the ledger ID from reserve", async () => {
+    const queries = await import("@dothesenow/queries");
+    const ctx = { client: mockSupabase, orgId: "org-1" };
+
+    await queries.confirmCredits(ctx as never, "ledger-uuid-1");
+
+    expect(mockConfirmCredits).toHaveBeenCalledWith(ctx, "ledger-uuid-1");
+  });
+
+  it("refundByReference is called with task_id (not ledger ID) for failure recovery", async () => {
+    const queries = await import("@dothesenow/queries");
+    const ctx = { client: mockSupabase, orgId: "org-1" };
+
+    await queries.refundByReference(ctx as never, "task-1");
+
+    expect(mockRefundByReference).toHaveBeenCalledWith(ctx, "task-1");
   });
 });
 

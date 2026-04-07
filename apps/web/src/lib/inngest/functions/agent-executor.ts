@@ -1,7 +1,7 @@
 import { inngest } from "../client";
-import { relevantDocTypes, reserveCredits, confirmCredits, refundCredits } from "../utils";
+import { relevantDocTypes } from "../utils";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getTaskById } from "@dothesenow/queries";
+import { getTaskById, reserveCredits, confirmCredits, refundByReference } from "@dothesenow/queries";
 import type { OrgContext } from "@dothesenow/queries";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -11,10 +11,10 @@ import Anthropic from "@anthropic-ai/sdk";
  * 6-step flow:
  * 1. Load task (with idempotency guard)
  * 2. Load strategy context
- * 3. Reserve credits (stub)
+ * 3. Reserve credits
  * 4. Call Claude API
  * 5. Create approval entry + update task status
- * 6. Confirm credits (stub)
+ * 6. Confirm credits
  *
  * On failure: mark task failed + refund credits.
  */
@@ -44,7 +44,12 @@ export const agentExecutor = inngest.createFunction(
         console.error(`[inngest:agent] Also failed to mark task ${task_id} as failed:`, dbError.message);
       }
 
-      await refundCredits("stub-ledger-id");
+      const ctx: OrgContext = { client: supabase, orgId: org_id };
+      try {
+        await refundByReference(ctx, task_id);
+      } catch (refundErr) {
+        console.error(`[inngest:agent] Credit refund failed for task ${task_id}:`, refundErr);
+      }
     },
   },
   async ({ event, step }) => {
@@ -88,10 +93,11 @@ export const agentExecutor = inngest.createFunction(
         .join("\n\n---\n\n");
     });
 
-    // Step 3: Reserve credits (stub — wired in Phase 5)
+    // Step 3: Reserve credits
     const ledgerId = await step.run("reserve-credits", async () => {
       console.log("[inngest:agent] reserve-credits", { taskId: task_id, orgId: org_id });
-      return reserveCredits(org_id, 1, `agent-execution:${task_id}`);
+      const ctx: OrgContext = { client: supabase, orgId: org_id };
+      return reserveCredits(ctx, 1, `agent-execution:${task_id}`, task_id);
     });
 
     // Step 4: Call Claude API
@@ -199,10 +205,11 @@ Please generate the complete content for this task. Format it clearly so a human
       }
     });
 
-    // Step 6: Confirm credits (stub — wired in Phase 5)
+    // Step 6: Confirm credits
     await step.run("confirm-credits", async () => {
       console.log("[inngest:agent] confirm-credits", { taskId: task_id, ledgerId });
-      await confirmCredits(ledgerId);
+      const ctx: OrgContext = { client: supabase, orgId: org_id };
+      await confirmCredits(ctx, ledgerId);
     });
 
     return { success: true, task_id, duration_ms: claudeResult.duration_ms };

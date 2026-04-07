@@ -21,11 +21,19 @@ vi.mock("@/lib/supabase/admin", () => ({
   })),
 }));
 
+// Mock credit balance check
+const mockGetCreditBalance = vi.fn().mockResolvedValue({ remaining: 100, resetAt: null });
+vi.mock("@dothesenow/queries", () => ({
+  getCreditBalance: (...args: unknown[]) => mockGetCreditBalance(...args),
+}));
+
 describe("dispatch.ts Inngest migration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Set required env vars
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+    // Default: org has credits
+    mockGetCreditBalance.mockResolvedValue({ remaining: 100, resetAt: null });
   });
 
   it("dispatchToClaude sends correct Inngest event shape", async () => {
@@ -117,5 +125,74 @@ describe("dispatch.ts Inngest migration", () => {
 
     // Neither inngest nor fetch should be called for self tasks
     expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("claude_api dispatch with zero credits sets task to pending with credit message", async () => {
+    mockGetCreditBalance.mockResolvedValue({ remaining: 0, resetAt: null });
+
+    const { dispatchTask } = await import("../../daily-tasks/dispatch");
+
+    await dispatchTask({
+      id: "task-no-credits",
+      org_id: "org-broke",
+      title: "AI Task",
+      description: "Should be blocked",
+      task_type: "create",
+      priority: "medium",
+      executor_type: "claude_api",
+      executor_config: null,
+      department_id: "dept-1",
+      scheduled_date: "2026-04-07",
+      source_strategy: null,
+      campaign_id: null,
+      contact_id: null,
+    });
+
+    // Credit check should have been called
+    expect(mockGetCreditBalance).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-broke" }),
+    );
+
+    // Task should be updated to pending with credit message
+    expect(mockUpdate).toHaveBeenCalled();
+
+    // Inngest should NOT have been called
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("claude_api dispatch with positive credits proceeds normally", async () => {
+    mockGetCreditBalance.mockResolvedValue({ remaining: 50, resetAt: null });
+
+    const { dispatchTask } = await import("../../daily-tasks/dispatch");
+
+    await dispatchTask({
+      id: "task-with-credits",
+      org_id: "org-funded",
+      title: "AI Task",
+      description: "Should proceed",
+      task_type: "create",
+      priority: "medium",
+      executor_type: "claude_api",
+      executor_config: null,
+      department_id: "dept-1",
+      scheduled_date: "2026-04-07",
+      source_strategy: null,
+      campaign_id: null,
+      contact_id: null,
+    });
+
+    // Credit check was called
+    expect(mockGetCreditBalance).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: "org-funded" }),
+    );
+
+    // Inngest event should have been sent (dispatch proceeded)
+    expect(mockSend).toHaveBeenCalledWith({
+      name: "task/agent.execute",
+      data: {
+        task_id: "task-with-credits",
+        org_id: "org-funded",
+      },
+    });
   });
 });
