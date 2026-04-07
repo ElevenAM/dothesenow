@@ -173,6 +173,12 @@ export interface Organization {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   settings: Json | null;
+  industry: string | null;
+  stage: string | null;
+  budget_tier: string | null;
+  growth_motion: string | null;
+  timezone: string | null;
+  onboarding_completed_at: string | null;
   created_at: string | null;
   updated_at: string | null;
 }

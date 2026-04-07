@@ -161,6 +161,43 @@ export const CampaignType = {
 } as const;
 export type CampaignType = (typeof CampaignType)[keyof typeof CampaignType];
 
+// ─── Organization Profile Enums ─────────────────────────────
+
+export const Industry = {
+  B2bSaas: "b2b_saas",
+  DevTools: "dev_tools",
+  DtcEcommerce: "dtc_ecommerce",
+  Fintech: "fintech",
+  Marketplace: "marketplace",
+  Healthtech: "healthtech",
+  Other: "other",
+} as const;
+export type Industry = (typeof Industry)[keyof typeof Industry];
+
+export const BudgetTier = {
+  Bootstrap: "bootstrap",
+  Growth: "growth",
+  Scale: "scale",
+} as const;
+export type BudgetTier = (typeof BudgetTier)[keyof typeof BudgetTier];
+
+export const Stage = {
+  Idea: "idea",
+  Early: "early",
+  Growth: "growth",
+  Scaling: "scaling",
+} as const;
+export type Stage = (typeof Stage)[keyof typeof Stage];
+
+export const GrowthMotion = {
+  ProductLed: "product_led",
+  SalesLed: "sales_led",
+  ContentLed: "content_led",
+  CommunityLed: "community_led",
+  PaidAcquisition: "paid_acquisition",
+} as const;
+export type GrowthMotion = (typeof GrowthMotion)[keyof typeof GrowthMotion];
+
 // ─── Membership Enums ────────────────────────────────────────
 
 export const MemberRole = {
