@@ -147,12 +147,19 @@ export const approvals: ToolModule = {
 
       // If linked to a task, transition to waiting_approval via state machine
       if (args.daily_task_id) {
-        await transitionTaskStatus(
-          ctx,
-          args.daily_task_id as string,
-          "waiting_approval",
-          TransitionSource.Mcp,
-        );
+        try {
+          await transitionTaskStatus(
+            ctx,
+            args.daily_task_id as string,
+            "waiting_approval",
+            TransitionSource.Mcp,
+          );
+        } catch (transitionError) {
+          const msg = transitionError instanceof Error ? transitionError.message : String(transitionError);
+          throw new Error(
+            `Approval item created (id: ${data.id}) but linked task could not transition to waiting_approval: ${msg}. The approval exists but task status is unchanged.`,
+          );
+        }
       }
 
       return ok(JSON.stringify(data, null, 2));

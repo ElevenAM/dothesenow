@@ -199,6 +199,7 @@ export const dailyTasks: ToolModule = {
       const taskId = task_id as string;
 
       // Status change goes through the state machine first
+      let statusChanged = false;
       if (status) {
         await transitionTaskStatus(
           ctx,
@@ -206,12 +207,23 @@ export const dailyTasks: ToolModule = {
           status as TaskStatus,
           TransitionSource.Mcp,
         );
+        statusChanged = true;
       }
 
       // Apply non-status field updates if any
       const nonEmpty = Object.keys(fieldUpdates).length > 0;
       if (nonEmpty) {
-        await updateTaskForOrg(ctx, taskId, fieldUpdates as Parameters<typeof updateTaskForOrg>[2]);
+        try {
+          await updateTaskForOrg(ctx, taskId, fieldUpdates as Parameters<typeof updateTaskForOrg>[2]);
+        } catch (fieldError) {
+          if (statusChanged) {
+            const msg = fieldError instanceof Error ? fieldError.message : String(fieldError);
+            throw new Error(
+              `Status changed to '${status}' but field updates failed: ${msg}. The task status IS updated — retry field changes only.`,
+            );
+          }
+          throw fieldError;
+        }
       }
 
       // Always return the full updated task for consistent response format
