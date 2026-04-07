@@ -236,12 +236,13 @@ export interface CreateTaskInput {
   generation_context?: Json | null;
 }
 
-/** Field-only updates. Use transitionTaskStatus() for status changes. */
+/** Field updates. Pass `status` to trigger a state-machine transition via transitionTaskStatus(). */
 export interface UpdateTaskInput {
   title?: string;
   description?: string | null;
   task_type?: TaskType;
   priority?: Priority;
+  status?: TaskStatus;
   executor_type?: ExecutorType;
   executor_config?: Json | null;
   scheduled_date?: string;

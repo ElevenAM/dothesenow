@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createRateLimiter, rateLimitResponse } from "@/lib/rate-limit";
+import { relevantDocTypes } from "@/lib/inngest/utils";
 import Anthropic from "@anthropic-ai/sdk";
 import { timingSafeEqual } from "crypto";
 
@@ -26,21 +27,12 @@ function verifySecret(request: Request): boolean {
   }
 }
 
-/** Select strategy doc types relevant to the task type */
-function relevantDocTypes(taskType: string): string[] {
-  switch (taskType) {
-    case "create":
-      return ["brand_voice", "content_calendar", "personas", "master_strategy"];
-    case "outreach":
-      return ["value_props", "personas", "positioning", "master_strategy"];
-    case "analysis":
-      return ["competitive_analysis", "master_strategy", "positioning"];
-    default:
-      return ["master_strategy", "brand_voice"];
-  }
-}
+// relevantDocTypes() imported from @/lib/inngest/utils
 
+/** @deprecated Use Inngest agent-executor instead. This route is kept for backward compatibility. */
 export async function POST(request: Request) {
+  console.warn("[DEPRECATED] Direct Claude executor route called — use Inngest dispatch");
+
   if (!verifySecret(request)) {
     return new Response("Unauthorized", { status: 401 });
   }

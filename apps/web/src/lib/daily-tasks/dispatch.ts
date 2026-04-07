@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inngest } from "@/lib/inngest/client";
 import type { DailyTask } from "@dothesenow/types";
 
 type DispatchableTask = Pick<
@@ -27,9 +28,6 @@ function getUnavailableReason(executorType: string): string | null {
     if (!process.env.ANTHROPIC_API_KEY) {
       return "Claude API is not configured yet — ANTHROPIC_API_KEY is missing. Task kept as pending for manual completion.";
     }
-    if (!process.env.EXECUTOR_INTERNAL_SECRET) {
-      return "Claude executor secret is not configured yet — EXECUTOR_INTERNAL_SECRET is missing. Task kept as pending for manual completion.";
-    }
   }
   if (executorType === "n8n") {
     if (!process.env.N8N_WEBHOOK_SECRET) {
@@ -47,7 +45,7 @@ export function getExecutorAvailability(): Record<string, { available: boolean; 
   return {
     self: { available: true },
     freelancer: { available: true },
-    claude_api: process.env.ANTHROPIC_API_KEY && process.env.EXECUTOR_INTERNAL_SECRET
+    claude_api: process.env.ANTHROPIC_API_KEY
       ? { available: true }
       : { available: false, hint: "Requires ANTHROPIC_API_KEY — not configured yet" },
     n8n: process.env.N8N_WEBHOOK_SECRET
@@ -213,24 +211,11 @@ async function dispatchToN8n(task: DispatchableTask): Promise<void> {
 }
 
 async function dispatchToClaude(task: DispatchableTask): Promise<void> {
-  const secret = process.env.EXECUTOR_INTERNAL_SECRET;
-  if (!secret) {
-    throw new Error("EXECUTOR_INTERNAL_SECRET is not configured");
-  }
-
-  const response = await fetch(`${getBaseUrl()}/api/executors/claude`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-executor-secret": secret,
-    },
-    body: JSON.stringify({
+  await inngest.send({
+    name: "task/agent.execute",
+    data: {
       task_id: task.id,
       org_id: task.org_id,
-    }),
+    },
   });
-
-  if (!response.ok) {
-    throw new Error(`Claude executor returned ${response.status}: ${response.statusText}`);
-  }
 }

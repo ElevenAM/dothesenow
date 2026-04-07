@@ -6,6 +6,25 @@ import { QueryError } from "./errors.js";
 const TABLE = "dtn_organizations";
 
 /**
+ * Get all active orgs with their timezone.
+ * Used by Inngest cron functions for timezone-based fan-out.
+ * Does not require OrgContext since it's a cross-org admin operation.
+ *
+ * Note: dtn_organizations does not have soft-delete (deleted_at) —
+ * see migration 012. All rows in the table are considered active.
+ */
+export async function getActiveOrgs(
+  client: SupabaseClient,
+): Promise<Pick<Organization, "id" | "timezone">[]> {
+  const { data, error } = await client
+    .from(TABLE)
+    .select("id, timezone");
+
+  if (error) throw new QueryError(error.message, TABLE, "getActiveOrgs", "all", error);
+  return (data ?? []) as Pick<Organization, "id" | "timezone">[];
+}
+
+/**
  * Get org by ID. Does not require OrgContext since the caller
  * may not yet know which org they belong to.
  */
