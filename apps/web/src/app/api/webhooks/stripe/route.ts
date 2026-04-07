@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe/client";
 import { planFromPriceId } from "@/lib/stripe/config";
+import { PLAN_LIMITS, type PlanTier } from "@dothesenow/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -41,12 +42,17 @@ function mapStripeStatus(
       return "canceled";
     case "incomplete":
     case "paused":
-      // These are transitional states — don't downgrade the user
       return null;
     default:
       console.warn(`[stripe-webhook] Unknown subscription status: "${stripeStatus}" — skipping plan_status update`);
       return null;
   }
+}
+
+/** Get the credit allocation for a plan tier. Returns 0 for unknown plans. */
+function creditsForPlan(plan: string): number {
+  const limits = PLAN_LIMITS[plan as PlanTier];
+  return limits?.credits ?? 0;
 }
 
 export async function POST(request: Request) {
@@ -129,7 +135,8 @@ export async function POST(request: Request) {
           break;
         }
 
-        // Update org with Stripe IDs and plan
+        // Update org with Stripe IDs, plan, and initial credit allocation
+        const credits = creditsForPlan(plan);
         await supabase
           .from("dtn_organizations")
           .update({
@@ -137,6 +144,8 @@ export async function POST(request: Request) {
             stripe_subscription_id: subscriptionId,
             plan: plan,
             plan_status: "active",
+            ai_credits_remaining: credits,
+            ai_credits_reset_at: new Date().toISOString(),
           })
           .eq("id", orgId);
 
@@ -176,7 +185,7 @@ export async function POST(request: Request) {
         // Find the org by subscription ID
         const { data: org } = await supabase
           .from("dtn_organizations")
-          .select("id")
+          .select("id, plan, ai_credits_remaining")
           .eq("stripe_subscription_id", subscriptionId)
           .single();
 
@@ -188,13 +197,20 @@ export async function POST(request: Request) {
           break;
         }
 
-        // Update org plan and status (skip plan_status if unknown Stripe status)
-        const orgUpdate: Record<string, string> = {};
+        // Build update payload
+        const orgUpdate: Record<string, unknown> = {};
         if (status) {
           orgUpdate.plan_status = status;
         }
         if (plan) {
           orgUpdate.plan = plan;
+
+          // If plan changed (upgrade/downgrade), adjust credits
+          if (plan !== org.plan) {
+            const newCredits = creditsForPlan(plan);
+            orgUpdate.ai_credits_remaining = newCredits;
+            orgUpdate.ai_credits_reset_at = new Date().toISOString();
+          }
         }
         if (Object.keys(orgUpdate).length > 0) {
           await supabase
@@ -207,7 +223,7 @@ export async function POST(request: Request) {
         const periodStart = firstItem?.current_period_start;
         const periodEnd = firstItem?.current_period_end;
 
-        // Update subscription record (skip status if unknown)
+        // Update subscription record
         const subUpdate: Record<string, string | null> = {
           current_period_start: periodStart
             ? new Date(periodStart * 1000).toISOString()
@@ -253,6 +269,8 @@ export async function POST(request: Request) {
               plan: "free",
               plan_status: "canceled",
               stripe_subscription_id: null,
+              ai_credits_remaining: 0,
+              ai_credits_reset_at: null,
             })
             .eq("id", org.id);
         }
@@ -291,6 +309,9 @@ export async function POST(request: Request) {
         const subscriptionId = getSubscriptionIdFromInvoice(invoice);
 
         if (subscriptionId) {
+          // Only reset credits on recurring billing cycles, not prorations
+          const billingReason = invoice.billing_reason;
+
           // Restore active status (payment recovered after past_due)
           await supabase
             .from("dtn_organizations")
@@ -301,6 +322,26 @@ export async function POST(request: Request) {
             .from("dtn_subscriptions")
             .update({ status: "active" })
             .eq("stripe_subscription_id", subscriptionId);
+
+          // Reset credits only on subscription cycle renewals
+          if (billingReason === "subscription_cycle") {
+            const { data: org } = await supabase
+              .from("dtn_organizations")
+              .select("id, plan")
+              .eq("stripe_subscription_id", subscriptionId)
+              .single();
+
+            if (org) {
+              const credits = creditsForPlan(org.plan);
+              await supabase
+                .from("dtn_organizations")
+                .update({
+                  ai_credits_remaining: credits,
+                  ai_credits_reset_at: new Date().toISOString(),
+                })
+                .eq("id", org.id);
+            }
+          }
         }
 
         break;

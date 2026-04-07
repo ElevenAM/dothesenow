@@ -25,10 +25,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 
 export const PLAN_HIERARCHY: PlanTier[] = ["free", "starter", "growth", "team", "enterprise"];
 
-// Price ID lookup — only active tiers have price IDs.
-// Phase 4B will populate the remaining tiers.
+// Price ID lookup — only self-serve tiers have price IDs.
+// Enterprise is contact-sales only. Free has no price.
 export const PLAN_PRICE_IDS: Partial<Record<PlanTier, string>> = {
-  starter: "price_1THdJURwniZbeb16vKT3tueN", // current "premium" price
+  starter: "price_1THdJURwniZbeb16vKT3tueN",
+  growth: "price_1TJUq9RwniZbeb16LnPXlJyZ",
+  team: "price_1TJUqZRwniZbeb16F2LZuKab",
 };
 
 export function canAccessFeature(current: PlanTier, required: PlanTier): boolean {

@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { PLANS, type PlanId } from "@/lib/stripe/config";
-import { UpgradeButton } from "@/components/billing/upgrade-button";
+import { type PlanId, PLANS } from "@/lib/stripe/config";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
+import { PlanComparison } from "@/components/billing/plan-comparison";
+import { CreditUsage } from "@/components/billing/credit-usage";
+import { getCreditUsage } from "@/lib/credits/actions";
 import {
   Card,
   CardContent,
@@ -60,6 +62,15 @@ export default async function BillingPage() {
     subscription = data;
   }
 
+  // Get credit usage
+  let creditUsage: { remaining: number; total: number; resetAt: string | null } | null = null;
+  try {
+    const usage = await getCreditUsage();
+    creditUsage = { remaining: usage.remaining, total: usage.total, resetAt: usage.resetAt };
+  } catch {
+    // Graceful degradation — credits section won't render
+  }
+
   const currentPlan = PLANS[org.plan] || PLANS.free;
   const isOwnerOrAdmin =
     membership.role === "owner" || membership.role === "admin";
@@ -68,7 +79,7 @@ export default async function BillingPage() {
     <div className="space-y-8 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">Billing</h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-[var(--fgColor-muted)] mt-1">
           Manage your subscription and billing details
         </p>
       </div>
@@ -97,7 +108,7 @@ export default async function BillingPage() {
         </CardHeader>
         {subscription && (
           <CardContent>
-            <div className="text-sm text-muted-foreground space-y-1">
+            <div className="text-sm text-[var(--fgColor-muted)] space-y-1">
               {subscription.current_period_end && (
                 <p>
                   Current period ends:{" "}
@@ -113,7 +124,7 @@ export default async function BillingPage() {
                 </p>
               )}
               {subscription.cancel_at && (
-                <p className="text-[var(--label-yellow-fg)]">
+                <p className="text-[var(--fgColor-attention)]">
                   Cancels on:{" "}
                   {new Date(subscription.cancel_at).toLocaleDateString(
                     "en-US",
@@ -132,84 +143,31 @@ export default async function BillingPage() {
 
       {/* Past Due Warning */}
       {org.plan_status === "past_due" && (
-        <div className="rounded-md border border-[var(--label-yellow-fg)]/20 bg-[var(--label-yellow-bg)] p-4">
-          <p className="text-sm font-medium text-[var(--label-yellow-fg)]">
+        <div className="rounded-md border border-[var(--fgColor-attention)]/20 bg-[var(--bgColor-attention-muted)] p-4">
+          <p className="text-sm font-medium text-[var(--fgColor-attention)]">
             Your payment failed. Please update your payment method to avoid
             losing access to premium features.
           </p>
         </div>
       )}
 
-      {/* Plan Comparison */}
-      {isOwnerOrAdmin && (
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Plans</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {(Object.entries(PLANS) as [PlanId, (typeof PLANS)[PlanId]][]).map(
-              ([planId, plan]) => (
-                <Card
-                  key={planId}
-                  className={
-                    org.plan === planId
-                      ? "border-2 border-foreground"
-                      : undefined
-                  }
-                >
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>{plan.name}</CardTitle>
-                      {org.plan === planId && (
-                        <Badge variant="secondary">Current</Badge>
-                      )}
-                    </div>
-                    <CardDescription>{plan.description}</CardDescription>
-                    <div className="pt-2">
-                      <span className="text-3xl font-bold">
-                        ${plan.monthlyPrice}
-                      </span>
-                      {plan.monthlyPrice > 0 && (
-                        <span className="text-muted-foreground ml-1">/month</span>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 mb-6">
-                      {plan.features.map((feature) => (
-                        <li
-                          key={feature}
-                          className="flex items-center text-sm text-muted-foreground"
-                        >
-                          <svg
-                            className="w-4 h-4 mr-2 text-success shrink-0"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                    <UpgradeButton planId={planId} currentPlan={org.plan} />
-                  </CardContent>
-                </Card>
-              )
-            )}
-          </div>
-        </div>
+      {/* Credit Usage */}
+      {creditUsage && (
+        <CreditUsage
+          remaining={creditUsage.remaining}
+          total={creditUsage.total}
+          resetAt={creditUsage.resetAt}
+        />
       )}
+
+      {/* Plan Comparison */}
+      {isOwnerOrAdmin && <PlanComparison currentPlan={org.plan} />}
 
       {/* Non-admin notice */}
       {!isOwnerOrAdmin && (
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-[var(--fgColor-muted)]">
               Only organization owners and admins can manage billing. Contact
               your organization admin to change plans.
             </p>

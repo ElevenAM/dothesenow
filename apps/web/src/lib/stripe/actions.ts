@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getStripe } from "@/lib/stripe/client";
 import { PLANS, type PlanId } from "@/lib/stripe/config";
+import { PLAN_PRICE_IDS } from "@dothesenow/types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -20,9 +21,14 @@ export async function createCheckoutSession(planId: PlanId) {
     throw new Error("Not authenticated");
   }
 
+  // Enterprise is contact-sales only
+  if (planId === "enterprise") {
+    throw new Error("Enterprise plans require contacting sales");
+  }
+
   const plan = PLANS[planId];
   if (!plan.priceId) {
-    throw new Error("Cannot subscribe to the free plan via checkout");
+    throw new Error("Cannot subscribe to this plan via checkout");
   }
 
   // Get user's org membership and verify role
@@ -50,6 +56,15 @@ export async function createCheckoutSession(planId: PlanId) {
     plan: string;
   };
 
+  // If already on a paid plan and wanting a different paid plan, redirect to portal
+  if (
+    org.stripe_customer_id &&
+    org.plan !== "free" &&
+    org.plan !== planId
+  ) {
+    return createPortalSession();
+  }
+
   // Get or create Stripe customer
   let customerId = org.stripe_customer_id;
 
@@ -60,8 +75,6 @@ export async function createCheckoutSession(planId: PlanId) {
     });
     customerId = customer.id;
 
-    // Save customer ID to org (use admin-level update via RLS service_role
-    // but the authenticated user owns this org so the update should work)
     await supabase
       .from("dtn_organizations")
       .update({ stripe_customer_id: customerId })
