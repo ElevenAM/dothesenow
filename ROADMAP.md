@@ -500,6 +500,12 @@ budget-selector.tsx    → shared enums from packages/types (Phase 1)
 - `packages/types/src/templates/b2b-saas-bootstrap.md`
 - `packages/types/src/templates/dev-tools-bootstrap.md`
 - `packages/types/src/templates/dtc-ecommerce-bootstrap.md`
+- `packages/types/src/templates/fintech-bootstrap.md`
+- `packages/types/src/templates/marketplace-bootstrap.md`
+- `packages/types/src/templates/healthtech-bootstrap.md`
+- `packages/types/src/templates/other-bootstrap.md`
+- `packages/types/src/templates/b2b-saas-growth.md`
+- `packages/types/src/templates/dtc-ecommerce-growth.md`
 - `supabase/migrations/014_org_profile_fields.sql`
 - `apps/web/src/lib/__tests__/onboarding-actions.test.ts`
 
@@ -512,7 +518,7 @@ budget-selector.tsx    → shared enums from packages/types (Phase 1)
 
 1. **3-step onboarding wizard** (reduced from 5 — per UX review):
    - Step 1: Org name and slug
-   - Step 2: Industry (B2B SaaS, Developer Tools, DTC eCommerce, Fintech, Marketplace, Healthtech, Other)
+   - Step 2: Industry (B2B SaaS, Developer Tools, DTC eCommerce, Fintech, Marketplace, Healthtech, Other — all have pre-built templates)
    - Step 3: Monthly marketing budget (Bootstrap <$1K, Growth $1K–$10K, Scale $10K+)
 
    Growth motion and stage are **inferred** from industry + budget (editable later in settings). Display: "We'll tailor your strategy — you can refine anytime."
@@ -525,11 +531,17 @@ budget-selector.tsx    → shared enums from packages/types (Phase 1)
    - `timezone TEXT DEFAULT 'America/New_York'`
    All nullable (existing orgs unaffected).
 
-3. **Strategy templates** — 3 pre-written markdown templates (not LLM-generated yet):
+3. **Strategy templates** — 9 pre-written markdown templates (not LLM-generated yet), covering all supported industries at Bootstrap tier + Growth tier for high-demand verticals:
    - B2B SaaS Bootstrap (content/SEO, LinkedIn, PLG focus)
    - Developer Tools Bootstrap (docs, community, OSS focus)
    - DTC eCommerce Bootstrap (email/SMS, Meta ads focus)
-   Each follows GACCS brief format with ICE-scored experiment backlog.
+   - Fintech Bootstrap (compliance content, partnerships, trust-building focus)
+   - Marketplace Bootstrap (supply-side outreach, demand-side SEO, referral focus)
+   - Healthtech Bootstrap (professional content, pilot programs, clinical credibility focus)
+   - Other/General Bootstrap (discovery-focused fallback for unlisted industries)
+   - B2B SaaS Growth (scaled channels, attribution model, $1K–$10K/mo budget)
+   - DTC eCommerce Growth (owned channel shift, ROAS optimization, $1K–$10K/mo budget)
+   Each follows GACCS brief format with ICE-scored experiment backlog (ICE = Impact × Confidence × Ease, range 1–1000). See `packages/prompts/reference/gaccs-brief-format.md` for the full GACCS section specification.
 
 4. **Strategy generator dialog** — Modal that reads org industry/budget → selects template → creates strategy doc. Pre-written templates for now; LLM generation comes Phase 6.
 
@@ -848,6 +860,12 @@ apps/web/src/lib/inngest/functions/strategy-generation.ts
 apps/web/src/components/strategy/strategy-generator-dialog.tsx → wired to Inngest
 ```
 
+**Pre-built reference materials** (already prepared in `packages/prompts/reference/`):
+- `gaccs-brief-format.md` — Exact output schema, section requirements, validation rules for generated strategy docs
+- `industry-cac-benchmarks.md` — CAC ranges by industry × channel, budget tier pruning rules
+- `framework-selection-matrix.md` — Decision logic for which frameworks apply per industry × budget tier
+- `strategy-generator-framework-notes.md` — Detailed methodology, prompt fragments, and output schemas for Growth Matrix, Bullseye, GACCS, AARRR, ICE
+
 **Files created**:
 - `packages/prompts/package.json`, `tsconfig.json`
 - `packages/prompts/src/index.ts`
@@ -868,7 +886,7 @@ apps/web/src/components/strategy/strategy-generator-dialog.tsx → wired to Inng
 **Deliverables**:
 
 1. **`packages/prompts/` package** (new — separate from types/queries per W8 fix)
-2. **Framework prompt library** encoding Growth Matrix, Bullseye, GACCS, AARRR, ICE, industry CAC data, budget pruning rules
+2. **Framework prompt library** encoding Growth Matrix, Bullseye, GACCS, AARRR, ICE, industry CAC data, budget pruning rules — implementation guide and prompt fragments in `packages/prompts/reference/strategy-generator-framework-notes.md`
 3. **Generation pipeline** via Inngest: load profile → select frameworks → call Claude → parse → create doc → reserve→confirm credits
 4. **Migration 017** — `generation_metadata JSONB` on `mktg_strategy_docs`
 5. **Progress UI** — Real-time status via Supabase Realtime
@@ -897,6 +915,9 @@ apps/web/src/lib/inngest/functions/task-decomposition.ts
   → Step 5: credits (reserve→confirm)
 ```
 
+**Pre-built reference materials** (already prepared in `packages/prompts/reference/`):
+- `task-decomposer-reference.md` — Decomposition heuristics (daily task budget, day-of-week patterns, carry-over logic, channel balance, experiment progression), task title conventions, executor assignment rules, duration estimates, and full prompt structure
+
 **Files created**:
 - `packages/prompts/src/task-decomposer.ts`
 - `apps/web/src/lib/inngest/functions/task-decomposition.ts`
@@ -911,7 +932,7 @@ apps/web/src/lib/inngest/functions/task-decomposition.ts
 
 **Deliverables**:
 
-1. **Decomposition prompt** — Strategy doc + yesterday's outcomes + ICE backlog + day of week → prioritized task list
+1. **Decomposition prompt** — Strategy doc + yesterday's outcomes + ICE backlog + day of week → prioritized task list (implementation spec in `packages/prompts/reference/task-decomposer-reference.md`)
 2. **Pipeline** via Inngest: load strategy → load outcomes → call Claude → parse → bulk INSERT → credits
 3. **Daily cron** (from [4A] stub) wired to real decomposition
 4. **"Generate Today's Tasks"** UI button
@@ -1184,6 +1205,9 @@ apps/web/src/app/(dashboard)/settings/integrations/page.tsx → real UI (replace
 
 **Branch**: `feature/7a-blocker-agent`
 
+**Pre-built reference materials** (already prepared in `packages/prompts/reference/`):
+- `blocker-classifier-corpus.md` — 15 pre-classified example blockers (3 per type), few-shot prompt template, snapshot test structure, type definitions and resolution routing
+
 **Files created**:
 - `packages/prompts/src/blocker-classifier.ts`
 - `packages/prompts/src/research-agent.ts`
@@ -1195,7 +1219,7 @@ apps/web/src/app/(dashboard)/settings/integrations/page.tsx → real UI (replace
 - `supabase/migrations/020_blocker_types.sql`
 
 **Deliverables**:
-1. Five blocker types: knowledge_gap, dependency, skill_gap, resource_constraint, decision_needed
+1. Five blocker types: knowledge_gap, dependency, skill_gap, resource_constraint, decision_needed (definitions and examples in `packages/prompts/reference/blocker-classifier-corpus.md`)
 2. Classifier → Router → Resolver chain via Inngest
 3. Research Agent (RAG + web search), Draft Agent (copy/briefs)
 4. PagerDuty-style escalation (24hr → 48hr → 72hr)
@@ -1310,6 +1334,9 @@ apps/web/src/app/(dashboard)/settings/integrations/page.tsx → real UI (replace
 
 **Branch**: `feature/9b-feedback-engine`
 
+**Pre-built reference materials** (already prepared in `packages/prompts/reference/`):
+- `strategy-refiner-reference.md` — Signal vs. noise thresholds, 6 refinement categories (channel_swap, budget_realloc, experiment_add, experiment_kill, goal_adjust, audience_refine), suggestion prioritization, approval flow, diff-based version control, and full prompt structure
+
 **Files created**:
 - `packages/prompts/src/strategy-refiner.ts`
 - `apps/web/src/lib/inngest/functions/strategy-refinement.ts`
@@ -1318,7 +1345,7 @@ apps/web/src/app/(dashboard)/settings/integrations/page.tsx → real UI (replace
 - `supabase/migrations/024_refinement_history.sql`
 
 **Deliverables**:
-1. Refinement prompt: strategy doc + 30 days results → suggested changes
+1. Refinement prompt: strategy doc + 30 days results → suggested changes (implementation spec in `packages/prompts/reference/strategy-refiner-reference.md`)
 2. Inngest pipeline: aggregate → call Claude → diff → approval item → apply on approve
 3. Suggestion UI: accept/reject per suggestion → new doc version
 
@@ -1439,6 +1466,7 @@ Cross-org benchmarking (anonymized). Industry-level performance insights. Predic
 | File / Package | [6A] | [6B] | [6C] |
 |---------------|------|------|------|
 | `packages/prompts/` (NEW) | ✏️ | ✏️ | |
+| `packages/prompts/reference/*` (pre-built, READ-ONLY) | 📖 | 📖 | |
 | `packages/prompts/src/strategy-*` | ✏️ | | |
 | `packages/prompts/src/frameworks/*` | ✏️ | | |
 | `packages/prompts/src/task-decomposer.ts` | | ✏️ | |
@@ -1525,3 +1553,37 @@ Run after every phase merge. Covers three personas:
 6. (Phase 8+) Navigate to Results → see channel performance
 ```
 **Pass criteria**: All pages load with data or proper empty states, no permission errors.
+
+---
+
+## Appendix E: Pre-Built Reference Materials Index
+
+Non-code content and prompt engineering materials prepared ahead of implementation. These live in the repo and are consumed READ-ONLY during their respective phases.
+
+### Onboarding Strategy Templates (`packages/types/src/templates/`)
+
+| File | Industry | Phase | Status |
+|------|----------|-------|--------|
+| `b2b-saas-bootstrap.md` | B2B SaaS | [2C] | ✅ Ready |
+| `dev-tools-bootstrap.md` | Developer Tools | [2C] | ✅ Ready |
+| `dtc-ecommerce-bootstrap.md` | DTC eCommerce | [2C] | ✅ Ready |
+| `fintech-bootstrap.md` | Fintech | [2C] | ✅ Ready |
+| `marketplace-bootstrap.md` | Marketplace | [2C] | ✅ Ready |
+| `healthtech-bootstrap.md` | Healthtech | [2C] | ✅ Ready |
+| `other-bootstrap.md` | Other / General | [2C] | ✅ Ready |
+| `b2b-saas-growth.md` | B2B SaaS (Growth tier) | [2C], [6A] | ✅ Ready |
+| `dtc-ecommerce-growth.md` | DTC eCommerce (Growth tier) | [2C], [6A] | ✅ Ready |
+
+All 9 templates follow GACCS format with Goals, Audience (including Watering holes), Channels (with metrics + budget %), Content (Pillars, Cadence, Formats), Schedule (3 phases × 2 months), and ICE-scored Experiment Backlog (I×C×E, range 1–1000). Bootstrap templates target <$1K/mo; Growth templates target $1K–$10K/mo with attribution models and unit economics.
+
+### Prompt Engineering Reference Materials (`packages/prompts/reference/`)
+
+| File | Description | Consumed By | Phase |
+|------|-------------|-------------|-------|
+| `gaccs-brief-format.md` | Exact GACCS output schema with validation rules for LLM-generated strategy docs | [6A] strategy-generator.ts | Phase 6 |
+| `industry-cac-benchmarks.md` | CAC ranges by industry × channel with budget tier pruning rules | [6A] strategy-generator.ts, [9B] strategy-refiner.ts | Phase 6, 9 |
+| `framework-selection-matrix.md` | Decision logic: which frameworks (Bullseye, AARRR, Growth Matrix) apply per industry × budget | [6A] strategy-generator.ts | Phase 6 |
+| `strategy-generator-framework-notes.md` | Detailed methodology, prompt fragments, and output schemas for all 5 frameworks | [6A] frameworks/*.ts | Phase 6 |
+| `task-decomposer-reference.md` | Day-of-week patterns, carry-over logic, channel balance, executor heuristics, duration estimates | [6B] task-decomposer.ts | Phase 6 |
+| `blocker-classifier-corpus.md` | 25 classified blocker examples (5 per type), few-shot template, tiebreaker rules, snapshot test fixtures | [7A] blocker-classifier.ts | Phase 7 |
+| `strategy-refiner-reference.md` | Signal thresholds, 6 refinement categories, approval flow, diff-based versioning | [9B] strategy-refiner.ts | Phase 9 |
