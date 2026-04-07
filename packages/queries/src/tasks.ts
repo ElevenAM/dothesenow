@@ -6,6 +6,8 @@ import type {
   CreateTaskInput,
   UpdateTaskInput,
   TaskFilters,
+  TaskStatus,
+  TransitionSource,
 } from "@dothesenow/types";
 import { QueryError } from "./errors.js";
 
@@ -168,4 +170,54 @@ export async function bulkCreateTasks(
 
   if (error) throw new QueryError(error.message, TABLE, "bulkCreateTasks", ctx.orgId, error);
   return (data ?? []) as DailyTask[];
+}
+
+/**
+ * Transition a task's status through the state machine.
+ * Uses the transition_task_status() RPC which validates transitions,
+ * records audit events, and handles completed_at.
+ */
+export async function transitionTaskStatus(
+  ctx: OrgContext,
+  taskId: string,
+  newStatus: TaskStatus,
+  source: TransitionSource,
+  actorId?: string | null,
+  metadata?: Record<string, unknown>,
+): Promise<string> {
+  const { data, error } = await ctx.client.rpc("transition_task_status", {
+    p_task_id: taskId,
+    p_org_id: ctx.orgId,
+    p_new_status: newStatus,
+    p_source: source,
+    p_actor_id: actorId ?? null,
+    p_metadata: metadata ?? {},
+  });
+
+  if (error) throw new QueryError(error.message, TABLE, "transitionTaskStatus", ctx.orgId, error);
+  return data as string;
+}
+
+/**
+ * Carry over incomplete tasks from one date to another.
+ * Uses the carry_over_tasks_v2() RPC for atomic all-or-nothing execution.
+ * Each carried-over task gets an audit event via the state machine.
+ */
+export async function carryOverTasks(
+  ctx: OrgContext,
+  fromDate: string,
+  toDate?: string,
+  source?: TransitionSource,
+  actorId?: string | null,
+): Promise<{ carried_count: number; new_task_ids: string[]; from_date: string; to_date: string }> {
+  const { data, error } = await ctx.client.rpc("carry_over_tasks_v2", {
+    p_org_id: ctx.orgId,
+    p_from_date: fromDate,
+    p_to_date: toDate ?? new Date().toISOString().split("T")[0],
+    p_source: source ?? "mcp",
+    p_actor_id: actorId ?? null,
+  });
+
+  if (error) throw new QueryError(error.message, TABLE, "carryOverTasks", ctx.orgId, error);
+  return data as { carried_count: number; new_task_ids: string[]; from_date: string; to_date: string };
 }

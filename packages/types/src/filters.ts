@@ -9,6 +9,10 @@ import type {
   ApprovalItemType,
   SubmittedByType,
   DocType,
+  MarketplaceTaskStatus,
+  EngagementType,
+  OutreachChannel,
+  OutreachStatus,
 } from "./enums.js";
 
 export interface TaskFilters {
@@ -29,6 +33,8 @@ export interface ContactFilters {
   lifecycle_stage?: LifecycleStage;
   tags?: string[];
   owner_id?: string;
+  source?: string;
+  not_contacted_since_days?: number;
 }
 
 export interface ApprovalFilters {
@@ -41,4 +47,27 @@ export interface ApprovalFilters {
 export interface StrategyFilters {
   doc_type?: DocType;
   is_active?: boolean;
+}
+
+export interface MarketplaceTaskFilters {
+  status?: MarketplaceTaskStatus;
+  task_type?: string;
+  assigned_to?: string;
+  campaign_id?: string;
+  limit?: number;
+}
+
+export interface FreelancerFilters {
+  skills?: string[];
+  engagement_type?: EngagementType | "both";
+  min_rating?: number;
+  available?: boolean;
+}
+
+export interface OutreachFilters {
+  contact_id?: string;
+  channel?: OutreachChannel;
+  status?: OutreachStatus;
+  since_days?: number;
+  limit?: number;
 }

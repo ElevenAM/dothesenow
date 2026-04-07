@@ -149,7 +149,7 @@ export async function createApproval(
 export async function reviewApproval(
   ctx: OrgContext,
   itemId: string,
-  reviewerId: string,
+  reviewerId: string | null,
   input: ReviewApprovalInput,
 ): Promise<unknown> {
   const { data, error } = await ctx.client.rpc("review_approval_item", {

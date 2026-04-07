@@ -1,5 +1,7 @@
 import type { ToolModule } from "./types.js";
 import { ok } from "./types.js";
+import { toOrgContext } from "../lib/supabase.js";
+import { createCampaign, createWeeklyReview } from "@dothesenow/queries";
 
 const ORG_ID_PROP = {
   org_id: {
@@ -68,24 +70,16 @@ export const campaigns: ToolModule = {
 
   handlers: {
     async create_campaign(client, args) {
+      const ctx = toOrgContext(client);
       const { org_id: _, ...campaignData } = args;
-      const { data, error } = await client
-        .from("mktg_campaigns")
-        .insert({ ...campaignData, org_id: client.orgId })
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await createCampaign(ctx, campaignData as unknown as Parameters<typeof createCampaign>[1]);
       return ok(`Campaign created: ${JSON.stringify(data, null, 2)}`);
     },
 
     async create_weekly_review(client, args) {
+      const ctx = toOrgContext(client);
       const { org_id: _, ...reviewData } = args;
-      const { data, error } = await client
-        .from("mktg_weekly_reviews")
-        .insert({ ...reviewData, org_id: client.orgId })
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await createWeeklyReview(ctx, reviewData as unknown as Parameters<typeof createWeeklyReview>[1]);
       return ok(`Weekly review saved: ${JSON.stringify(data, null, 2)}`);
     },
   },

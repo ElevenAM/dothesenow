@@ -15,6 +15,13 @@ import type {
   ApprovalStatus,
   SubmittedByType,
   MemberRole,
+  MarketplaceTaskStatus,
+  SubmissionStatus,
+  EngagementType,
+  PaymentType,
+  MessageSenderType,
+  CampaignType,
+  CampaignStatus,
 } from "./enums.js";
 import type { Json } from "./database.js";
 
@@ -229,6 +236,7 @@ export interface CreateTaskInput {
   generation_context?: Json | null;
 }
 
+/** Field-only updates. Use transitionTaskStatus() for status changes. */
 export interface UpdateTaskInput {
   title?: string;
   description?: string | null;
@@ -236,7 +244,6 @@ export interface UpdateTaskInput {
   priority?: Priority;
   executor_type?: ExecutorType;
   executor_config?: Json | null;
-  status?: TaskStatus;
   scheduled_date?: string;
   outcome_notes?: string | null;
   assigned_to?: string | null;
@@ -323,4 +330,252 @@ export interface LogOutreachInput {
   sent_at?: string | null;
   campaign_id?: string | null;
   notes?: string | null;
+}
+
+// ─── Marketplace ────────────────────────────────────────────
+
+export interface MarketplaceTask {
+  id: string;
+  org_id: string;
+  title: string;
+  description: string;
+  task_type: string;
+  required_skills: string[] | null;
+  min_experience: string | null;
+  deliverables: string | null;
+  brief: string;
+  brand_guidelines: string | null;
+  reference_materials: string | null;
+  engagement_type: EngagementType | null;
+  budget: number | null;
+  payment_type: PaymentType | null;
+  priority: Priority | null;
+  status: MarketplaceTaskStatus;
+  assigned_to: string | null;
+  campaign_id: string | null;
+  due_date: string | null;
+  claimed_at: string | null;
+  completed_at: string | null;
+  generated_by_ai: boolean | null;
+  source_strategy: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  freelancer?: Freelancer | null;
+}
+
+export interface MarketplaceTaskSubmission {
+  id: string;
+  org_id: string;
+  task_id: string;
+  freelancer_id: string;
+  content: string | null;
+  file_urls: string[] | null;
+  notes: string | null;
+  status: SubmissionStatus;
+  reviewer_notes: string | null;
+  ai_review: string | null;
+  rating: number | null;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+}
+
+export interface Freelancer {
+  id: string;
+  org_id: string;
+  name: string;
+  email: string;
+  portfolio_url: string | null;
+  skills: string[] | null;
+  specialties: string[] | null;
+  experience_level: string | null;
+  hourly_rate: number | null;
+  currency: string | null;
+  tasks_completed: number | null;
+  avg_rating: number | null;
+  reliability_score: number | null;
+  engagement_type: EngagementType | null;
+  available: boolean | null;
+  nda_signed: boolean | null;
+  clearance_level: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export type FreelancerLeaderboardEntry = Pick<Freelancer,
+  "id" | "org_id" | "name" | "email" | "skills" | "engagement_type" |
+  "tasks_completed" | "avg_rating" | "reliability_score" | "available"
+>;
+
+export interface TaskMessage {
+  id: string;
+  org_id: string;
+  task_id: string;
+  sender_type: MessageSenderType;
+  sender_id: string | null;
+  content: string;
+  includes_strategy_context: boolean | null;
+  created_at: string | null;
+}
+
+export interface CreateMarketplaceTaskInput {
+  title: string;
+  description?: string;
+  task_type: string;
+  brief: string;
+  brand_guidelines?: string | null;
+  reference_materials?: string | null;
+  required_skills?: string[] | null;
+  deliverables?: string | null;
+  engagement_type?: EngagementType;
+  budget?: number | null;
+  payment_type?: PaymentType;
+  priority?: Priority;
+  due_date?: string | null;
+  campaign_id?: string | null;
+  status?: MarketplaceTaskStatus;
+}
+
+export interface ReviewSubmissionInput {
+  status: Extract<SubmissionStatus, "approved" | "revision_requested" | "rejected">;
+  reviewer_notes?: string | null;
+  ai_review?: string | null;
+  /** 1-5 inclusive, validated server-side */
+  rating?: number | null;
+}
+
+export interface SendTaskMessageInput {
+  task_id: string;
+  content: string;
+  sender_type?: MessageSenderType;
+}
+
+// ─── Campaigns ──────────────────────────────────────────────
+
+export interface Campaign {
+  id: string;
+  org_id: string;
+  name: string;
+  campaign_type: CampaignType;
+  status: CampaignStatus | null;
+  description: string | null;
+  target_audience: string | null;
+  channels: string[] | null;
+  budget: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  goals: Json | null;
+  metrics: Json | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface WeeklyReview {
+  id: string;
+  org_id: string;
+  week_start: string;
+  week_end: string;
+  metrics: Json | null;
+  wins: string[] | null;
+  challenges: string[] | null;
+  learnings: string[] | null;
+  next_week_focus: string[] | null;
+  strategy_adjustments: string | null;
+  generated_by: GeneratedBy | null;
+  created_at: string | null;
+}
+
+export interface CreateCampaignInput {
+  name: string;
+  campaign_type: CampaignType;
+  status?: CampaignStatus;
+  description?: string | null;
+  target_audience?: string | null;
+  channels?: string[] | null;
+  budget?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  goals?: Json | null;
+}
+
+export interface CreateWeeklyReviewInput {
+  week_start: string;
+  week_end: string;
+  metrics?: Json | null;
+  wins?: string[] | null;
+  challenges?: string[] | null;
+  learnings?: string[] | null;
+  next_week_focus?: string[] | null;
+  strategy_adjustments?: string | null;
+  generated_by?: string | null;
+}
+
+// ─── Competitors ────────────────────────────────────────────
+
+export interface Competitor {
+  id: string;
+  org_id: string;
+  name: string;
+  website: string | null;
+  description: string | null;
+  target_market: string | null;
+  pricing: string | null;
+  strengths: string[] | null;
+  weaknesses: string[] | null;
+  latest_moves: string | null;
+  our_advantage: string | null;
+  threat_level: string | null;
+  last_analyzed: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CreateCompetitorInput {
+  name: string;
+  website?: string | null;
+  description?: string | null;
+  target_market?: string | null;
+  pricing?: string | null;
+  strengths?: string[] | null;
+  weaknesses?: string[] | null;
+  latest_moves?: string | null;
+  our_advantage?: string | null;
+  threat_level?: string | null;
+}
+
+export type UpdateCompetitorInput = Partial<CreateCompetitorInput>;
+
+// ─── Insights ───────────────────────────────────────────────
+
+export interface Insight {
+  id: string;
+  org_id: string;
+  insight_type: string;
+  title: string;
+  description: string;
+  source: string | null;
+  evidence: string | null;
+  action_taken: string | null;
+  tags: string[] | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CreateInsightInput {
+  insight_type: string;
+  title: string;
+  description: string;
+  source?: string | null;
+  evidence?: string | null;
+  action_taken?: string | null;
+  tags?: string[] | null;
+}
+
+// ─── Pipeline ───────────────────────────────────────────────
+
+export interface PipelineSummary {
+  org_id: string;
+  lifecycle_stage: LifecycleStage | null;
+  contact_type: ContactType | null;
+  total: number;
+  avg_lead_score: number | null;
 }

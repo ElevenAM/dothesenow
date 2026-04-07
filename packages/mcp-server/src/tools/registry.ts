@@ -1,5 +1,6 @@
 import { createOrgClient } from "../lib/supabase.js";
 import type { ToolDefinition, ToolHandler, ToolResult } from "./types.js";
+import { QueryError } from "@dothesenow/queries";
 import { crm } from "./crm.js";
 import { strategy } from "./strategy.js";
 import { marketplace } from "./marketplace.js";
@@ -40,8 +41,14 @@ export async function handleTool(
   try {
     return await handler(client, args);
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : String(error);
+    let message: string;
+    if (error instanceof QueryError) {
+      message = `[table: ${error.table}, op: ${error.operation}] ${error.message}`;
+    } else if (error instanceof Error) {
+      message = error.message;
+    } else {
+      message = String(error);
+    }
     return {
       content: [{ type: "text", text: `Error in ${name}: ${message}` }],
       isError: true,

@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { OrgContext } from "@dothesenow/queries";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -24,6 +25,10 @@ export class OrgScopedClient {
   rpc(fn: string, params: Record<string, unknown>) {
     return this.supabase.rpc(fn, params);
   }
+}
+
+export function toOrgContext(client: OrgScopedClient): OrgContext {
+  return { client: client.supabase, orgId: client.orgId };
 }
 
 export function createOrgClient(orgId?: string): OrgScopedClient {

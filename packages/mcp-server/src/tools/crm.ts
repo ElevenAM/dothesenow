@@ -1,5 +1,14 @@
 import type { ToolModule } from "./types.js";
 import { ok } from "./types.js";
+import { toOrgContext } from "../lib/supabase.js";
+import {
+  getContactsForOrg,
+  createContact,
+  updateContact,
+  logOutreach,
+  getOutreachHistory,
+  getPipelineSummary,
+} from "@dothesenow/queries";
 
 const ORG_ID_PROP = {
   org_id: {
@@ -176,116 +185,59 @@ export const crm: ToolModule = {
 
   handlers: {
     async search_contacts(client, args) {
-      let query = client
-        .from("mktg_contacts")
-        .select("*")
-        .eq("org_id", client.orgId);
-
-      if (args.query) {
-        const q = args.query as string;
-        query = query.or(
-          `first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%,company.ilike.%${q}%,notes.ilike.%${q}%`,
-        );
-      }
-      if (args.contact_type)
-        query = query.eq("contact_type", args.contact_type);
-      if (args.status) query = query.eq("status", args.status);
-      if (args.lifecycle_stage)
-        query = query.eq("lifecycle_stage", args.lifecycle_stage);
-      if (args.source) query = query.ilike("source", `%${args.source}%`);
-      if (args.tags) query = query.overlaps("tags", args.tags as string[]);
-      if (args.not_contacted_since_days) {
-        const cutoff = new Date();
-        cutoff.setDate(
-          cutoff.getDate() - (args.not_contacted_since_days as number),
-        );
-        query = query.or(
-          `last_engaged.is.null,last_engaged.lt.${cutoff.toISOString()}`,
-        );
-      }
-
-      const { data, error } = await query
-        .order("last_engaged", { ascending: false, nullsFirst: false })
-        .limit((args.limit as number) || 20);
-
-      if (error) throw error;
-      return ok(JSON.stringify(data, null, 2));
+      const ctx = toOrgContext(client);
+      const result = await getContactsForOrg(ctx, {
+        search: args.query as string | undefined,
+        contact_type: args.contact_type,
+        status: args.status,
+        lifecycle_stage: args.lifecycle_stage,
+        source: args.source as string | undefined,
+        tags: args.tags as string[] | undefined,
+        not_contacted_since_days: args.not_contacted_since_days as number | undefined,
+        pageSize: (args.limit as number) || 20,
+      } as Parameters<typeof getContactsForOrg>[1]);
+      return ok(JSON.stringify(result.contacts, null, 2));
     },
 
     async add_contact(client, args) {
+      const ctx = toOrgContext(client);
       const { org_id: _, ...contactData } = args;
-      const { data, error } = await client
-        .from("mktg_contacts")
-        .insert({ ...contactData, org_id: client.orgId })
-        .select()
-        .single();
-      if (error) throw error;
+      const data = await createContact(ctx, contactData as unknown as Parameters<typeof createContact>[1]);
       return ok(`Contact created: ${JSON.stringify(data, null, 2)}`);
     },
 
     async update_contact(client, args) {
-      const { data, error } = await client
-        .from("mktg_contacts")
-        .update(args.updates as Record<string, unknown>)
-        .eq("id", args.contact_id as string)
-        .eq("org_id", client.orgId)
-        .select()
-        .single();
-      if (error) throw error;
+      const ctx = toOrgContext(client);
+      const data = await updateContact(
+        ctx,
+        args.contact_id as string,
+        args.updates as Parameters<typeof updateContact>[2],
+      );
       return ok(`Contact updated: ${JSON.stringify(data, null, 2)}`);
     },
 
     async log_outreach(client, args) {
-      const { org_id: _, contact_id, ...outreachData } = args;
-      const { data, error } = await client
-        .from("mktg_outreach_log")
-        .insert({
-          contact_id,
-          ...outreachData,
-          org_id: client.orgId,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-
-      await client
-        .from("mktg_contacts")
-        .update({ last_engaged: new Date().toISOString() })
-        .eq("id", contact_id as string)
-        .eq("org_id", client.orgId);
-
+      const ctx = toOrgContext(client);
+      const { org_id: _, ...outreachData } = args;
+      const data = await logOutreach(ctx, outreachData as unknown as Parameters<typeof logOutreach>[1]);
       return ok(`Outreach logged: ${JSON.stringify(data, null, 2)}`);
     },
 
     async get_outreach_history(client, args) {
-      let query = client
-        .from("mktg_outreach_log")
-        .select("*, mktg_contacts(first_name, last_name, email, company)")
-        .eq("org_id", client.orgId);
-
-      if (args.contact_id)
-        query = query.eq("contact_id", args.contact_id as string);
-      if (args.channel) query = query.eq("channel", args.channel);
-      if (args.status) query = query.eq("status", args.status);
-      if (args.since_days) {
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - (args.since_days as number));
-        query = query.gte("sent_at", cutoff.toISOString());
-      }
-
-      const { data, error } = await query
-        .order("sent_at", { ascending: false })
-        .limit((args.limit as number) || 50);
-      if (error) throw error;
+      const ctx = toOrgContext(client);
+      const data = await getOutreachHistory(ctx, {
+        contact_id: args.contact_id as string | undefined,
+        channel: args.channel,
+        status: args.status,
+        since_days: args.since_days as number | undefined,
+        limit: args.limit as number | undefined,
+      } as Parameters<typeof getOutreachHistory>[1]);
       return ok(JSON.stringify(data, null, 2));
     },
 
     async get_pipeline_summary(client) {
-      const { data, error } = await client
-        .from("mktg_pipeline_summary")
-        .select("*")
-        .eq("org_id", client.orgId);
-      if (error) throw error;
+      const ctx = toOrgContext(client);
+      const data = await getPipelineSummary(ctx);
       return ok(JSON.stringify(data, null, 2));
     },
   },
