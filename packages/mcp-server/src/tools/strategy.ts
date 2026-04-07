@@ -168,14 +168,24 @@ export const strategy: ToolModule = {
 
     async update_strategy_doc(client, args) {
       const ctx = toOrgContext(client);
-      const docId = await createDocDirect(ctx, {
-        doc_type: args.doc_type as DocType,
-        title: (args.title as string) || (args.doc_type as string),
-        content: args.content as string,
-        change_summary: args.change_summary as string,
-        changed_by: (args.changed_by as string) || "claude",
-      });
-      return ok(`Strategy doc updated: ${docId}`);
+      try {
+        const docId = await createDocDirect(ctx, {
+          doc_type: args.doc_type as DocType,
+          title: (args.title as string) || (args.doc_type as string),
+          content: args.content as string,
+          change_summary: args.change_summary as string,
+          changed_by: (args.changed_by as string) || "claude",
+        });
+        return ok(`Strategy doc updated: ${docId}`);
+      } catch (err: unknown) {
+        const pgCode = (err as { cause?: { code?: string } })?.cause?.code;
+        if (pgCode === "23505") {
+          throw new Error(
+            "Concurrent strategy doc update detected — another edit was saved first. Please retry to create a new version on top of the latest.",
+          );
+        }
+        throw err;
+      }
     },
 
     async search_strategy(client, args) {

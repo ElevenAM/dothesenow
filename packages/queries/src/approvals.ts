@@ -13,7 +13,7 @@ const TABLE = "dtn_approval_queue";
 const DEFAULT_PAGE_SIZE = 20;
 
 const WITH_TASK_SELECT =
-  "*, daily_task:dtn_daily_tasks!dtn_approval_queue_daily_task_id_fkey(title, task_type, description, priority, executor_type), reviewer_profile:profiles!dtn_approval_queue_assigned_reviewer_fkey(display_name, email)";
+  "*, daily_task:dtn_daily_tasks!dtn_approval_queue_daily_task_id_fkey(title, task_type, description, priority, executor_type), reviewer_profile:profiles!dtn_approval_queue_reviewer_profiles_fkey(display_name, email)";
 
 export interface PaginatedApprovals {
   items: ApprovalItemWithTask[];

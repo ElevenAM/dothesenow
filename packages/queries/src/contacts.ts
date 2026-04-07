@@ -47,7 +47,7 @@ export async function getContactsForOrg(
     const escaped = escapeFilterValue(filters.search);
     const term = `%${escaped}%`;
     query = query.or(
-      `first_name.ilike.${term},last_name.ilike.${term},email.ilike.${term},company.ilike.${term}`,
+      `first_name.ilike.${term},last_name.ilike.${term},email.ilike.${term},company.ilike.${term},notes.ilike.${term}`,
     );
   }
   if (filters?.contact_type) {

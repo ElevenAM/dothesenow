@@ -74,7 +74,7 @@ export async function getDocHistory(
  *
  * WARNING: The `update_strategy_doc` RPC requires `auth.uid()` — it will fail
  * with service_role clients (e.g. MCP server). Service-role callers must use
- * the 3-query pattern (deactivate → get version → insert) instead.
+ * `createDocDirect()` instead (uses the `create_strategy_doc_direct` RPC).
  */
 export async function createDoc(
   ctx: OrgContext,
@@ -99,7 +99,7 @@ export async function createDoc(
  * Requires fetching the current doc_type first, then calling the RPC.
  *
  * WARNING: Requires `auth.uid()` — will not work with service_role clients.
- * See createDoc JSDoc for details.
+ * Service-role callers must use `createDocDirect()` instead.
  */
 export async function updateDoc(
   ctx: OrgContext,
