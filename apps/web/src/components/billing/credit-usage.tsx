@@ -45,7 +45,7 @@ export function CreditUsage({ remaining, total, resetAt }: CreditUsageProps) {
   }
 
   const used = total - remaining;
-  const pct = Math.min(100, Math.round((used / total) * 100));
+  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
   const isLow = remaining <= Math.ceil(total * 0.1);
 
   return (
@@ -53,7 +53,10 @@ export function CreditUsage({ remaining, total, resetAt }: CreditUsageProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">AI Credits</CardTitle>
-          <span className="text-sm font-medium tabular-nums">
+          <span
+            className="text-sm font-medium tabular-nums"
+            aria-label={`${remaining} credits remaining of ${total} total`}
+          >
             {remaining} / {total}
           </span>
         </div>

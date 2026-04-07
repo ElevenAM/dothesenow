@@ -67,7 +67,8 @@ export default async function BillingPage() {
   try {
     const usage = await getCreditUsage();
     creditUsage = { remaining: usage.remaining, total: usage.total, resetAt: usage.resetAt };
-  } catch {
+  } catch (error) {
+    console.error("[billing] getCreditUsage failed:", error);
     // Graceful degradation — credits section won't render
   }
 
@@ -143,7 +144,7 @@ export default async function BillingPage() {
 
       {/* Past Due Warning */}
       {org.plan_status === "past_due" && (
-        <div className="rounded-md border border-[var(--fgColor-attention)]/20 bg-[var(--bgColor-attention-muted)] p-4">
+        <div className="rounded-md border border-[var(--fgColor-attention)]/20 bg-[#fff8c5] p-4">
           <p className="text-sm font-medium text-[var(--fgColor-attention)]">
             Your payment failed. Please update your payment method to avoid
             losing access to premium features.
@@ -189,6 +190,6 @@ function PlanStatusBadge({ status }: { status: string }) {
     case "canceled":
       return <Badge variant="default">Canceled</Badge>;
     default:
-      return null;
+      return <Badge variant="default">{status}</Badge>;
   }
 }

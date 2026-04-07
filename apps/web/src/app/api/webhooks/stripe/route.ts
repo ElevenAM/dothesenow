@@ -49,10 +49,23 @@ function mapStripeStatus(
   }
 }
 
-/** Get the credit allocation for a plan tier. Returns 0 for unknown plans. */
+/** Get the credit allocation for a plan tier. Throws for unknown plans. */
 function creditsForPlan(plan: string): number {
   const limits = PLAN_LIMITS[plan as PlanTier];
-  return limits?.credits ?? 0;
+  if (limits == null) {
+    throw new Error(`Unknown plan tier: "${plan}" — cannot determine credit allocation`);
+  }
+  return limits.credits;
+}
+
+/** Throw if a Supabase mutation returned an error. */
+function assertMutation(
+  result: { error: { message: string } | null },
+  context: string,
+): void {
+  if (result.error) {
+    throw new Error(`[stripe-webhook] ${context}: ${result.error.message}`);
+  }
 }
 
 export async function POST(request: Request) {
@@ -79,28 +92,37 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  // Idempotency check: skip if event already processed
-  const { data: existingEvent } = await supabase
-    .from("dtn_stripe_events")
-    .select("id")
-    .eq("id", event.id)
-    .single();
-
-  if (existingEvent) {
-    return new Response("Event already processed", { status: 200 });
-  }
-
-  // Record event before processing (crash-safe: prevents reprocessing)
+  // Idempotency: attempt INSERT. On duplicate, check if it's a failed event that should be retried.
   const { error: insertError } = await supabase
     .from("dtn_stripe_events")
-    .insert({ id: event.id, event_type: event.type });
+    .insert({ id: event.id, event_type: event.type, status: "processing" });
 
   if (insertError) {
-    console.error("Failed to record stripe event:", insertError.message);
-    return new Response("Failed to record event", { status: 500 });
+    if (insertError.code === "23505") {
+      // Duplicate — check if the previous attempt failed and should be retried
+      const { data: existing } = await supabase
+        .from("dtn_stripe_events")
+        .select("status")
+        .eq("id", event.id)
+        .single();
+
+      if (existing?.status === "failed") {
+        // Re-claim for processing
+        await supabase
+          .from("dtn_stripe_events")
+          .update({ status: "processing" })
+          .eq("id", event.id)
+          .eq("status", "failed");
+      } else {
+        return new Response("Event already processed", { status: 200 });
+      }
+    } else {
+      console.error("Failed to record stripe event:", insertError.message);
+      return new Response("Failed to record event", { status: 500 });
+    }
   }
 
-  // Process the event
+  // Process the event — if processing fails, mark the event as failed so retries can re-process it.
   try {
     switch (event.type) {
       case "checkout.session.completed": {
@@ -137,38 +159,44 @@ export async function POST(request: Request) {
 
         // Update org with Stripe IDs, plan, and initial credit allocation
         const credits = creditsForPlan(plan);
-        await supabase
-          .from("dtn_organizations")
-          .update({
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-            plan: plan,
-            plan_status: "active",
-            ai_credits_remaining: credits,
-            ai_credits_reset_at: new Date().toISOString(),
-          })
-          .eq("id", orgId);
+        assertMutation(
+          await supabase
+            .from("dtn_organizations")
+            .update({
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscriptionId,
+              plan: plan,
+              plan_status: "active",
+              ai_credits_remaining: credits,
+              ai_credits_reset_at: new Date().toISOString(),
+            })
+            .eq("id", orgId),
+          "Failed to update org on checkout"
+        );
 
         // Period dates are on the subscription item in Stripe SDK v21+
         const periodStart = firstItem?.current_period_start;
         const periodEnd = firstItem?.current_period_end;
 
         // Upsert subscription record
-        await supabase.from("dtn_subscriptions").upsert(
-          {
-            org_id: orgId,
-            stripe_subscription_id: subscriptionId,
-            stripe_customer_id: customerId,
-            plan: plan,
-            status: "active",
-            current_period_start: periodStart
-              ? new Date(periodStart * 1000).toISOString()
-              : null,
-            current_period_end: periodEnd
-              ? new Date(periodEnd * 1000).toISOString()
-              : null,
-          },
-          { onConflict: "stripe_subscription_id" }
+        assertMutation(
+          await supabase.from("dtn_subscriptions").upsert(
+            {
+              org_id: orgId,
+              stripe_subscription_id: subscriptionId,
+              stripe_customer_id: customerId,
+              plan: plan,
+              status: "active",
+              current_period_start: periodStart
+                ? new Date(periodStart * 1000).toISOString()
+                : null,
+              current_period_end: periodEnd
+                ? new Date(periodEnd * 1000).toISOString()
+                : null,
+            },
+            { onConflict: "stripe_subscription_id" }
+          ),
+          "Failed to upsert subscription on checkout"
         );
 
         break;
@@ -205,18 +233,37 @@ export async function POST(request: Request) {
         if (plan) {
           orgUpdate.plan = plan;
 
-          // If plan changed (upgrade/downgrade), adjust credits
+          // If plan changed (upgrade/downgrade), adjust credits proportionally:
+          // add the delta between new and old plan limits to current balance.
           if (plan !== org.plan) {
             const newCredits = creditsForPlan(plan);
-            orgUpdate.ai_credits_remaining = newCredits;
+            const oldCredits = creditsForPlan(org.plan);
+
+            if (newCredits === -1) {
+              // Upgrading to unlimited
+              orgUpdate.ai_credits_remaining = -1;
+            } else if (org.ai_credits_remaining === -1) {
+              // Downgrading from unlimited — start fresh at new plan limit
+              orgUpdate.ai_credits_remaining = newCredits;
+            } else {
+              // Add the delta (can be negative for downgrades)
+              const delta = newCredits - oldCredits;
+              orgUpdate.ai_credits_remaining = Math.max(
+                0,
+                org.ai_credits_remaining + delta,
+              );
+            }
             orgUpdate.ai_credits_reset_at = new Date().toISOString();
           }
         }
         if (Object.keys(orgUpdate).length > 0) {
-          await supabase
-            .from("dtn_organizations")
-            .update(orgUpdate)
-            .eq("id", org.id);
+          assertMutation(
+            await supabase
+              .from("dtn_organizations")
+              .update(orgUpdate)
+              .eq("id", org.id),
+            "Failed to update org on subscription change"
+          );
         }
 
         // Period dates are on the subscription item in Stripe SDK v21+
@@ -243,10 +290,13 @@ export async function POST(request: Request) {
             subscription.cancel_at * 1000
           ).toISOString();
         }
-        await supabase
-          .from("dtn_subscriptions")
-          .update(subUpdate)
-          .eq("stripe_subscription_id", subscriptionId);
+        assertMutation(
+          await supabase
+            .from("dtn_subscriptions")
+            .update(subUpdate)
+            .eq("stripe_subscription_id", subscriptionId),
+          "Failed to update subscription record"
+        );
 
         break;
       }
@@ -263,23 +313,29 @@ export async function POST(request: Request) {
           .single();
 
         if (org) {
-          await supabase
-            .from("dtn_organizations")
-            .update({
-              plan: "free",
-              plan_status: "canceled",
-              stripe_subscription_id: null,
-              ai_credits_remaining: 0,
-              ai_credits_reset_at: null,
-            })
-            .eq("id", org.id);
+          assertMutation(
+            await supabase
+              .from("dtn_organizations")
+              .update({
+                plan: "free",
+                plan_status: "canceled",
+                stripe_subscription_id: null,
+                ai_credits_remaining: 0,
+                ai_credits_reset_at: null,
+              })
+              .eq("id", org.id),
+            "Failed to downgrade org on subscription deletion"
+          );
         }
 
         // Update subscription record
-        await supabase
-          .from("dtn_subscriptions")
-          .update({ status: "canceled" })
-          .eq("stripe_subscription_id", subscriptionId);
+        assertMutation(
+          await supabase
+            .from("dtn_subscriptions")
+            .update({ status: "canceled" })
+            .eq("stripe_subscription_id", subscriptionId),
+          "Failed to update subscription status to canceled"
+        );
 
         break;
       }
@@ -290,15 +346,21 @@ export async function POST(request: Request) {
 
         if (subscriptionId) {
           // Set org to past_due (grace period starts)
-          await supabase
-            .from("dtn_organizations")
-            .update({ plan_status: "past_due" })
-            .eq("stripe_subscription_id", subscriptionId);
+          assertMutation(
+            await supabase
+              .from("dtn_organizations")
+              .update({ plan_status: "past_due" })
+              .eq("stripe_subscription_id", subscriptionId),
+            "Failed to set org past_due on payment failure"
+          );
 
-          await supabase
-            .from("dtn_subscriptions")
-            .update({ status: "past_due" })
-            .eq("stripe_subscription_id", subscriptionId);
+          assertMutation(
+            await supabase
+              .from("dtn_subscriptions")
+              .update({ status: "past_due" })
+              .eq("stripe_subscription_id", subscriptionId),
+            "Failed to set subscription past_due"
+          );
         }
 
         break;
@@ -313,15 +375,21 @@ export async function POST(request: Request) {
           const billingReason = invoice.billing_reason;
 
           // Restore active status (payment recovered after past_due)
-          await supabase
-            .from("dtn_organizations")
-            .update({ plan_status: "active" })
-            .eq("stripe_subscription_id", subscriptionId);
+          assertMutation(
+            await supabase
+              .from("dtn_organizations")
+              .update({ plan_status: "active" })
+              .eq("stripe_subscription_id", subscriptionId),
+            "Failed to restore org active status"
+          );
 
-          await supabase
-            .from("dtn_subscriptions")
-            .update({ status: "active" })
-            .eq("stripe_subscription_id", subscriptionId);
+          assertMutation(
+            await supabase
+              .from("dtn_subscriptions")
+              .update({ status: "active" })
+              .eq("stripe_subscription_id", subscriptionId),
+            "Failed to restore subscription active status"
+          );
 
           // Reset credits only on subscription cycle renewals
           if (billingReason === "subscription_cycle") {
@@ -333,13 +401,16 @@ export async function POST(request: Request) {
 
             if (org) {
               const credits = creditsForPlan(org.plan);
-              await supabase
-                .from("dtn_organizations")
-                .update({
-                  ai_credits_remaining: credits,
-                  ai_credits_reset_at: new Date().toISOString(),
-                })
-                .eq("id", org.id);
+              assertMutation(
+                await supabase
+                  .from("dtn_organizations")
+                  .update({
+                    ai_credits_remaining: credits,
+                    ai_credits_reset_at: new Date().toISOString(),
+                  })
+                  .eq("id", org.id),
+                "Failed to reset credits on billing cycle"
+              );
             }
           }
         }
@@ -354,10 +425,23 @@ export async function POST(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(`Error processing Stripe event ${event.type}:`, message);
+
+    // Mark event as failed so future retries from Stripe re-attempt processing
+    await supabase
+      .from("dtn_stripe_events")
+      .update({ status: "failed" })
+      .eq("id", event.id);
+
     return new Response(`Webhook processing error: ${message}`, {
       status: 500,
     });
   }
+
+  // Mark event as successfully processed
+  await supabase
+    .from("dtn_stripe_events")
+    .update({ status: "done" })
+    .eq("id", event.id);
 
   return new Response("OK", { status: 200 });
 }

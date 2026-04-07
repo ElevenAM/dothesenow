@@ -125,13 +125,22 @@ export async function getCreditBalance(
     .eq("id", ctx.orgId)
     .single();
 
-  if (error || !data) {
+  if (error) {
     throw new QueryError(
-      error?.message ?? "Organization not found",
+      error.message,
       "dtn_organizations",
       "getCreditBalance",
       ctx.orgId,
       error,
+    );
+  }
+
+  if (!data) {
+    throw new QueryError(
+      "Organization not found",
+      "dtn_organizations",
+      "getCreditBalance",
+      ctx.orgId,
     );
   }
 
@@ -148,8 +157,8 @@ export async function getCreditHistory(
   ctx: OrgContext,
   opts: { limit?: number; offset?: number } = {},
 ): Promise<{ entries: CreditLedgerRow[]; total: number }> {
-  const limit = opts.limit ?? 20;
-  const offset = opts.offset ?? 0;
+  const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
+  const offset = Math.max(opts.offset ?? 0, 0);
 
   const { data, error, count } = await ctx.client
     .from("dtn_credit_ledger")
@@ -175,13 +184,13 @@ export async function getCreditHistory(
 }
 
 /** Row shape returned by getCreditHistory */
-interface CreditLedgerRow {
+export interface CreditLedgerRow {
   id: string;
   org_id: string;
   amount: number;
   balance_after: number;
   reason: string;
-  status: string;
+  status: "reserved" | "confirmed" | "refunded";
   reference_id: string | null;
   created_at: string;
   updated_at: string;
