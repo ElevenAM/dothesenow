@@ -1,8 +1,9 @@
 "use client";
 
 import { useTransition } from "react";
-import { createCheckoutSession } from "@/lib/stripe/actions";
+import { createCheckoutSession, createPortalSession } from "@/lib/stripe/actions";
 import { Button } from "@/components/ui/button";
+import { PLAN_HIERARCHY } from "@dothesenow/types";
 import type { PlanId } from "@/lib/stripe/config";
 
 interface UpgradeButtonProps {
@@ -14,7 +15,10 @@ export function UpgradeButton({ planId, currentPlan }: UpgradeButtonProps) {
   const [isPending, startTransition] = useTransition();
 
   const isCurrentPlan = currentPlan === planId;
-  const isDowngrade = currentPlan === "premium" && planId === "free";
+  const currentIdx = PLAN_HIERARCHY.indexOf(currentPlan as PlanId);
+  const targetIdx = PLAN_HIERARCHY.indexOf(planId);
+  const isUpgrade = targetIdx > currentIdx;
+  const isDowngrade = targetIdx < currentIdx;
 
   if (isCurrentPlan) {
     return (
@@ -24,8 +28,30 @@ export function UpgradeButton({ planId, currentPlan }: UpgradeButtonProps) {
     );
   }
 
-  if (isDowngrade || planId === "free") {
+  if (planId === "free") {
     return null;
+  }
+
+  if (planId === "enterprise") {
+    return null;
+  }
+
+  // Downgrades go through the portal
+  if (isDowngrade) {
+    return (
+      <Button
+        variant="outline"
+        className="w-full"
+        disabled={isPending}
+        onClick={() => {
+          startTransition(() => {
+            createPortalSession();
+          });
+        }}
+      >
+        {isPending ? "Redirecting..." : "Downgrade"}
+      </Button>
+    );
   }
 
   return (
@@ -38,7 +64,7 @@ export function UpgradeButton({ planId, currentPlan }: UpgradeButtonProps) {
         });
       }}
     >
-      {isPending ? "Redirecting..." : "Upgrade to Premium"}
+      {isPending ? "Redirecting..." : `Upgrade to ${planId.charAt(0).toUpperCase() + planId.slice(1)}`}
     </Button>
   );
 }

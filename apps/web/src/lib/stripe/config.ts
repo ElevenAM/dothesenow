@@ -1,14 +1,42 @@
-export const PLANS = {
+import {
+  type PlanTier,
+  PLAN_LIMITS,
+  PLAN_PRICE_IDS,
+  planFromPriceId,
+  getPlanLimits,
+  canAccessFeature,
+  isPlanActive,
+  isInGracePeriod,
+} from "@dothesenow/types";
+
+// Re-export from types for consumers that import from stripe/config
+export {
+  planFromPriceId,
+  getPlanLimits,
+  canAccessFeature,
+  isPlanActive,
+  isInGracePeriod,
+};
+
+/** Alias for backward compatibility */
+export type PlanId = PlanTier;
+
+export interface PlanConfig {
+  name: string;
+  priceId: string | null;
+  monthlyPrice: number;
+  description: string;
+  credits: number;
+  features: string[];
+}
+
+export const PLANS: Record<PlanTier, PlanConfig> = {
   free: {
     name: "Free",
     priceId: null,
     monthlyPrice: 0,
     description: "For individuals getting started",
-    limits: {
-      members: 2,
-      contacts: 100,
-      departments: 1,
-    },
+    credits: PLAN_LIMITS.free.credits,
     features: [
       "1 department",
       "Up to 2 team members",
@@ -16,73 +44,70 @@ export const PLANS = {
       "Basic task management",
     ],
   },
-  premium: {
-    name: "Premium",
-    priceId: "price_1THdJURwniZbeb16vKT3tueN",
+  starter: {
+    name: "Starter",
+    priceId: PLAN_PRICE_IDS.starter ?? null,
     monthlyPrice: 9.99,
-    description: "For teams that need more power",
-    limits: {
-      members: -1, // unlimited
-      contacts: -1, // unlimited
-      departments: -1, // unlimited
-    },
+    description: "For small teams ready to grow",
+    credits: PLAN_LIMITS.starter.credits,
+    features: [
+      "3 departments",
+      "Up to 5 team members",
+      "500 contacts",
+      `${PLAN_LIMITS.starter.credits} AI credits/month`,
+      "10 strategy docs",
+      "Approval workflows",
+    ],
+  },
+  growth: {
+    name: "Growth",
+    priceId: PLAN_PRICE_IDS.growth ?? null,
+    monthlyPrice: 29.99,
+    description: "For teams scaling their marketing",
+    credits: PLAN_LIMITS.growth.credits,
+    features: [
+      "Unlimited departments",
+      "Up to 10 team members",
+      "Unlimited contacts",
+      `${PLAN_LIMITS.growth.credits} AI credits/month`,
+      "Unlimited strategy docs",
+      "Approval workflows",
+      "Blog publishing",
+    ],
+  },
+  team: {
+    name: "Team",
+    priceId: PLAN_PRICE_IDS.team ?? null,
+    monthlyPrice: 79.99,
+    description: "For larger teams that need full power",
+    credits: PLAN_LIMITS.team.credits,
     features: [
       "Unlimited departments",
       "Unlimited team members",
       "Unlimited contacts",
-      "Advanced task management",
+      `${PLAN_LIMITS.team.credits} AI credits/month`,
+      "Unlimited strategy docs",
       "Approval workflows",
       "Blog publishing",
       "Priority support",
     ],
   },
-} as const;
+  enterprise: {
+    name: "Enterprise",
+    priceId: null,
+    monthlyPrice: 0,
+    description: "Custom solutions for large organizations",
+    credits: -1,
+    features: [
+      "Everything in Team",
+      "Unlimited AI credits",
+      "Dedicated support",
+      "Custom integrations",
+      "SSO / SAML",
+      "SLA guarantees",
+    ],
+  },
+};
 
-export type PlanId = keyof typeof PLANS;
-
-const PLAN_HIERARCHY: PlanId[] = ["free", "premium"];
-
-/**
- * Reverse lookup: Stripe price ID -> plan name
- */
-export function planFromPriceId(priceId: string): PlanId | null {
-  for (const [planId, plan] of Object.entries(PLANS)) {
-    if (plan.priceId === priceId) {
-      return planId as PlanId;
-    }
-  }
-  return null;
-}
-
-/**
- * Check if a plan meets or exceeds the required plan level
- */
-export function canAccessFeature(
-  currentPlan: PlanId,
-  requiredPlan: PlanId
-): boolean {
-  const currentIndex = PLAN_HIERARCHY.indexOf(currentPlan);
-  const requiredIndex = PLAN_HIERARCHY.indexOf(requiredPlan);
-  return currentIndex >= requiredIndex;
-}
-
-/**
- * Get the limits for a given plan
- */
-export function getPlanLimits(plan: PlanId) {
-  return PLANS[plan].limits;
-}
-
-/**
- * Check if a plan status represents an active subscription
- */
-export function isPlanActive(planStatus: string): boolean {
-  return planStatus === "active" || planStatus === "trialing";
-}
-
-/**
- * Check if an org is in the grace period (payment failed, not yet downgraded)
- */
-export function isInGracePeriod(planStatus: string): boolean {
-  return planStatus === "past_due";
-}
+/** All displayable plan tiers in order */
+export const PLAN_ORDER: PlanTier[] = ["free", "starter", "growth", "team", "enterprise"];

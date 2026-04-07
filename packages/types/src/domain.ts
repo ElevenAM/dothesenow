@@ -6,6 +6,7 @@ import type {
   GeneratedBy,
   ContactType,
   ContactStatus,
+  CreditStatus,
   LifecycleStage,
   OutreachChannel,
   OutreachDirection,
@@ -186,6 +187,22 @@ export interface Organization {
   growth_motion: string | null;
   timezone: string | null;
   onboarding_completed_at: string | null;
+  ai_credits_remaining: number;
+  ai_credits_reset_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Credit Ledger ──────────────────────────────────────────
+
+export interface CreditLedgerEntry {
+  id: string;
+  org_id: string;
+  amount: number;
+  balance_after: number;
+  reason: string;
+  status: CreditStatus;
+  reference_id: string | null;
   created_at: string;
   updated_at: string;
 }

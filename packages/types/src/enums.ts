@@ -262,6 +262,15 @@ export const TransitionSource = {
 } as const;
 export type TransitionSource = (typeof TransitionSource)[keyof typeof TransitionSource];
 
+// ─── Credit Enums ───────────────────────────────────────────
+
+export const CreditStatus = {
+  Reserved: "reserved",
+  Confirmed: "confirmed",
+  Refunded: "refunded",
+} as const;
+export type CreditStatus = (typeof CreditStatus)[keyof typeof CreditStatus];
+
 // ─── Membership Enums ────────────────────────────────────────
 
 export const MemberRole = {
