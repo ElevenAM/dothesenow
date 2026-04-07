@@ -177,12 +177,12 @@ export const marketplace: ToolModule = {
     async list_tasks(client, args) {
       const ctx = toOrgContext(client);
       const data = await getMarketplaceTasks(ctx, {
-        status: args.status as string | undefined,
+        status: args.status,
         task_type: args.task_type as string | undefined,
         assigned_to: args.assigned_to as string | undefined,
         campaign_id: args.campaign_id as string | undefined,
         limit: args.limit as number | undefined,
-      });
+      } as Parameters<typeof getMarketplaceTasks>[1]);
       return ok(JSON.stringify(data, null, 2));
     },
 
@@ -201,9 +201,9 @@ export const marketplace: ToolModule = {
       const ctx = toOrgContext(client);
       const data = await getFreelancerLeaderboard(ctx, {
         skills: args.skills as string[] | undefined,
-        engagement_type: args.engagement_type as string | undefined,
+        engagement_type: args.engagement_type,
         min_rating: args.min_rating as number | undefined,
-      });
+      } as Parameters<typeof getFreelancerLeaderboard>[1]);
       return ok(JSON.stringify(data, null, 2));
     },
 

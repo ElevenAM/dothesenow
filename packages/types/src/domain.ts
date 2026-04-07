@@ -21,6 +21,7 @@ import type {
   PaymentType,
   MessageSenderType,
   CampaignType,
+  CampaignStatus,
 } from "./enums.js";
 import type { Json } from "./database.js";
 
@@ -400,18 +401,10 @@ export interface Freelancer {
   updated_at: string | null;
 }
 
-export interface FreelancerLeaderboardEntry {
-  id: string;
-  org_id: string;
-  name: string;
-  email: string;
-  skills: string[] | null;
-  engagement_type: string | null;
-  tasks_completed: number | null;
-  avg_rating: number | null;
-  reliability_score: number | null;
-  available: boolean | null;
-}
+export type FreelancerLeaderboardEntry = Pick<Freelancer,
+  "id" | "org_id" | "name" | "email" | "skills" | "engagement_type" |
+  "tasks_completed" | "avg_rating" | "reliability_score" | "available"
+>;
 
 export interface TaskMessage {
   id: string;
@@ -443,9 +436,10 @@ export interface CreateMarketplaceTaskInput {
 }
 
 export interface ReviewSubmissionInput {
-  status: "approved" | "revision_requested" | "rejected";
+  status: Extract<SubmissionStatus, "approved" | "revision_requested" | "rejected">;
   reviewer_notes?: string | null;
   ai_review?: string | null;
+  /** 1-5 inclusive, validated server-side */
   rating?: number | null;
 }
 
@@ -462,7 +456,7 @@ export interface Campaign {
   org_id: string;
   name: string;
   campaign_type: CampaignType;
-  status: string | null;
+  status: CampaignStatus | null;
   description: string | null;
   target_audience: string | null;
   channels: string[] | null;
@@ -486,14 +480,14 @@ export interface WeeklyReview {
   learnings: string[] | null;
   next_week_focus: string[] | null;
   strategy_adjustments: string | null;
-  generated_by: string | null;
+  generated_by: GeneratedBy | null;
   created_at: string | null;
 }
 
 export interface CreateCampaignInput {
   name: string;
   campaign_type: CampaignType;
-  status?: string;
+  status?: CampaignStatus;
   description?: string | null;
   target_audience?: string | null;
   channels?: string[] | null;
@@ -548,18 +542,7 @@ export interface CreateCompetitorInput {
   threat_level?: string | null;
 }
 
-export interface UpdateCompetitorInput {
-  name?: string;
-  website?: string | null;
-  description?: string | null;
-  target_market?: string | null;
-  pricing?: string | null;
-  strengths?: string[] | null;
-  weaknesses?: string[] | null;
-  latest_moves?: string | null;
-  our_advantage?: string | null;
-  threat_level?: string | null;
-}
+export type UpdateCompetitorInput = Partial<CreateCompetitorInput>;
 
 // ─── Insights ───────────────────────────────────────────────
 
@@ -591,8 +574,8 @@ export interface CreateInsightInput {
 
 export interface PipelineSummary {
   org_id: string;
-  lifecycle_stage: string | null;
-  contact_type: string | null;
+  lifecycle_stage: LifecycleStage | null;
+  contact_type: ContactType | null;
   total: number;
   avg_lead_score: number | null;
 }

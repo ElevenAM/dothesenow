@@ -161,6 +161,15 @@ export const CampaignType = {
 } as const;
 export type CampaignType = (typeof CampaignType)[keyof typeof CampaignType];
 
+export const CampaignStatus = {
+  Draft: "draft",
+  Active: "active",
+  Paused: "paused",
+  Completed: "completed",
+  Archived: "archived",
+} as const;
+export type CampaignStatus = (typeof CampaignStatus)[keyof typeof CampaignStatus];
+
 // ─── Organization Profile Enums ─────────────────────────────
 
 export const Industry = {

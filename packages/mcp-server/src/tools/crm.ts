@@ -227,11 +227,11 @@ export const crm: ToolModule = {
       const ctx = toOrgContext(client);
       const data = await getOutreachHistory(ctx, {
         contact_id: args.contact_id as string | undefined,
-        channel: args.channel as string | undefined,
-        status: args.status as string | undefined,
+        channel: args.channel,
+        status: args.status,
         since_days: args.since_days as number | undefined,
         limit: args.limit as number | undefined,
-      });
+      } as Parameters<typeof getOutreachHistory>[1]);
       return ok(JSON.stringify(data, null, 2));
     },
 
