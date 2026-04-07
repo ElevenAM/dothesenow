@@ -1,0 +1,14 @@
+import { overdueTaskDetection } from "./overdue-tasks";
+import { agentExecutor } from "./agent-executor";
+import { dailyTaskGeneration } from "./daily-task-generation";
+
+/**
+ * All Inngest functions registered with the app.
+ * Auto-discovery pattern: add new function imports here and they'll
+ * be automatically registered via the /api/inngest route.
+ */
+export const functions = [
+  overdueTaskDetection,
+  agentExecutor,
+  dailyTaskGeneration,
+];
