@@ -1,74 +1,44 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createOrganization } from "@/lib/org/actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+interface OrgOnboardingRow {
+  slug: string;
+  onboarding_completed_at: string | null;
+}
 
-export default function OnboardingPage() {
-  const [orgName, setOrgName] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const router = useRouter();
+export default async function OnboardingPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  async function handleCreateOrg(e: React.FormEvent) {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
-
-    const result = await createOrganization(orgName);
-
-    if ("error" in result) {
-      setError(result.error);
-      setIsLoading(false);
-      return;
-    }
-
-    router.push("/marketing");
+  if (!user) {
+    redirect("/login");
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome to DoTheseNow</CardTitle>
-          <CardDescription>
-            Create your organization to get started. You can invite team members
-            later.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleCreateOrg} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="orgName">Organization name</Label>
-              <Input
-                id="orgName"
-                placeholder="Acme Marketing"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                required
-                minLength={2}
-              />
-              <p className="text-xs text-gray-500">
-                This is your company or team name
-              </p>
-            </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating..." : "Create organization"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  // Check if user already has an org
+  const { data: membership } = await supabase
+    .from("dtn_memberships")
+    .select("org_id, dtn_organizations(slug, onboarding_completed_at)")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (membership) {
+    const org = membership.dtn_organizations as unknown as OrgOnboardingRow | null;
+
+    if (org?.onboarding_completed_at) {
+      // Onboarding already complete — go to dashboard
+      redirect("/");
+    }
+
+    // Org exists but onboarding not finished — resume at step 2
+    return <OnboardingWizard resumeAtStep={2} existingSlug={org?.slug} />;
+  }
+
+  // No org — start from the beginning
+  return <OnboardingWizard />;
 }

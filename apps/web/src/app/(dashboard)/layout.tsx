@@ -28,6 +28,11 @@ export default async function DashboardLayout({
 
   const { user, org, allOrgs } = ctx;
 
+  // Redirect to onboarding wizard if user hasn't completed it
+  if (!org.onboardingCompletedAt) {
+    redirect("/onboarding");
+  }
+
   // Get the first department for this org
   const supabase = await createClient();
   const { data: departments } = await supabase

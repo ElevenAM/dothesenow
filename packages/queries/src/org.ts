@@ -43,7 +43,7 @@ export async function getOrgBySlug(
 
 export async function updateOrg(
   ctx: OrgContext,
-  updates: Partial<Pick<Organization, "name" | "slug" | "logo_url" | "settings">>,
+  updates: Partial<Pick<Organization, "name" | "slug" | "logo_url" | "settings" | "industry" | "stage" | "budget_tier" | "growth_motion" | "timezone" | "onboarding_completed_at">>,
 ): Promise<Organization> {
   const { data, error } = await ctx.client
     .from(TABLE)
