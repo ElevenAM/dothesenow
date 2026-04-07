@@ -27,7 +27,7 @@ export function CancelInviteButton({ membershipId }: { membershipId: string }) {
       >
         <X className="h-4 w-4" />
       </Button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   );
 }

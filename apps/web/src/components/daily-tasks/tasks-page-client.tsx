@@ -140,7 +140,7 @@ export function TasksPageClient({
                       {tab.icon && <tab.icon className="h-3.5 w-3.5" />}
                       {tab.label}
                       {tab.value !== "all" && (
-                        <span className="text-xs text-gray-400 ml-0.5">
+                        <span className="text-xs text-muted-foreground ml-0.5">
                           {count}
                         </span>
                       )}

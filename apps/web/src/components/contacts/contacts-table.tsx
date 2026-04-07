@@ -16,10 +16,10 @@ import { STAGE_LABELS } from "@/lib/pipeline/types";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-100 text-green-800",
-  inactive: "bg-gray-100 text-gray-800",
-  do_not_contact: "bg-red-100 text-red-800",
-  churned: "bg-amber-100 text-amber-800",
+  active: "bg-[var(--label-green-bg)] text-[var(--label-green-fg)]",
+  inactive: "bg-[var(--label-default-bg)] text-[var(--label-default-fg)]",
+  do_not_contact: "bg-[var(--label-red-bg)] text-[var(--label-red-fg)]",
+  churned: "bg-[var(--label-yellow-bg)] text-[var(--label-yellow-fg)]",
 };
 
 interface ContactsTableProps {

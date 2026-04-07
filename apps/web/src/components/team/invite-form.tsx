@@ -81,7 +81,7 @@ export function InviteForm({
       </div>
 
       {atLimit && (
-        <p className="text-sm text-amber-600">
+        <p className="text-sm text-[var(--label-yellow-fg)]">
           You&apos;ve reached the {memberLimit}-member limit on the free plan.{" "}
           <a href="/settings/billing" className="underline font-medium">
             Upgrade to Premium
@@ -90,9 +90,9 @@ export function InviteForm({
         </p>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {success && (
-        <p className="text-sm text-green-600">
+        <p className="text-sm text-success">
           Invite sent! They&apos;ll see it when they log in.
         </p>
       )}

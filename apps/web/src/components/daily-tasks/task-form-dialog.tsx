@@ -240,7 +240,7 @@ export function TaskFormDialog({
               </SelectContent>
             </Select>
             {executorAvailability?.[executorType] && !executorAvailability[executorType].available && (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-[var(--label-yellow-fg)]">
                 {executorType === "n8n" ? (
                   <>
                     n8n is not connected yet. Tasks will stay pending for manual completion.{" "}
@@ -248,7 +248,7 @@ export function TaskFormDialog({
                       href="https://n8n.io"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-0.5 underline hover:text-amber-700"
+                      className="inline-flex items-center gap-0.5 underline hover:opacity-80"
                     >
                       Set up n8n <ExternalLink className="h-3 w-3" />
                     </a>

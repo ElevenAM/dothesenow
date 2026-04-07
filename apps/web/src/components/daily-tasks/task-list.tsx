@@ -24,20 +24,20 @@ import {
 import type { DailyTask } from "@/lib/daily-tasks/actions";
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "bg-red-100 text-red-700",
-  high: "bg-orange-100 text-orange-700",
-  medium: "bg-blue-100 text-blue-700",
-  low: "bg-gray-100 text-gray-600",
+  urgent: "bg-[var(--label-red-bg)] text-[var(--label-red-fg)]",
+  high: "bg-[var(--label-orange-bg)] text-[var(--label-orange-fg)]",
+  medium: "bg-[var(--label-blue-bg)] text-[var(--label-blue-fg)]",
+  low: "bg-[var(--label-default-bg)] text-[var(--label-default-fg)]",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-600",
-  in_progress: "bg-blue-100 text-blue-700",
-  waiting_approval: "bg-amber-100 text-amber-700",
-  completed: "bg-green-100 text-green-700",
-  skipped: "bg-gray-100 text-gray-500",
-  failed: "bg-red-100 text-red-700",
-  carried_over: "bg-purple-100 text-purple-700",
+  pending: "bg-[var(--label-default-bg)] text-[var(--label-default-fg)]",
+  in_progress: "bg-[var(--label-blue-bg)] text-[var(--label-blue-fg)]",
+  waiting_approval: "bg-[var(--label-yellow-bg)] text-[var(--label-yellow-fg)]",
+  completed: "bg-[var(--label-green-bg)] text-[var(--label-green-fg)]",
+  skipped: "bg-[var(--label-default-bg)] text-[var(--label-default-fg)]",
+  failed: "bg-[var(--label-red-bg)] text-[var(--label-red-fg)]",
+  carried_over: "bg-[var(--label-purple-bg)] text-[var(--label-purple-fg)]",
 };
 
 interface TaskListProps {
@@ -49,7 +49,7 @@ interface TaskListProps {
 export function TaskList({ tasks, onEditTask, onSelectTask }: TaskListProps) {
   if (tasks.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-gray-400">
+      <p className="py-8 text-center text-sm text-muted-foreground">
         No tasks for this group
       </p>
     );
@@ -129,7 +129,7 @@ function TaskRow({
 
       <button
         type="button"
-        className={`flex-1 text-left text-sm min-w-0 ${isComplete ? "line-through text-gray-400" : ""}`}
+        className={`flex-1 text-left text-sm min-w-0 ${isComplete ? "line-through text-muted-foreground" : ""}`}
         onClick={onSelect}
       >
         <span className="truncate block">{task.title}</span>
@@ -147,14 +147,14 @@ function TaskRow({
         )}
 
         {assignee && (
-          <span className="text-xs text-gray-400 max-w-[80px] truncate hidden sm:inline">
+          <span className="text-xs text-muted-foreground max-w-[80px] truncate hidden sm:inline">
             {assignee}
           </span>
         )}
 
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="inline-flex items-center justify-center rounded-md h-7 w-7 opacity-0 group-hover:opacity-100 hover:bg-gray-100 cursor-pointer border-0 bg-transparent"
+            className="inline-flex items-center justify-center rounded-md h-7 w-7 opacity-0 group-hover:opacity-100 hover:bg-muted cursor-pointer border-0 bg-transparent"
           >
             <MoreHorizontal className="h-4 w-4" />
           </DropdownMenuTrigger>
@@ -177,7 +177,7 @@ function TaskRow({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleAction("fail")}
-                  className="text-red-600"
+                  className="text-destructive"
                 >
                   <XCircle className="mr-2 h-3.5 w-3.5" />
                   Mark Failed

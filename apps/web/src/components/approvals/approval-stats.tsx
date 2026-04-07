@@ -23,7 +23,7 @@ export function ApprovalStatsCards({ stats }: ApprovalStatsCardsProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-sm font-medium">Approved (7d)</CardTitle>
-          <CheckCircle className="h-4 w-4 text-green-600" />
+          <CheckCircle className="h-4 w-4 text-[var(--label-green-fg)]" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.approved_7d}</div>
@@ -32,7 +32,7 @@ export function ApprovalStatsCards({ stats }: ApprovalStatsCardsProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-sm font-medium">Rejected (7d)</CardTitle>
-          <XCircle className="h-4 w-4 text-red-600" />
+          <XCircle className="h-4 w-4 text-[var(--label-red-fg)]" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.rejected_7d}</div>

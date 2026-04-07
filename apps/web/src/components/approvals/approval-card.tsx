@@ -85,7 +85,7 @@ export function ApprovalCard({ item, onSelect, canReview }: ApprovalCardProps) {
               {item.content}
             </p>
             {error && (
-              <p className="text-sm text-red-600 mt-1">{error}</p>
+              <p className="text-sm text-destructive mt-1">{error}</p>
             )}
           </div>
 
@@ -94,7 +94,7 @@ export function ApprovalCard({ item, onSelect, canReview }: ApprovalCardProps) {
               <Button
                 size="sm"
                 variant="outline"
-                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                className="text-[var(--label-green-fg)] hover:bg-[var(--label-green-bg)]"
                 onClick={handleQuickApprove}
                 disabled={isApproving || isRejecting}
               >
@@ -103,7 +103,7 @@ export function ApprovalCard({ item, onSelect, canReview }: ApprovalCardProps) {
               <Button
                 size="sm"
                 variant="outline"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-[var(--label-red-fg)] hover:bg-[var(--label-red-bg)]"
                 onClick={handleQuickReject}
                 disabled={isApproving || isRejecting}
               >

@@ -1,8 +1,8 @@
 export const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  revision_requested: "bg-orange-100 text-orange-800",
+  pending: "bg-[var(--label-yellow-bg)] text-[var(--label-yellow-fg)]",
+  approved: "bg-[var(--label-green-bg)] text-[var(--label-green-fg)]",
+  rejected: "bg-[var(--label-red-bg)] text-[var(--label-red-fg)]",
+  revision_requested: "bg-[var(--label-orange-bg)] text-[var(--label-orange-fg)]",
 };
 
 export const ITEM_TYPE_LABELS: Record<string, string> = {

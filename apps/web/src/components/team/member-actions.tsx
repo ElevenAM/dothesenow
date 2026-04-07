@@ -53,7 +53,7 @@ export function MemberActions({
   return (
     <div className="flex items-center gap-2">
       <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 w-8 hover:bg-gray-100 cursor-pointer border-0 bg-transparent disabled:opacity-50" disabled={isPending}>
+        <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 w-8 hover:bg-muted cursor-pointer border-0 bg-transparent disabled:opacity-50" disabled={isPending}>
             <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -71,14 +71,14 @@ export function MemberActions({
           {canRemove && (
             <DropdownMenuItem
               onClick={handleRemove}
-              className="text-red-600 focus:text-red-600"
+              className="text-destructive focus:text-destructive"
             >
               Remove from org
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   );
 }

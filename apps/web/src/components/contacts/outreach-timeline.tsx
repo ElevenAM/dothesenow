@@ -17,13 +17,13 @@ const CHANNEL_ICONS: Record<string, React.ElementType> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  drafted: "bg-gray-100 text-gray-700",
-  sent: "bg-blue-100 text-blue-700",
-  delivered: "bg-blue-100 text-blue-700",
-  opened: "bg-indigo-100 text-indigo-700",
-  replied: "bg-green-100 text-green-700",
-  bounced: "bg-red-100 text-red-700",
-  no_response: "bg-amber-100 text-amber-700",
+  drafted: "bg-[var(--label-default-bg)] text-[var(--label-default-fg)]",
+  sent: "bg-[var(--label-blue-bg)] text-[var(--label-blue-fg)]",
+  delivered: "bg-[var(--label-blue-bg)] text-[var(--label-blue-fg)]",
+  opened: "bg-[var(--label-purple-bg)] text-[var(--label-purple-fg)]",
+  replied: "bg-[var(--label-green-bg)] text-[var(--label-green-fg)]",
+  bounced: "bg-[var(--label-red-bg)] text-[var(--label-red-fg)]",
+  no_response: "bg-[var(--label-yellow-bg)] text-[var(--label-yellow-fg)]",
 };
 
 interface OutreachTimelineProps {

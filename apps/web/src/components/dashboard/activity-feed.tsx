@@ -102,9 +102,9 @@ export async function ActivityFeed({ orgId }: ActivityFeedProps) {
   };
 
   const COLORS = {
-    outreach: "text-blue-600 bg-blue-50",
-    strategy: "text-purple-600 bg-purple-50",
-    contact: "text-green-600 bg-green-50",
+    outreach: "text-[var(--label-blue-fg)] bg-[var(--label-blue-bg)]",
+    strategy: "text-[var(--label-purple-fg)] bg-[var(--label-purple-bg)]",
+    contact: "text-[var(--label-green-fg)] bg-[var(--label-green-bg)]",
   };
 
   if (recentItems.length === 0) {

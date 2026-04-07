@@ -51,7 +51,7 @@ export default async function DashboardLayout({
     : [];
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-muted">
       <Sidebar
         dept={dept}
         orgName={org.name}
@@ -60,28 +60,28 @@ export default async function DashboardLayout({
       />
       <main className="flex-1 overflow-auto p-6">
         {org.planStatus === "past_due" && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-amber-800">
+          <div className="mb-4 rounded-md border border-[var(--label-yellow-fg)]/20 bg-[var(--label-yellow-bg)] px-4 py-3 flex items-center justify-between">
+            <p className="text-sm font-medium text-[var(--label-yellow-fg)]">
               Your payment failed. Update your payment method to keep premium
               features.
             </p>
             <Link
               href="/settings/billing"
-              className="text-sm font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700"
+              className="text-sm font-semibold text-[var(--label-yellow-fg)] underline underline-offset-2 hover:opacity-80"
             >
               Fix billing
             </Link>
           </div>
         )}
         {pendingInvites.length > 0 && (
-          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 flex items-center justify-between">
-            <p className="text-sm font-medium text-blue-800">
+          <div className="mb-4 rounded-md border border-[var(--label-blue-fg)]/20 bg-[var(--label-blue-bg)] px-4 py-3 flex items-center justify-between">
+            <p className="text-sm font-medium text-[var(--label-blue-fg)]">
               You have {pendingInvites.length} pending team{" "}
               {pendingInvites.length === 1 ? "invite" : "invites"}.
             </p>
             <Link
               href="/invites"
-              className="text-sm font-semibold text-blue-900 underline underline-offset-2 hover:text-blue-700"
+              className="text-sm font-semibold text-[var(--label-blue-fg)] underline underline-offset-2 hover:opacity-80"
             >
               View invites
             </Link>
