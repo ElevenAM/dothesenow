@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org-context";
-import { getOrgIntegrations } from "@dothesenow/queries";
+import { getOrgIntegrations, getOrgApiKeys } from "@dothesenow/queries";
 import { getAllExecutorMetadata } from "@/lib/executors/registry";
 import { IntegrationCard } from "@/components/settings/integration-card";
 import { SlackIntegrationCard } from "@/components/settings/slack-integration-card";
+import { ClaudePluginCard } from "@/components/settings/claude-plugin-card";
 
 export default async function IntegrationsPage() {
   const supabase = await createClient();
@@ -26,6 +27,14 @@ export default async function IntegrationsPage() {
     ? ((slackIntegration.config as Record<string, unknown>)?.team_name as string) ?? null
     : null;
 
+  // Fetch API keys for Claude Plugin card
+  const apiKeys = await getOrgApiKeys(ctx);
+  const claudeLastUsed = apiKeys.reduce<string | null>((latest, key) => {
+    if (!key.last_used_at) return latest;
+    if (!latest) return key.last_used_at;
+    return new Date(key.last_used_at) > new Date(latest) ? key.last_used_at : latest;
+  }, null);
+
   // Show executors that have config (BYOS/webhook) or are already connected
   const allMetadata = getAllExecutorMetadata();
   const configurableExecutors = allMetadata.filter(
@@ -45,6 +54,10 @@ export default async function IntegrationsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <ClaudePluginCard
+          keyCount={apiKeys.length}
+          lastUsed={claudeLastUsed}
+        />
         <SlackIntegrationCard
           integration={slackIntegration}
           teamName={slackTeamName}

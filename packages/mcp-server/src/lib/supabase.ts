@@ -1,13 +1,7 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OrgContext } from "@dothesenow/queries";
-import dotenv from "dotenv";
 
-dotenv.config();
-
-const supabaseAdmin: SupabaseClient = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+// ─── Pure types & helpers — no side effects, safe to import anywhere ────
 
 export class OrgScopedClient {
   readonly supabase: SupabaseClient;
@@ -31,12 +25,13 @@ export function toOrgContext(client: OrgScopedClient): OrgContext {
   return { client: client.supabase, orgId: client.orgId };
 }
 
-export function createOrgClient(orgId?: string): OrgScopedClient {
-  const resolved = orgId || process.env.ORG_ID;
-  if (!resolved) {
-    throw new Error(
-      "org_id is required: pass it as a tool parameter or set ORG_ID in .env",
-    );
-  }
-  return new OrgScopedClient(supabaseAdmin, resolved);
+/**
+ * Create an org-scoped client from an existing Supabase admin client.
+ * The caller is responsible for constructing the admin client.
+ */
+export function createOrgClient(
+  supabase: SupabaseClient,
+  orgId: string,
+): OrgScopedClient {
+  return new OrgScopedClient(supabase, orgId);
 }

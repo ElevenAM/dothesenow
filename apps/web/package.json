@@ -15,6 +15,7 @@
     "@anthropic-ai/sdk": "^0.52.0",
     "@base-ui/react": "^1.3.0",
     "@dothesenow/prompts": "*",
+    "@dothesenow/mcp-server": "*",
     "@dothesenow/queries": "*",
     "@dothesenow/types": "*",
     "@slack/web-api": "^7.15.0",
