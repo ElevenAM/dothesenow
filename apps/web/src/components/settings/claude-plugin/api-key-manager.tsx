@@ -32,21 +32,32 @@ export function ApiKeyManager({ initialKeys }: ApiKeyManagerProps) {
   const [copied, setCopied] = useState(false);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [revokeId, setRevokeId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   function handleGenerate() {
+    setError(null);
     startTransition(async () => {
-      const result = await generateApiKey(keyLabel || "Default");
-      setNewKeyValue(result.key);
-      setKeys((prev) => [result.apiKey, ...prev]);
-      setKeyLabel("");
+      try {
+        const result = await generateApiKey(keyLabel || "Default");
+        setNewKeyValue(result.key);
+        setKeys((prev) => [result.apiKey, ...prev]);
+        setKeyLabel("");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to generate API key");
+      }
     });
   }
 
   function handleRevoke(keyId: string) {
+    setError(null);
     startTransition(async () => {
-      await revokeApiKeyAction(keyId);
-      setKeys((prev) => prev.filter((k) => k.id !== keyId));
-      setRevokeId(null);
+      try {
+        await revokeApiKeyAction(keyId);
+        setKeys((prev) => prev.filter((k) => k.id !== keyId));
+        setRevokeId(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to revoke API key");
+      }
     });
   }
 
@@ -65,6 +76,10 @@ export function ApiKeyManager({ initialKeys }: ApiKeyManagerProps) {
             Generate keys to connect Claude Code or Claude Desktop to your org.
           </p>
         </div>
+
+        {error && (
+          <p className="text-sm text-[var(--fgColor-danger)]">{error}</p>
+        )}
 
         <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
           <DialogTrigger

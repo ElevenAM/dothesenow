@@ -95,10 +95,14 @@ export async function createOrgApiKey(
       label: input.label,
       created_by: input.createdBy,
     })
-    .select()
+    .select(
+      "id, org_id, key_prefix, label, scopes, created_by, last_used_at, expires_at, is_active, created_at, updated_at",
+    )
     .single();
 
   if (error) {
+    // Roll back Vault secret — the DB row was not created
+    await deleteIntegrationSecret(adminClient, vaultSecretId).catch(() => {});
     throw new QueryError(error.message, TABLE, "createOrgApiKey", orgId, error);
   }
 
@@ -108,13 +112,14 @@ export async function createOrgApiKey(
 /**
  * Validate an API key by hashing and looking up.
  * Returns org/key IDs if valid, null if invalid/revoked/expired.
- * Updates last_used_at on success.
+ * Throws on DB errors (so caller can distinguish 401 vs 500).
+ * Attempts to update last_used_at on success (fire-and-forget).
  */
 export async function validateApiKey(
   adminClient: SupabaseClient,
   rawKey: string,
 ): Promise<ValidatedApiKey | null> {
-  if (!rawKey.startsWith(KEY_PREFIX)) return null;
+  if (!rawKey.startsWith(KEY_PREFIX) || rawKey.length > 64) return null;
 
   const hash = hashKey(rawKey);
 
@@ -124,7 +129,12 @@ export async function validateApiKey(
     .eq("key_hash", hash)
     .maybeSingle();
 
-  if (error || !data) return null;
+  // DB errors are infrastructure failures — throw so caller returns 500, not 401
+  if (error) {
+    throw new QueryError(error.message, TABLE, "validateApiKey", "unknown", error);
+  }
+
+  if (!data) return null;
   if (!data.is_active) return null;
 
   // Check expiry

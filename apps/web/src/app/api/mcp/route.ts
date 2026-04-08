@@ -32,7 +32,15 @@ async function authenticateRequest(
   }
 
   const adminClient = createAdminClient();
-  const result = await validateApiKey(adminClient, token);
+  let result: Awaited<ReturnType<typeof validateApiKey>>;
+  try {
+    result = await validateApiKey(adminClient, token);
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "Service temporarily unavailable" }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   if (!result) {
     return new Response(
@@ -54,12 +62,14 @@ async function authenticateRequest(
 
 function getStrippedDefinitions() {
   return getAllDefinitions().map((def) => {
-    const { org_id: _stripped, ...properties } = def.inputSchema.properties;
+    const { org_id: _stripped, ...properties } = def.inputSchema.properties ?? {};
+    const required = def.inputSchema.required?.filter((r) => r !== "org_id");
     return {
       ...def,
       inputSchema: {
         ...def.inputSchema,
         properties,
+        ...(required && required.length > 0 ? { required } : {}),
       },
     };
   });
@@ -121,6 +131,9 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  // Session teardown — stateless mode, so just acknowledge
+  const auth = await authenticateRequest(request);
+  if (auth instanceof Response) return auth;
+
+  // Stateless mode — no session to tear down, just acknowledge
   return new Response(null, { status: 200 });
 }
