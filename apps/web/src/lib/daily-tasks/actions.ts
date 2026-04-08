@@ -111,7 +111,13 @@ export async function updateDailyTask(
   const { auth, ctx } = await getAuthenticatedOrgContext();
 
   // If status is changing, use the state machine RPC
+  let oldStatus: string | undefined;
   if (updates.status) {
+    // Fetch current status before transition for thread sync event
+    const { getTaskById } = await import("@dothesenow/queries");
+    const current = await getTaskById(ctx, taskId);
+    oldStatus = current?.status;
+
     await transitionTaskStatus(
       ctx,
       taskId,
@@ -136,6 +142,26 @@ export async function updateDailyTask(
     result = task;
   }
 
+  // Emit thread sync event for Slack bidirectional updates
+  if (updates.status && oldStatus && oldStatus !== updates.status) {
+    inngest
+      .send({
+        name: "task/status.changed",
+        data: {
+          task_id: taskId,
+          org_id: ctx.orgId,
+          old_status: oldStatus,
+          new_status: updates.status,
+          source: "web_ui",
+          actor_id: auth.user.id,
+          changed_at: new Date().toISOString(),
+        },
+      })
+      .catch((err) => {
+        console.error("[actions] Failed to emit task/status.changed:", err);
+      });
+  }
+
   revalidatePath("/", "layout");
   return result;
 }
@@ -146,17 +172,39 @@ export async function completeDailyTask(
 ): Promise<DailyTask> {
   const { auth, ctx } = await getAuthenticatedOrgContext();
 
+  // Fetch current status before transition for thread sync
+  const { getTaskById } = await import("@dothesenow/queries");
+  const current = await getTaskById(ctx, taskId);
+  const oldStatus = current?.status ?? "pending";
+
   await transitionTaskStatus(ctx, taskId, "completed", "web_ui", auth.user.id);
 
   let task: DailyTask;
   if (outcomeNotes) {
     task = await updateTaskForOrg(ctx, taskId, { outcome_notes: outcomeNotes });
   } else {
-    const { getTaskById } = await import("@dothesenow/queries");
     const fetched = await getTaskById(ctx, taskId);
     if (!fetched) throw new Error("Task not found after completion");
     task = fetched;
   }
+
+  // Emit thread sync event
+  inngest
+    .send({
+      name: "task/status.changed",
+      data: {
+        task_id: taskId,
+        org_id: ctx.orgId,
+        old_status: oldStatus,
+        new_status: "completed",
+        source: "web_ui",
+        actor_id: auth.user.id,
+        changed_at: new Date().toISOString(),
+      },
+    })
+    .catch((err) => {
+      console.error("[actions] Failed to emit task/status.changed:", err);
+    });
 
   revalidatePath("/", "layout");
   return task;
@@ -165,11 +213,33 @@ export async function completeDailyTask(
 export async function skipDailyTask(taskId: string): Promise<DailyTask> {
   const { auth, ctx } = await getAuthenticatedOrgContext();
 
+  // Fetch current status before transition for thread sync
+  const { getTaskById } = await import("@dothesenow/queries");
+  const current = await getTaskById(ctx, taskId);
+  const oldStatus = current?.status ?? "pending";
+
   await transitionTaskStatus(ctx, taskId, "skipped", "web_ui", auth.user.id);
 
-  const { getTaskById } = await import("@dothesenow/queries");
   const task = await getTaskById(ctx, taskId);
   if (!task) throw new Error("Task not found after skip");
+
+  // Emit thread sync event
+  inngest
+    .send({
+      name: "task/status.changed",
+      data: {
+        task_id: taskId,
+        org_id: ctx.orgId,
+        old_status: oldStatus,
+        new_status: "skipped",
+        source: "web_ui",
+        actor_id: auth.user.id,
+        changed_at: new Date().toISOString(),
+      },
+    })
+    .catch((err) => {
+      console.error("[actions] Failed to emit task/status.changed:", err);
+    });
 
   revalidatePath("/", "layout");
   return task;
@@ -261,6 +331,25 @@ export async function carryOverTasks(
       `[carry-over] Copies inserted but failed to mark originals as carried_over:`,
       markError.message,
     );
+  } else {
+    // Emit thread sync events for all carried-over tasks (fire-and-forget)
+    const changedAt = new Date().toISOString();
+    const events = eligible.map((t: Record<string, unknown>) => ({
+      name: "task/status.changed" as const,
+      data: {
+        task_id: t.id as string,
+        org_id: ctx.orgId,
+        old_status: t.status as string,
+        new_status: "carried_over",
+        source: "web_ui",
+        actor_id: null,
+        changed_at: changedAt,
+      },
+    }));
+
+    inngest.send(events).catch((err) => {
+      console.error("[carry-over] Failed to emit task/status.changed events:", err);
+    });
   }
 
   revalidatePath("/", "layout");

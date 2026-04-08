@@ -13,6 +13,12 @@ import {
   slackMentionHandler,
   slackCommandHandler,
 } from "./slack-event-handler";
+import {
+  slackMorningDMCron,
+  slackMorningDMHandler,
+} from "./slack-morning-dm";
+import { slackEodSummary } from "./slack-eod-summary";
+import { slackThreadSync } from "./slack-thread-sync";
 
 /**
  * All Inngest functions registered with the app.
@@ -31,4 +37,8 @@ export const functions = [
   blockerEscalation,
   slackMentionHandler,
   slackCommandHandler,
+  slackMorningDMCron,
+  slackMorningDMHandler,
+  slackEodSummary,
+  slackThreadSync,
 ];

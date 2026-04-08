@@ -20,10 +20,11 @@ export async function handleSlashCommand(
     orgId: string;
     actorId: string;
     text: string;
+    channelId?: string;
     departmentId?: string;
   },
 ): Promise<SlashCommandResult | null> {
-  const { orgId, actorId, text } = params;
+  const { orgId, actorId, text, channelId } = params;
   const parts = text.trim().split(/\s+/);
   const subCommand = parts[0]?.toLowerCase() ?? "tasks";
   const args = parts.slice(1).join(" ");
@@ -35,6 +36,9 @@ export async function handleSlashCommand(
 
     case "help":
       return handleHelp();
+
+    case "channel":
+      return handleChannel(adminClient, orgId, channelId);
 
     case "complete":
     case "create":
@@ -66,6 +70,37 @@ export function parseSlashCommand(text: string): {
 }
 
 // ─── Sync handlers ──────────────────────────────────────────
+
+async function handleChannel(
+  adminClient: SupabaseClient,
+  orgId: string,
+  channelId?: string,
+): Promise<SlashCommandResult> {
+  if (!channelId) {
+    return {
+      response_type: "ephemeral",
+      text: ":warning: Could not detect the current channel. Please try again.",
+    };
+  }
+
+  const { error } = await adminClient
+    .from("dtn_slack_installations")
+    .update({ notification_channel_id: channelId })
+    .eq("org_id", orgId);
+
+  if (error) {
+    console.error("[slack:channel] Failed to set notification channel:", error.message);
+    return {
+      response_type: "ephemeral",
+      text: ":warning: Failed to update notification channel. Please try again.",
+    };
+  }
+
+  return {
+    response_type: "in_channel",
+    text: ":white_check_mark: EOD summaries will now be posted to this channel.",
+  };
+}
 
 async function handleTasks(
   adminClient: SupabaseClient,
@@ -115,6 +150,7 @@ function handleHelp(): SlashCommandResult {
             "`/dtn tasks` — Show today's pending tasks",
             "`/dtn complete <task-id>` — Mark a task as completed",
             "`/dtn create <title>` — Create a new task for today",
+            "`/dtn channel` — Set this channel for EOD summaries",
             "`/dtn help` — Show this help message",
             "",
             "You can also *@mention* the DoTheseNow bot to create tasks from natural language.",

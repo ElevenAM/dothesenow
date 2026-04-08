@@ -74,22 +74,13 @@ export async function verifySlackSignature(
 // ─── Installation lookup ────────────────────────────────────
 
 /**
- * Look up a Slack installation by team_id and decrypt its bot token from Vault.
+ * Decrypt bot token from Vault for a Slack installation.
+ * Shared by both getSlackInstallation (by team_id) and getSlackInstallationByOrg (by org_id).
  */
-export async function getSlackInstallation(
+async function _decryptInstallation(
   adminClient: SupabaseClient,
-  teamId: string,
+  installation: SlackInstallation,
 ): Promise<SlackInstallationWithToken | null> {
-  // Get installation record
-  const { data: installation, error } = await adminClient
-    .from("dtn_slack_installations")
-    .select("*")
-    .eq("team_id", teamId)
-    .single();
-
-  if (error || !installation) return null;
-
-  // Get the org integration to find vault_secret_id
   const { data: integration, error: integrationError } = await adminClient
     .from("dtn_org_integrations")
     .select("vault_secret_id")
@@ -105,10 +96,42 @@ export async function getSlackInstallation(
     integration.vault_secret_id,
   );
 
-  return {
-    ...(installation as SlackInstallation),
-    botToken,
-  };
+  return { ...installation, botToken };
+}
+
+/**
+ * Look up a Slack installation by team_id and decrypt its bot token from Vault.
+ */
+export async function getSlackInstallation(
+  adminClient: SupabaseClient,
+  teamId: string,
+): Promise<SlackInstallationWithToken | null> {
+  const { data: installation, error } = await adminClient
+    .from("dtn_slack_installations")
+    .select("*")
+    .eq("team_id", teamId)
+    .single();
+
+  if (error || !installation) return null;
+  return _decryptInstallation(adminClient, installation as SlackInstallation);
+}
+
+/**
+ * Look up a Slack installation by org_id and decrypt its bot token from Vault.
+ * Used by cron functions that start from org context (morning DM, EOD summary).
+ */
+export async function getSlackInstallationByOrg(
+  adminClient: SupabaseClient,
+  orgId: string,
+): Promise<SlackInstallationWithToken | null> {
+  const { data: installation, error } = await adminClient
+    .from("dtn_slack_installations")
+    .select("*")
+    .eq("org_id", orgId)
+    .maybeSingle();
+
+  if (error || !installation) return null;
+  return _decryptInstallation(adminClient, installation as SlackInstallation);
 }
 
 // ─── User resolution ────────────────────────────────────────

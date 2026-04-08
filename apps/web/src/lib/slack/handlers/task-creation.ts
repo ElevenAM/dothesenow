@@ -17,9 +17,10 @@ export async function handleTaskCreation(
     actorId: string;
     text: string;
     botUserId: string;
+    teamId: string;
   },
 ): Promise<void> {
-  const { orgId, channelId, actorId, text, botUserId } = params;
+  const { orgId, channelId, actorId, text, botUserId, teamId } = params;
 
   // Strip the bot mention to get the task title
   const title = text
@@ -51,11 +52,26 @@ export async function handleTaskCreation(
       priority: task.priority ?? undefined,
     });
 
-    await slackClient.chat.postMessage({
+    const msgResult = await slackClient.chat.postMessage({
       channel: channelId,
       text: `Task created: ${task.title}`,
       blocks,
     });
+
+    // Store Slack origin for bidirectional thread sync
+    if (msgResult.ts) {
+      await adminClient
+        .from("dtn_daily_tasks")
+        .update({
+          slack_origin: {
+            team_id: teamId,
+            channel_id: channelId,
+            message_ts: msgResult.ts,
+          },
+        })
+        .eq("id", task.id)
+        .eq("org_id", orgId);
+    }
   } catch (err) {
     console.error("[slack:task-creation] Failed:", err);
     await slackClient.chat.postMessage({

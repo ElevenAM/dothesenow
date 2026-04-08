@@ -33,6 +33,7 @@ export async function POST(request: Request) {
   const slackUserId = params.get("user_id") ?? "";
   const text = params.get("text") ?? "";
   const responseUrl = params.get("response_url") ?? "";
+  const channelId = params.get("channel_id") ?? "";
 
   if (!teamId) {
     return jsonResponse({ text: "Missing team_id" }, 400);
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
     orgId: installation.org_id,
     actorId,
     text,
+    channelId,
   });
 
   if (result) {

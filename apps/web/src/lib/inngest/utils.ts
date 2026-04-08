@@ -38,6 +38,27 @@ export function currentHourInTimezone(timezone: string): number | null {
 }
 
 /**
+ * Get the current date as YYYY-MM-DD in a given IANA timezone.
+ * Important for cron functions: at 5pm Pacific the UTC date may be the next day.
+ */
+export function localDateString(timezone: string): string {
+  const tz = timezone || "America/New_York";
+  try {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    // en-CA locale formats as YYYY-MM-DD
+    return formatter.format(new Date());
+  } catch {
+    // Invalid timezone — fall back to UTC
+    return new Date().toISOString().split("T")[0];
+  }
+}
+
+/**
  * Filter orgs to only those where the current time matches a target local hour.
  * Used by cron functions to fan out by timezone (e.g., process orgs at their local 9am).
  */

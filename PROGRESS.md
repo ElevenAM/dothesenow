@@ -1,8 +1,8 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Phase 1–5 complete. [6A] complete (code, tests, migration ready). [6B] complete (code, tests, migration ready). [6C] Executor integration framework — implementation complete (code written, 83 tests pass, migration 022 ready). [2B], [2C] not started.
+> **Status**: Phase 1–5 complete. Phase 6 complete. Phase 7 complete. Phase 8 complete (Slack OAuth, commands, morning DM, EOD summary, thread sync). Phase 9 ready to start. [2B], [2C] not started.
 >
-> Last updated: 2026-04-07
+> Last updated: 2026-04-08
 
 ---
 
@@ -34,10 +34,10 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | [6B] | Task decomposition engine | Planned |
 | **Phase 7** | Agentic: Blocker resolution | Blocked on Phase 6 |
 | [7A] | Blocker resolution agent (5-type classification) | Planned |
-| **Phase 8** | Slack integration | **IN PROGRESS** |
-| [8A] | Slack OAuth + core handlers | **Implementation complete** — code written, builds pass, 24 tests, migrations 024-025 ready |
-| [8B] | Slack cron functions (morning DM, EOD summary) | Planned |
-| **Phase 9** | Closed loop: Results & feedback | Blocked on Phase 8 |
+| **Phase 8** | Slack integration | **COMPLETE** |
+| [8A] | Slack OAuth + core handlers | **Implementation complete** — code written, builds pass, 24 tests, migrations 024-025 applied |
+| [8B] | Slack cron functions (morning DM, EOD summary, thread sync) | **Implementation complete** — code written, builds pass, 43 tests (4 new files), migration 026 applied |
+| **Phase 9** | Closed loop: Results & feedback | Ready to start |
 | [9A] | Results dashboard | Planned |
 | [9B] | Feedback engine (strategy auto-refinement) | Planned |
 | **Phase 10** | Collaboration & ecosystem | Blocked on Phase 9 |
@@ -351,8 +351,55 @@ Slack as a first-class interaction surface. OAuth-based workspace connection, @m
 - [ ] E2E: Button click transitions task status
 - [ ] E2E: Disconnect cleans up installation + Vault
 
-**Next steps (Phase 8 remaining):**
-- [ ] [8B] Slack cron functions — Morning DM (8am) and EOD summary (5pm)
+### [8B] Slack Cron Functions & Thread Sync — Implementation Complete
+
+**Goal**: Scheduled Slack notifications (morning DM, EOD summary) and bidirectional thread sync for tasks created from Slack.
+
+**What was built:**
+
+1. **Morning DM** (8am per user timezone):
+   - Hourly cron → `filterOrgsByLocalHour(8)` → fan-out via `slack/morning-dm.send` events
+   - Per-org handler: resolves each member's Slack user by email, sends Block Kit DM with task list + priority summary
+   - Concurrency-limited to 5 to respect Slack API rate limits
+   - "All clear" message for users with no pending tasks
+
+2. **EOD Summary** (5pm per org timezone):
+   - Posts to a configurable notification channel (set via `/dtn channel`)
+   - Block Kit message: progress bar, status counts, completed/blocked/pending task lists
+   - Graceful handling of archived/missing channels
+
+3. **Bidirectional Thread Sync**:
+   - Tasks created from @mentions now store `slack_origin` (team_id, channel_id, message_ts) with JSONB CHECK constraint
+   - `task/status.changed` event emitted from 4 sites in `actions.ts` (updateDailyTask, completeDailyTask, skipDailyTask, carryOverTasks)
+   - Thread sync function posts status updates as thread replies, skips `slack_bot` source to prevent loops
+
+4. **`/dtn channel` command**: Sets the current channel as the EOD summary target
+
+**Migration**: `026_slack_notification_channel.sql` — Applied to production
+- `notification_channel_id` on `dtn_slack_installations`
+- `slack_origin` JSONB on `dtn_daily_tasks` with CHECK constraint
+
+**Files created/modified:**
+- `apps/web/src/lib/slack/handlers/morning-dm.ts` — Morning DM handler
+- `apps/web/src/lib/inngest/functions/slack-morning-dm.ts` — Cron + fan-out handler (2 functions)
+- `apps/web/src/lib/inngest/functions/slack-eod-summary.ts` — EOD summary cron
+- `apps/web/src/lib/inngest/functions/slack-thread-sync.ts` — Thread sync handler
+- `apps/web/src/lib/slack/client.ts` — Added `getSlackInstallationByOrg()`, refactored `_decryptInstallation()`
+- `apps/web/src/lib/inngest/utils.ts` — Added `localDateString(timezone)`
+- `apps/web/src/lib/inngest/client.ts` — Added `slack/morning-dm.send` + `task/status.changed` event types
+- `apps/web/src/lib/inngest/functions/index.ts` — Registered 4 new functions (15 total)
+- `apps/web/src/lib/slack/handlers/task-creation.ts` — Stores `slack_origin` after posting
+- `apps/web/src/lib/slack/handlers/slash-commands.ts` — Added `/dtn channel` command
+- `apps/web/src/app/api/slack/commands/route.ts` — Passes `channelId` to handler
+- `apps/web/src/lib/daily-tasks/actions.ts` — Emits `task/status.changed` from 4 transition sites
+- `apps/web/src/lib/inngest/functions/slack-event-handler.ts` — Passes `teamId` to task creation
+
+**Test results:** 43 tests pass in Slack/Inngest test files (0 regressions)
+**Build status:** `turbo build` clean, 4 new Inngest functions registered
+
+**Next steps (Phase 9):**
+- [ ] [9A] Results dashboard — experiment results table, channel performance, weekly retrospective
+- [ ] [9B] Feedback engine — strategy auto-refinement with Claude
 
 ---
 

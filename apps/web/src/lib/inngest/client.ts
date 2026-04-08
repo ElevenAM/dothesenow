@@ -64,6 +64,20 @@ export type Events = {
       response_url: string;
     };
   };
+  "slack/morning-dm.send": {
+    data: { org_id: string };
+  };
+  "task/status.changed": {
+    data: {
+      task_id: string;
+      org_id: string;
+      old_status: string;
+      new_status: string;
+      source: string;
+      actor_id: string | null;
+      changed_at: string;
+    };
+  };
 };
 
 export const inngest = new Inngest({ id: "dothesenow" });

@@ -69,6 +69,7 @@ export const slackMentionHandler = inngest.createFunction(
         actorId: context.actorId!,
         text,
         botUserId: context.botUserId,
+        teamId: team_id,
       });
     });
 
