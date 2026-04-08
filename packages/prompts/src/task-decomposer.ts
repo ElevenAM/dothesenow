@@ -11,6 +11,7 @@ import type {
   ChannelBalanceEntry,
   TeamMember,
 } from "./types.js";
+import { extractSection } from "./markdown-utils.js";
 
 const INDUSTRY_COMPLIANCE: Record<string, string> = {
   fintech: `COMPLIANCE: ROI claims need documented substantiation. Include 3-5 business day compliance buffer for Risk Tier 2-3 content.`,
@@ -47,6 +48,7 @@ const EXECUTOR_HEURISTICS = `Executor assignment rules:
 - Analytics/metric review → self (requires dashboard interpretation)
 - Automation setup → n8n
 - Ad campaign management → self (requires ad platform interaction)
+- AI content generation (blog posts, email templates) → jasper_api (if org has Jasper) or claude_api
 - If org has a BYOS executor for a capability, prefer it over claude_api`;
 
 const DURATION_REFERENCE = `Duration estimates (defaults):
@@ -128,6 +130,7 @@ export function validateDecompositionOutput(
     "claude_api",
     "n8n",
     "freelancer",
+    "jasper_api",
     "byos",
   ];
 
@@ -287,11 +290,16 @@ interface ChannelAlloc {
 export function extractChannelAllocations(content: string): ChannelAlloc[] {
   const results: ChannelAlloc[] = [];
 
+  // Scope to Channels section to avoid matching bold text from other sections
+  const channelSection = extractSection(content, "Channels");
+  const searchContent = channelSection ?? content;
+
   // Format 1: "Budget: XX%" or "Budget %: XX"
+  // Use (?:(?!\d+\.\s+\*\*)[\s\S])*? to cross newlines but stop at the next numbered channel entry
   const budgetPattern =
-    /\*\*([^*]+)\*\*.*?(?:Budget[^:]*:\s*(\d+)%|(\d+)%\s*(?:of\s+)?budget)/gi;
+    /\*\*([^*]+)\*\*(?:(?!\d+\.\s+\*\*)[\s\S])*?(?:Budget[^:]*:\s*(\d+)%|(\d+)%\s*(?:of\s+)?budget)/gi;
   let match: RegExpExecArray | null;
-  while ((match = budgetPattern.exec(content)) !== null) {
+  while ((match = budgetPattern.exec(searchContent)) !== null) {
     const pct = parseInt(match[2] ?? match[3], 10);
     if (!isNaN(pct) && pct > 0) {
       results.push({ name: match[1].trim(), pct });
@@ -299,19 +307,16 @@ export function extractChannelAllocations(content: string): ChannelAlloc[] {
   }
 
   // Format 2: numbered channels "1. **Name** — ..." (from onboarding templates, no budget %)
-  if (results.length === 0) {
+  if (results.length === 0 && channelSection) {
     const numberedPattern = /^\d+\.\s+\*\*([^*]+)\*\*/gm;
-    const channelSection = extractSection(content, "Channels");
-    if (channelSection) {
-      const names: string[] = [];
-      while ((match = numberedPattern.exec(channelSection)) !== null) {
-        names.push(match[1].trim());
-      }
-      if (names.length > 0) {
-        const equalPct = Math.floor(100 / names.length);
-        for (const name of names) {
-          results.push({ name, pct: equalPct });
-        }
+    const names: string[] = [];
+    while ((match = numberedPattern.exec(channelSection)) !== null) {
+      names.push(match[1].trim());
+    }
+    if (names.length > 0) {
+      const equalPct = Math.floor(100 / names.length);
+      for (const name of names) {
+        results.push({ name, pct: equalPct });
       }
     }
   }
@@ -474,16 +479,6 @@ function getMaxDailyHours(budgetTier: string, teamSize: number): number {
     default:
       return 4;
   }
-}
-
-function extractSection(content: string, sectionName: string): string | null {
-  const escaped = sectionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(
-    `^##\\s+${escaped}[\\s\\S]*?(?=^##\\s+(?!#)|$)`,
-    "m",
-  );
-  const match = content.match(pattern);
-  return match ? match[0] : null;
 }
 
 /** Strip markdown code fences that LLMs sometimes wrap JSON in. */

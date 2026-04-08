@@ -284,14 +284,16 @@ describe("validateDecompositionOutput", () => {
 
   it("accepts valid JSON array", () => {
     const input = JSON.stringify([validTask, { ...validTask, title: "Review analytics dashboard", priority: 2, duration_minutes: 20 }]);
-    const result = validateDecompositionOutput(input, "bootstrap", 1, 2);
+    // Saturday bounds (min: 1, max: 2) — testing JSON parsing, not day bounds
+    const result = validateDecompositionOutput(input, "bootstrap", 1, 6);
     expect(result.valid).toBe(true);
     expect(result.tasks.length).toBe(2);
   });
 
   it("strips code fences before parsing", () => {
     const input = "```json\n" + JSON.stringify([validTask]) + "\n```";
-    const result = validateDecompositionOutput(input, "growth", 2, 2);
+    // Saturday bounds (min: 1, max: 2) — testing code-fence stripping, not day bounds
+    const result = validateDecompositionOutput(input, "growth", 2, 6);
     expect(result.valid).toBe(true);
   });
 

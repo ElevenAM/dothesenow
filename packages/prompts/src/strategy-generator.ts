@@ -2,6 +2,7 @@ import { getMaxChannels } from "./types.js";
 import type { OrgProfile, FrameworkId, ValidationResult } from "./types.js";
 import type { BudgetTier } from "@dothesenow/types";
 import { buildFrameworkPrompts } from "./frameworks/index.js";
+import { extractSection, escapeRegex } from "./markdown-utils.js";
 
 const INDUSTRY_MODIFIERS: Record<string, string> = {
   fintech: `COMPLIANCE GATE: All ROI claims, pricing comparisons, and regulatory content require documented substantiation before publishing. Content timelines must include 3–5 business day compliance review buffer. Conservative claims only — no guaranteed returns or misleading comparisons.`,
@@ -198,18 +199,4 @@ Please regenerate the COMPLETE strategy document, fixing all the issues listed a
 
 Your previous output for reference:
 ${originalContent}`;
-}
-
-function extractSection(content: string, sectionName: string): string | null {
-  const escapedName = escapeRegex(sectionName);
-  const pattern = new RegExp(
-    `^##\\s+${escapedName}[\\s\\S]*?(?=^##\\s+(?!#)|$)`,
-    "m",
-  );
-  const match = content.match(pattern);
-  return match ? match[0] : null;
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

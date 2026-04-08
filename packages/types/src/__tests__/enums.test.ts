@@ -34,6 +34,7 @@ describe("TaskStatus", () => {
     expect(enumValues(TaskStatus)).toEqual([
       "pending", "in_progress", "waiting_approval",
       "completed", "skipped", "failed", "carried_over",
+      "blocked",
     ]);
   });
   it("has no duplicate values", () => assertNoDuplicates(TaskStatus, "TaskStatus"));
@@ -55,7 +56,7 @@ describe("TaskType", () => {
 
 describe("ExecutorType", () => {
   it("has all expected values", () => {
-    expect(enumValues(ExecutorType)).toEqual(["self", "n8n", "claude_api", "freelancer"]);
+    expect(enumValues(ExecutorType)).toEqual(["self", "n8n", "claude_api", "freelancer", "jasper_api"]);
   });
   it("has no duplicate values", () => assertNoDuplicates(ExecutorType, "ExecutorType"));
 });
@@ -129,6 +130,7 @@ describe("ApprovalItemType", () => {
   it("has all expected values", () => {
     expect(enumValues(ApprovalItemType)).toEqual([
       "social_post", "blog_post", "email_draft", "task_submission", "strategy_change",
+      "blocker_decision",
     ]);
   });
 });
@@ -141,7 +143,7 @@ describe("ApprovalStatus", () => {
 
 describe("SubmittedByType", () => {
   it("has all expected values", () => {
-    expect(enumValues(SubmittedByType)).toEqual(["freelancer", "n8n", "claude_api", "member"]);
+    expect(enumValues(SubmittedByType)).toEqual(["freelancer", "n8n", "claude_api", "member", "jasper_api"]);
   });
 });
 
