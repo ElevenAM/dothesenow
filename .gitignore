@@ -28,3 +28,6 @@ Thumbs.db
 *.pem
 credentials.json
 .vercel
+
+# Business docs (not code)
+business_ignore/
