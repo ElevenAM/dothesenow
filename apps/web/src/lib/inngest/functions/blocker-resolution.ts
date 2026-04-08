@@ -505,7 +505,7 @@ export const blockerEscalation = inngest.createFunction(
   {
     id: "blocker-escalation",
     triggers: [{ event: "blocker/escalation.check" }],
-    concurrency: [{ limit: 10 }],
+    concurrency: [{ limit: 5 }],
     // Idempotency: blocker_id + level prevents duplicate escalation at same level
     idempotency: "event.data.blocker_id + '-' + string(event.data.current_level)",
     retries: 0,
