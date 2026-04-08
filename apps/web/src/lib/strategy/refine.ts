@@ -155,7 +155,7 @@ export async function applyRefinementSuggestions(
   }
 
   let content = activeDocs[0].content;
-  const statuses: SuggestionApplyStatus[] = new Array(suggestions.length).fill("applied");
+  const statuses: SuggestionApplyStatus[] = new Array(suggestions.length).fill("skipped");
   let applied = 0;
   let fallback = 0;
   let failed = 0;
@@ -163,7 +163,6 @@ export async function applyRefinementSuggestions(
   // Apply accepted/modified diffs to content
   for (const decision of decisions) {
     if (decision.decision === "rejected") {
-      statuses[decision.index] = "applied"; // not applicable — skipped
       continue;
     }
 

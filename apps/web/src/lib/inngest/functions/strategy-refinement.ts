@@ -20,6 +20,7 @@ import {
   assembleRefinerPrompt,
   validateRefinerOutput,
   buildRefinerCorrectionPrompt,
+  getIndustryBenchmarks,
   STRATEGY_REFINEMENT_COST,
 } from "@dothesenow/prompts";
 import type {
@@ -222,27 +223,9 @@ async function updateRunRecord(
   }
 }
 
-// ─── CAC benchmarks (inline constant — from reference doc) ─────
-
-// Loaded at build time from the reference doc.
-// The refiner prompt includes a staleness warning since data is from Jan 2025.
-import { readFileSync } from "fs";
-import { resolve } from "path";
-
-function loadBenchmarks(): string {
-  try {
-    return readFileSync(
-      resolve(
-        process.cwd(),
-        "../../packages/prompts/reference/industry-cac-benchmarks.md",
-      ),
-      "utf-8",
-    );
-  } catch {
-    // Fallback: prompt will note benchmarks are unavailable
-    return "Industry CAC benchmark data is not available. Use general marketing knowledge for channel comparisons.";
-  }
-}
+// CAC benchmarks are loaded from the prompts package (getIndustryBenchmarks)
+// which uses the same CAC_DATA constant as the bullseye framework.
+// No fs.readFileSync — safe for Vercel serverless.
 
 // ─── Cron function: Weekly fan-out ─────────────────────────────
 
@@ -577,7 +560,7 @@ export const strategyRefinement = inngest.createFunction(
 
     // Step 4: Build prompt
     const promptResult = await step.run("build-prompt", async () => {
-      const benchmarks = loadBenchmarks();
+      const benchmarks = getIndustryBenchmarks(context.orgProfile.industry);
       return assembleRefinerPrompt(
         context.orgProfile,
         context.strategyDoc.content,
@@ -680,12 +663,13 @@ export const strategyRefinement = inngest.createFunction(
       };
     });
 
-    // Step 8: Create approval item + update run record
+    // Step 8: Create approval item (INSERT only — safe to retry without duplicates
+    // because Inngest step memoization prevents re-execution on success)
     const approvalId = await step.run("create-approval", async () => {
       const suggestionSummary = validated.suggestions
         .map(
-          (s, i) =>
-            `${i + 1}. [${s.category}] ${s.target_section}: ${s.suggested_change.substring(0, 100)}${s.suggested_change.length > 100 ? "..." : ""}`,
+          (suggestion, idx) =>
+            `${idx + 1}. [${suggestion.category}] ${suggestion.target_section}: ${suggestion.suggested_change.substring(0, 100)}${suggestion.suggested_change.length > 100 ? "..." : ""}`,
         )
         .join("\n");
 
@@ -707,20 +691,22 @@ export const strategyRefinement = inngest.createFunction(
         submitted_by_type: "claude_api",
       });
 
-      // Update run record with results
+      return approval.id;
+    });
+
+    // Step 9: Update run record (DB-only — safe to retry without re-creating approval)
+    await step.run("update-run-completed", async () => {
       await updateRunRecord(supabase, runRecordId, {
         status: "completed",
         raw_suggestions: validated.suggestions,
         suggestion_count: validated.suggestions.length,
         data_snapshot: context.performanceData,
-        approval_id: approval.id,
+        approval_id: approvalId,
         completed_at: new Date().toISOString(),
       });
-
-      return approval.id;
     });
 
-    // Step 9: Confirm credits
+    // Step 10: Confirm credits
     await step.run("confirm-credits", async () => {
       await confirmCredits(ctx, ledgerId);
     });

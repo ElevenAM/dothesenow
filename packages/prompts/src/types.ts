@@ -138,7 +138,7 @@ export type RefinementCategory =
 
 export type ConfidenceLevel = "high" | "medium" | "low";
 
-export type SuggestionApplyStatus = "applied" | "fallback" | "failed";
+export type SuggestionApplyStatus = "applied" | "fallback" | "failed" | "skipped";
 
 export interface RefinementSuggestion {
   category: RefinementCategory;

@@ -7,6 +7,7 @@ import type {
   PerformanceData,
   ChannelPerformanceWithGaps,
 } from "./types.js";
+import { CAC_DATA } from "./frameworks/bullseye.js";
 
 const VALID_CATEGORIES: RefinementCategory[] = [
   "channel_swap",
@@ -284,12 +285,15 @@ export function validateRefinerOutput(
       continue;
     }
 
+    // Per-item errors: track independently so one bad item doesn't discard valid ones
+    const itemErrors: string[] = [];
+
     // category
     if (
       typeof item.category !== "string" ||
       !VALID_CATEGORIES.includes(item.category as RefinementCategory)
     ) {
-      errors.push(
+      itemErrors.push(
         `${prefix}: category must be one of: ${VALID_CATEGORIES.join(", ")}. Got: ${String(item.category)}`,
       );
     }
@@ -299,7 +303,7 @@ export function validateRefinerOutput(
       typeof item.target_section !== "string" ||
       !VALID_SECTIONS.includes(item.target_section)
     ) {
-      errors.push(
+      itemErrors.push(
         `${prefix}: target_section must be one of: ${VALID_SECTIONS.join(", ")}. Got: ${String(item.target_section)}`,
       );
     }
@@ -315,7 +319,7 @@ export function validateRefinerOutput(
         typeof item[field] !== "string" ||
         (item[field] as string).trim().length === 0
       ) {
-        errors.push(`${prefix}: ${field} must be a non-empty string`);
+        itemErrors.push(`${prefix}: ${field} must be a non-empty string`);
       }
     }
 
@@ -324,12 +328,16 @@ export function validateRefinerOutput(
       typeof item.confidence !== "string" ||
       !VALID_CONFIDENCE.includes(item.confidence as ConfidenceLevel)
     ) {
-      errors.push(
+      itemErrors.push(
         `${prefix}: confidence must be one of: ${VALID_CONFIDENCE.join(", ")}. Got: ${String(item.confidence)}`,
       );
     }
 
-    if (errors.length === 0) {
+    // Merge item errors into global list for correction prompt context
+    errors.push(...itemErrors);
+
+    // Track errors per item so one bad suggestion doesn't discard all valid ones
+    if (itemErrors.length === 0) {
       suggestions.push({
         category: item.category as RefinementCategory,
         target_section: item.target_section as string,
@@ -343,7 +351,7 @@ export function validateRefinerOutput(
     }
   }
 
-  if (errors.length > 0) {
+  if (suggestions.length === 0 && errors.length > 0) {
     return { valid: false, errors };
   }
 
@@ -359,6 +367,27 @@ export function validateRefinerOutput(
   }
 
   return { valid: true, errors: [], suggestions };
+}
+
+// ─── Benchmark data ───────────────────────────────────────────
+
+/**
+ * Format industry CAC benchmark data as a prompt-ready string.
+ * Uses the same CAC_DATA from bullseye.ts — single source of truth.
+ * Safe for serverless (no fs.readFileSync).
+ */
+export function getIndustryBenchmarks(industry: string): string {
+  const data = CAC_DATA[industry];
+  if (!data || data.length === 0) {
+    return "No industry-specific CAC benchmark data available. Use general marketing knowledge for channel comparisons.";
+  }
+
+  const lines = data.map(
+    (channel) =>
+      `- ${channel.channel}: median CAC $${channel.median} (bootstrap: ${channel.bootstrap})`,
+  );
+
+  return `Industry: ${industry.replace(/_/g, " ")}\n\n${lines.join("\n")}\n\nNote: CAC data last verified January 2025. Treat as directional, not absolute.`;
 }
 
 // ─── Correction prompt ────────────────────────────────────────

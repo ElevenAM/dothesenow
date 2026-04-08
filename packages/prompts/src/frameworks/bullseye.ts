@@ -5,7 +5,11 @@ import type { OrgProfile, PromptFragment } from "../types.js";
  * CAC benchmark data by industry × channel.
  * Source: packages/prompts/reference/industry-cac-benchmarks.md
  */
-const CAC_DATA: Record<string, { channel: string; median: number; bootstrap: string }[]> = {
+/**
+ * CAC benchmark data by industry × channel.
+ * Exported for reuse by the strategy refiner (Phase 9B).
+ */
+export const CAC_DATA: Record<string, { channel: string; median: number; bootstrap: string }[]> = {
   b2b_saas: [
     { channel: "Organic Search / SEO", median: 205, bootstrap: "$0 spend, 6–12 mo ramp" },
     { channel: "Content Marketing", median: 280, bootstrap: "$0 spend, undefined CAC" },
