@@ -33,6 +33,7 @@ interface TaskFormDialogProps {
   members: TeamMember[];
   currentUserId: string;
   executorAvailability?: ExecutorAvailability;
+  executorTypes?: { value: string; label: string; icon?: string }[];
   editingTask?: DailyTask | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -53,10 +54,10 @@ const PRIORITIES = [
   { value: "urgent", label: "Urgent" },
 ];
 
-const EXECUTOR_TYPES = [
+const DEFAULT_EXECUTOR_TYPES = [
   { value: "self", label: "Self / Teammate" },
+  { value: "claude_api", label: "Claude AI" },
   { value: "n8n", label: "n8n Automation" },
-  { value: "claude_api", label: "Claude API" },
   { value: "freelancer", label: "Freelancer" },
 ];
 
@@ -66,10 +67,12 @@ export function TaskFormDialog({
   members,
   currentUserId,
   executorAvailability,
+  executorTypes,
   editingTask,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
 }: TaskFormDialogProps) {
+  const EXECUTOR_TYPES = executorTypes ?? DEFAULT_EXECUTOR_TYPES;
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
   const onOpenChange = controlledOnOpenChange ?? setUncontrolledOpen;
@@ -232,7 +235,7 @@ export function TaskFormDialog({
                     <SelectItem key={e.value} value={e.value}>
                       {e.label}
                       {status && !status.available && (
-                        <span className="ml-1.5 text-xs text-muted-foreground">(not configured)</span>
+                        <span className="ml-1.5 text-xs text-[var(--fgColor-muted)]">(not configured)</span>
                       )}
                     </SelectItem>
                   );

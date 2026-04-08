@@ -33,6 +33,7 @@ export const ExecutorType = {
   N8n: "n8n",
   ClaudeApi: "claude_api",
   Freelancer: "freelancer",
+  JasperApi: "jasper_api",
 } as const;
 export type ExecutorType = (typeof ExecutorType)[keyof typeof ExecutorType];
 
@@ -145,6 +146,7 @@ export const SubmittedByType = {
   N8n: "n8n",
   ClaudeApi: "claude_api",
   Member: "member",
+  JasperApi: "jasper_api",
 } as const;
 export type SubmittedByType = (typeof SubmittedByType)[keyof typeof SubmittedByType];
 

@@ -17,9 +17,10 @@ import type { DailyTask, DailyTasksSummary, TeamMember } from "@/lib/daily-tasks
 const EXECUTOR_TABS = [
   { value: "all", label: "All", icon: null },
   { value: "self", label: "You", icon: User },
-  { value: "n8n", label: "n8n", icon: Cpu },
   { value: "claude_api", label: "Claude", icon: Bot },
+  { value: "n8n", label: "n8n", icon: Cpu },
   { value: "freelancer", label: "Freelancer", icon: Briefcase },
+  { value: "jasper_api", label: "Jasper", icon: Sparkles },
 ] as const;
 
 export type ExecutorAvailability = Record<string, { available: boolean; hint?: string }>;
@@ -32,6 +33,7 @@ interface TasksPageClientProps {
   members: TeamMember[];
   currentUserId: string;
   executorAvailability: ExecutorAvailability;
+  executorTypes?: { value: string; label: string; icon?: string }[];
 }
 
 export function TasksPageClient({
@@ -42,6 +44,7 @@ export function TasksPageClient({
   members,
   currentUserId,
   executorAvailability,
+  executorTypes,
 }: TasksPageClientProps) {
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -134,6 +137,7 @@ export function TasksPageClient({
             members={members}
             currentUserId={currentUserId}
             executorAvailability={executorAvailability}
+            executorTypes={executorTypes}
           />
         </div>
       </div>
@@ -172,7 +176,7 @@ export function TasksPageClient({
                       {tab.icon && <tab.icon className="h-3.5 w-3.5" />}
                       {tab.label}
                       {tab.value !== "all" && (
-                        <span className="text-xs text-muted-foreground ml-0.5">
+                        <span className="text-xs text-[var(--fgColor-muted)] ml-0.5">
                           {count}
                         </span>
                       )}
@@ -203,6 +207,7 @@ export function TasksPageClient({
         members={members}
         currentUserId={currentUserId}
         executorAvailability={executorAvailability}
+        executorTypes={executorTypes}
         editingTask={editingTask}
         open={editDialogOpen}
         onOpenChange={(open) => {

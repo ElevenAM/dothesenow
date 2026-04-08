@@ -35,7 +35,7 @@ export function SummaryCards({ summary, totalTasks }: SummaryCardsProps) {
         return (
           <Card key={type}>
             <CardHeader className="flex flex-row items-center justify-between pb-1 pt-3 px-4">
-              <CardTitle className="text-xs font-medium text-muted-foreground">
+              <CardTitle className="text-xs font-medium text-[var(--fgColor-muted)]">
                 {meta.label}
               </CardTitle>
               <meta.icon className={`h-3.5 w-3.5 ${meta.color}`} />
@@ -44,7 +44,7 @@ export function SummaryCards({ summary, totalTasks }: SummaryCardsProps) {
               <div className="text-xl font-bold">
                 {completed}/{total}
               </div>
-              <p className="text-xs text-muted-foreground">completed</p>
+              <p className="text-xs text-[var(--fgColor-muted)]">completed</p>
             </CardContent>
           </Card>
         );

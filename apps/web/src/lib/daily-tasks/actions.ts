@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { dispatchTask, getExecutorAvailability } from "@/lib/daily-tasks/dispatch";
 import { getDepartmentId } from "@/lib/departments";
+import { getAllExecutorMetadata } from "@/lib/executors/registry";
 import {
   getTasksForOrg,
   getTasksSummary,
@@ -14,6 +15,7 @@ import {
   getMembershipsForOrg,
   getStrategyDocs,
   getCreditBalance,
+  getOrgIntegrations,
 } from "@dothesenow/queries";
 import { TASK_DECOMPOSITION_COST } from "@dothesenow/prompts";
 import { inngest } from "@/lib/inngest/client";
@@ -266,7 +268,19 @@ export async function carryOverTasks(
 }
 
 export async function fetchExecutorAvailability(): Promise<ReturnType<typeof getExecutorAvailability>> {
-  return getExecutorAvailability();
+  const { ctx } = await getAuthenticatedOrgContext();
+  const integrations = await getOrgIntegrations(ctx);
+  return getExecutorAvailability(integrations);
+}
+
+export async function fetchExecutorTypes(): Promise<
+  { value: string; label: string; icon: string }[]
+> {
+  return getAllExecutorMetadata().map((m) => ({
+    value: m.type,
+    label: m.label,
+    icon: m.icon,
+  }));
 }
 
 export async function getTeamMembers(): Promise<TeamMember[]> {

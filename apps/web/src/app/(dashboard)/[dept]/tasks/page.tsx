@@ -4,6 +4,7 @@ import {
   getDailyTasksSummary,
   getTeamMembers,
   fetchExecutorAvailability,
+  fetchExecutorTypes,
 } from "@/lib/daily-tasks/actions";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { TasksPageClient } from "@/components/daily-tasks/tasks-page-client";
@@ -22,12 +23,14 @@ export default async function TasksPage({
 
   const { membership, user } = await getAuthenticatedMembership();
 
-  const [tasks, summary, members, executorAvailability] = await Promise.all([
-    getDailyTasks(dept, date),
-    getDailyTasksSummary(dept, date),
-    getTeamMembers(),
-    fetchExecutorAvailability(),
-  ]);
+  const [tasks, summary, members, executorAvailability, executorTypes] =
+    await Promise.all([
+      getDailyTasks(dept, date),
+      getDailyTasksSummary(dept, date),
+      getTeamMembers(),
+      fetchExecutorAvailability(),
+      fetchExecutorTypes(),
+    ]);
 
   return (
     <RealtimeListener table="dtn_daily_tasks" orgId={membership.orgId}>
@@ -39,6 +42,7 @@ export default async function TasksPage({
         members={members}
         currentUserId={user.id}
         executorAvailability={executorAvailability}
+        executorTypes={executorTypes}
       />
     </RealtimeListener>
   );

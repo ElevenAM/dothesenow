@@ -11,3 +11,4 @@ export * from "./campaigns.js";
 export * from "./competitors.js";
 export * from "./insights.js";
 export * from "./credits.js";
+export * from "./integrations.js";

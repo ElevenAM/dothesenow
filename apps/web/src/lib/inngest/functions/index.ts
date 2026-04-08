@@ -3,6 +3,7 @@ import { agentExecutor } from "./agent-executor";
 import { dailyTaskGeneration } from "./daily-task-generation";
 import { strategyGeneration } from "./strategy-generation";
 import { taskDecomposition } from "./task-decomposition";
+import { executorDispatch } from "./executor-dispatch";
 
 /**
  * All Inngest functions registered with the app.
@@ -15,4 +16,5 @@ export const functions = [
   dailyTaskGeneration,
   strategyGeneration,
   taskDecomposition,
+  executorDispatch,
 ];

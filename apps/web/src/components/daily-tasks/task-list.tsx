@@ -49,7 +49,7 @@ interface TaskListProps {
 export function TaskList({ tasks, onEditTask, onSelectTask }: TaskListProps) {
   if (tasks.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
+      <p className="py-8 text-center text-sm text-[var(--fgColor-muted)]">
         No tasks for this group
       </p>
     );
@@ -129,7 +129,7 @@ function TaskRow({
 
       <button
         type="button"
-        className={`flex-1 text-left text-sm min-w-0 ${isComplete ? "line-through text-muted-foreground" : ""}`}
+        className={`flex-1 text-left text-sm min-w-0 ${isComplete ? "line-through text-[var(--fgColor-muted)]" : ""}`}
         onClick={onSelect}
       >
         <span className="truncate block">{task.title}</span>
@@ -147,7 +147,7 @@ function TaskRow({
         )}
 
         {assignee && (
-          <span className="text-xs text-muted-foreground max-w-[80px] truncate hidden sm:inline">
+          <span className="text-xs text-[var(--fgColor-muted)] max-w-[80px] truncate hidden sm:inline">
             {assignee}
           </span>
         )}
