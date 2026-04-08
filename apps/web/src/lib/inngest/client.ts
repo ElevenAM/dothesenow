@@ -81,6 +81,9 @@ export type Events = {
   "results/weekly-retrospective.org": {
     data: { org_id: string };
   };
+  "strategy/refine": {
+    data: { org_id: string; triggered_by: string; refinement_id: string };
+  };
 };
 
 export const inngest = new Inngest({ id: "dothesenow" });

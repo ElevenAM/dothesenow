@@ -12,11 +12,20 @@ export {
   type ExperimentProgressEntry,
   type TeamMember,
   STRATEGY_GENERATION_COST,
+  STRATEGY_REFINEMENT_COST,
   TASK_DECOMPOSITION_COST,
   BLOCKER_CLASSIFICATION_COST,
   BLOCKER_RESEARCH_COST,
   BLOCKER_DRAFT_COST,
   getMaxChannels,
+  type RefinementCategory,
+  type ConfidenceLevel,
+  type SuggestionApplyStatus,
+  type RefinementSuggestion,
+  type ExperimentOutcome,
+  type RedFlag,
+  type PerformanceData,
+  type ChannelPerformanceWithGaps,
 } from "./types.js";
 export {
   assembleStrategyPrompt,
@@ -47,3 +56,8 @@ export {
   validateDraftResult,
   buildDraftCorrectionPrompt,
 } from "./draft-agent.js";
+export {
+  assembleRefinerPrompt,
+  validateRefinerOutput,
+  buildRefinerCorrectionPrompt,
+} from "./strategy-refiner.js";

@@ -23,6 +23,10 @@ import {
   weeklyRetrospectiveCron,
   weeklyRetrospectiveHandler,
 } from "./weekly-retrospective";
+import {
+  strategyRefinementCron,
+  strategyRefinement,
+} from "./strategy-refinement";
 
 /**
  * All Inngest functions registered with the app.
@@ -47,4 +51,6 @@ export const functions = [
   slackThreadSync,
   weeklyRetrospectiveCron,
   weeklyRetrospectiveHandler,
+  strategyRefinementCron,
+  strategyRefinement,
 ];

@@ -143,6 +143,7 @@ export const ApprovalItemType = {
   TaskSubmission: "task_submission",
   StrategyChange: "strategy_change",
   BlockerDecision: "blocker_decision",
+  StrategyRefinement: "strategy_refinement",
 } as const;
 export type ApprovalItemType = (typeof ApprovalItemType)[keyof typeof ApprovalItemType];
 

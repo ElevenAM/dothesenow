@@ -123,6 +123,83 @@ export interface DecompositionValidationResult {
   tasks: DecomposedTask[];
 }
 
+// ─── Strategy Refinement ────────────────────────────────────
+
+/** Credits consumed per strategy refinement run. */
+export const STRATEGY_REFINEMENT_COST = 4;
+
+export type RefinementCategory =
+  | "channel_swap"
+  | "budget_realloc"
+  | "experiment_add"
+  | "experiment_kill"
+  | "goal_adjust"
+  | "audience_refine";
+
+export type ConfidenceLevel = "high" | "medium" | "low";
+
+export type SuggestionApplyStatus = "applied" | "fallback" | "failed";
+
+export interface RefinementSuggestion {
+  category: RefinementCategory;
+  target_section: string;
+  current_state: string;
+  suggested_change: string;
+  evidence: string;
+  confidence: ConfidenceLevel;
+  expected_impact: string;
+  compliance_review_required?: boolean;
+}
+
+export interface ExperimentOutcome {
+  experiment_id: string;
+  title: string;
+  status: string;
+  result: "success" | "failure" | "inconclusive" | "running";
+  metric_value: number | null;
+  baseline_value: number | null;
+  success_target: number | null;
+  data_points: number;
+}
+
+export interface RedFlag {
+  type:
+    | "zero_activity"
+    | "total_failure"
+    | "budget_overspend"
+    | "experiment_stuck";
+  channel_or_experiment: string;
+  detail: string;
+  days: number;
+}
+
+export interface PerformanceData {
+  total_tasks: number;
+  completion_rate: number;
+  channel_breakdown: ChannelPerformanceWithGaps[];
+  experiments: ExperimentOutcome[];
+  experiments_in_progress: ExperimentProgressEntry[];
+  red_flags: RedFlag[];
+  period_start: string;
+  period_end: string;
+  days_of_data: number;
+}
+
+/**
+ * Extends 9A's ChannelPerformanceRow with gap-detection fields
+ * needed by the refinement pipeline.
+ */
+export interface ChannelPerformanceWithGaps {
+  strategy_section_ref: string;
+  total_tasks: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  completion_rate: number;
+  days_active: number;
+  consecutive_zero_days: number;
+}
+
 // ─── Budget Tier Helpers ──────────────────────────────────────
 
 /** Maximum number of marketing channels for a given budget tier. */

@@ -226,6 +226,38 @@ export async function createExperimentResult(
   return data as ExperimentResult;
 }
 
+/**
+ * Bulk-fetch all experiment results for an org since a given date.
+ * Avoids N+1 per-experiment queries in the refinement pipeline.
+ * Results are returned flat — group by experiment_id in application code.
+ */
+export async function getAllExperimentResultsForOrg(
+  ctx: OrgContext,
+  opts?: { since?: string },
+): Promise<ExperimentResult[]> {
+  let query = ctx.client
+    .from(RESULTS_TABLE)
+    .select("*")
+    .eq("org_id", ctx.orgId)
+    .order("recorded_at", { ascending: false });
+
+  if (opts?.since) {
+    query = query.gte("recorded_at", opts.since);
+  }
+
+  const { data, error } = await query;
+
+  if (error)
+    throw new QueryError(
+      error.message,
+      RESULTS_TABLE,
+      "getAllExperimentResultsForOrg",
+      ctx.orgId,
+      error,
+    );
+  return (data ?? []) as ExperimentResult[];
+}
+
 // ─── Channel Performance ────────────────────────────────────
 
 export async function getChannelPerformance(

@@ -678,3 +678,24 @@ export interface ChannelPerformanceRow {
   skipped: number;
   completion_rate: number;
 }
+
+// ─── Strategy Refinement (Phase 9B) ────────────────────────────
+
+export interface RefinementRun {
+  id: string;
+  org_id: string;
+  strategy_doc_id: string;
+  approval_id: string | null;
+  run_id: string;
+  status: "pending" | "running" | "completed" | "failed" | "skipped";
+  raw_suggestions: Json;
+  suggestion_count: number;
+  data_snapshot: Json;
+  decisions: Json | null;
+  applied_doc_id: string | null;
+  skipped_reason: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
