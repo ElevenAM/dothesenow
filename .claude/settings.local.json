@@ -61,7 +61,26 @@
       "Bash(curl -s -X PUT \"https://dothesenow.vercel.app/api/inngest\" -H \"Content-Type: application/json\")",
       "Bash(curl -s -X PUT \"https://dothesenow.com/api/inngest\" -H \"Content-Type: application/json\")",
       "Bash(npx vercel:*)",
-      "Bash(curl -s -X PUT \"https://dothesenow.com/api/inngest\")"
+      "Bash(curl -s -X PUT \"https://dothesenow.com/api/inngest\")",
+      "Bash(node -e ':*)",
+      "Bash(pnpm --filter @dothesenow/mcp-server build)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/tsc --project packages/mcp-server/tsconfig.json --noEmit)",
+      "Bash(node_modules/.bin/tsc --project packages/queries/tsconfig.json --noEmit)",
+      "Bash(node_modules/.bin/tsc --project apps/web/tsconfig.json --noEmit)",
+      "Bash(node_modules/.bin/tsc --project packages/queries/tsconfig.json)",
+      "Bash(node_modules/.bin/tsc --project packages/mcp-server/tsconfig.json)",
+      "Bash(git -C /Users/liam/Documents/DoTheseNow status --short)",
+      "Bash(git -C /Users/liam/Documents/DoTheseNow diff --stat)",
+      "Bash(git -C /Users/liam/Documents/DoTheseNow log --oneline -5)",
+      "Bash(git -C /Users/liam/Documents/DoTheseNow diff -- . ':!.claude/settings.local.json' ':!packages/mcp-server/dist' ':!packages/queries/dist' ':!packages/types/dist')",
+      "Bash(git -C /Users/liam/Documents/DoTheseNow rev-parse HEAD)",
+      "Bash(git -C /Users/liam/Documents/DoTheseNow remote get-url origin)",
+      "Bash(npx supabase:*)",
+      "Bash(git remote:*)",
+      "Bash(gh api:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import json,sys; reviews=json.load\\(sys.stdin\\); [print\\(r['user']['login'], r['state'], r['body'][:500] if r['body'] else ''\\) for r in reviews]\")"
     ]
   }
 }
