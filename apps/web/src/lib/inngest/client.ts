@@ -17,6 +17,53 @@ export type Events = {
   "strategy/generate": {
     data: { org_id: string; triggered_by: string; generation_id: string };
   };
+  "blocker/reported": {
+    data: { blocker_id: string; task_id: string; org_id: string };
+  };
+  "blocker/classified": {
+    data: {
+      blocker_id: string;
+      task_id: string;
+      org_id: string;
+      blocker_type: string;
+      route: string;
+    };
+  };
+  "blocker/resolution.attempt": {
+    data: {
+      blocker_id: string;
+      task_id: string;
+      org_id: string;
+      route: string;
+      attempt: number;
+    };
+  };
+  "blocker/escalation.check": {
+    data: {
+      blocker_id: string;
+      task_id: string;
+      org_id: string;
+      current_level: number;
+    };
+  };
+  "slack/mention.received": {
+    data: {
+      team_id: string;
+      channel_id: string;
+      user_id: string;
+      text: string;
+      event_id: string;
+    };
+  };
+  "slack/command.received": {
+    data: {
+      team_id: string;
+      dtn_user_id: string;
+      command: string;
+      text: string;
+      response_url: string;
+    };
+  };
 };
 
 export const inngest = new Inngest({ id: "dothesenow" });

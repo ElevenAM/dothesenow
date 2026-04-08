@@ -1,6 +1,6 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Phase 1–5 complete. [6A] Strategy generation engine — implementation complete (code written, builds pass, tests written, migration ready). [2B], [2C] not started. [6B], [6C] planned.
+> **Status**: Phase 1–5 complete. [6A] complete (code, tests, migration ready). [6B] complete (code, tests, migration ready). [6C] Executor integration framework — implementation complete (code written, 83 tests pass, migration 022 ready). [2B], [2C] not started.
 >
 > Last updated: 2026-04-07
 
@@ -34,8 +34,8 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | [6B] | Task decomposition engine | Planned |
 | **Phase 7** | Agentic: Blocker resolution | Blocked on Phase 6 |
 | [7A] | Blocker resolution agent (5-type classification) | Planned |
-| **Phase 8** | Slack integration | Blocked on Phase 7 |
-| [8A] | Slack OAuth + core handlers | Planned |
+| **Phase 8** | Slack integration | **IN PROGRESS** |
+| [8A] | Slack OAuth + core handlers | **Implementation complete** — code written, builds pass, 24 tests, migrations 024-025 ready |
 | [8B] | Slack cron functions (morning DM, EOD summary) | Planned |
 | **Phase 9** | Closed loop: Results & feedback | Blocked on Phase 8 |
 | [9A] | Results dashboard | Planned |
@@ -243,8 +243,116 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 - [ ] End-to-end smoke test: generate strategy → verify GACCS structure → verify credit deduction
 
 **Next steps (Phase 6 remaining):**
-- [ ] [6B] Task decomposition engine — consumes GACCS Schedule + Experiment Backlog → daily tasks
-- [ ] [6C] Executor integration framework + Jasper BYOS
+- [x] [6B] Task decomposition engine — consumes GACCS Schedule + Experiment Backlog → daily tasks
+- [x] [6C] Executor integration framework + Jasper BYOS
+
+### [6C] Executor Integration Framework + Jasper BYOS (2026-04-07)
+
+**What was built:**
+- Pluggable executor registry pattern replacing hardcoded if/else dispatch in `dispatch.ts`
+- `ExecutorDefinition` interface with server/client split (`ExecutorMetadata` serializable for client)
+- 3 dispatchable executors (Claude, n8n, Jasper) + 2 metadata-only (self, freelancer)
+- Jasper AI as first BYOS executor (bring your own API key, 0 credits)
+- `dtn_org_integrations` table for Vault-backed credential storage (migration 022)
+- Unified `executor-dispatch` Inngest function with per-executor concurrency
+- Settings > Integrations page with dynamic integration cards
+- Dynamic executor list in task form (replaces hardcoded array)
+
+**Files created (14):**
+- `packages/types/src/executors.ts` — ExecutorDefinition, ExecutorMetadata, OrgIntegration, DispatchableTask
+- `packages/queries/src/integrations.ts` — CRUD + Vault helpers
+- `packages/queries/src/__tests__/integrations.test.ts` — 12 tests
+- `apps/web/src/lib/executors/registry.ts` — getExecutor, getAllExecutorMetadata, getExecutorAvailability
+- `apps/web/src/lib/executors/validate-webhook-url.ts` — SSRF prevention (extracted from dispatch.ts)
+- `apps/web/src/lib/executors/builtin/claude.ts`, `n8n.ts`, `jasper.ts`
+- `apps/web/src/lib/executors/__tests__/registry.test.ts` — 20 tests
+- `apps/web/src/lib/executors/__tests__/jasper.test.ts` — 11 tests
+- `apps/web/src/components/settings/integration-card.tsx`, `api-key-form.tsx`
+- `apps/web/src/lib/integrations/actions.ts` — connectIntegration, disconnectIntegration
+- `apps/web/src/lib/inngest/functions/executor-dispatch.ts`
+- `supabase/migrations/022_org_integrations.sql`
+
+**Files modified (9):**
+- `packages/types/src/enums.ts` — Added JasperApi to ExecutorType + SubmittedByType
+- `packages/types/src/index.ts`, `packages/queries/src/index.ts` — re-exports
+- `apps/web/src/lib/daily-tasks/dispatch.ts` — gutted from 241 → ~50 lines, delegates to registry
+- `apps/web/src/lib/daily-tasks/actions.ts` — fetchExecutorAvailability uses org integrations, added fetchExecutorTypes
+- `apps/web/src/lib/inngest/client.ts` — added task/dispatch.requested event
+- `apps/web/src/lib/inngest/functions/index.ts` — registered executorDispatch
+- `apps/web/src/components/daily-tasks/task-form-dialog.tsx` — dynamic executor types prop
+- `apps/web/src/components/daily-tasks/tasks-page-client.tsx` — added Jasper tab, passes executorTypes
+- `apps/web/src/app/(dashboard)/[dept]/tasks/page.tsx` — fetches executor types
+- `apps/web/src/app/(dashboard)/settings/integrations/page.tsx` — replaced placeholder
+
+**Test results:** 83 tests pass (52 queries + 31 executor)
+**Build status:** packages/types, packages/queries build clean. apps/web has 4 pre-existing type errors from Phase 6B (not introduced by 6C).
+
+**What's still needed before merge:**
+- [ ] Apply migration 022 to Supabase production
+- [ ] Deploy to Vercel
+- [ ] E2E: Settings > Integrations shows Jasper card
+- [ ] E2E: Connect Jasper → create task with jasper_api executor → verify dispatch
+- [ ] Regression: Claude dispatch still works through new unified path
+
+**Next steps (Phase 7):**
+- [ ] [7A] Blocker Resolution Agent — blocker classification and resolution
+
+---
+
+### [8A] Slack OAuth & Core Interaction Handlers — Implementation Complete
+
+**Branch**: main (pre-merge)
+
+**Summary:**
+Slack as a first-class interaction surface. OAuth-based workspace connection, @mention task creation, slash commands (`/dtn tasks`, `/dtn complete`, `/dtn create`, `/dtn help`), interactive button cards (Start, Complete, Snooze, Skip), and event deduplication.
+
+**Key design decisions:**
+- `@slack/web-api` only — no `@slack/bolt` framework (fights serverless)
+- Task mutations use admin client direct UPDATE (bypasses `transition_task_status()` RPC which requires user JWT)
+- Separate `/api/slack/commands` route for form-encoded slash commands (not JSON)
+- User resolution: Slack email → `auth.users` match, 24h TTL cache in `user_cache` JSONB
+- Sync responses for fast queries (`tasks`, `help`); Inngest async for mutations (`complete`, `create`)
+
+**Files created (15):**
+- `supabase/migrations/024_slack_installations.sql` — Slack workspace metadata, RLS
+- `supabase/migrations/025_slack_events_dedup.sql` — Event dedup table, RLS
+- `apps/web/src/lib/slack/client.ts` — Client factory, signature verification, user resolution, task transition, Block Kit helpers
+- `apps/web/src/lib/slack/oauth.ts` — OAuth URL builder, token exchange, installation persistence
+- `apps/web/src/lib/slack/handlers/task-creation.ts` — @mention → task creation
+- `apps/web/src/lib/slack/handlers/task-completion.ts` — Button → status transition
+- `apps/web/src/lib/slack/handlers/slash-commands.ts` — `/dtn` command parsing and dispatch
+- `apps/web/src/app/api/slack/events/route.ts` — Events API + URL verification
+- `apps/web/src/app/api/slack/oauth/route.ts` — OAuth callback handler
+- `apps/web/src/app/api/slack/commands/route.ts` — Slash command handler (form-encoded)
+- `apps/web/src/app/api/slack/interactions/route.ts` — Interactive component handler
+- `apps/web/src/components/settings/slack-integration-card.tsx` — Settings UI card
+- `apps/web/src/lib/slack/__tests__/client.test.ts` — 14 tests (sig verification, transitions, blocks)
+- `apps/web/src/lib/slack/__tests__/oauth.test.ts` — 3 tests (URL construction)
+- `apps/web/src/lib/slack/__tests__/slash-commands.test.ts` — 7 tests (command parsing)
+
+**Files modified (5):**
+- `apps/web/package.json` — Added `@slack/web-api`
+- `apps/web/src/lib/inngest/client.ts` — Added `slack/mention.received` and `slack/command.received` events
+- `apps/web/src/lib/inngest/functions/index.ts` — Registered `slackMentionHandler`, `slackCommandHandler`
+- `apps/web/src/app/(dashboard)/settings/integrations/page.tsx` — Added `SlackIntegrationCard`
+- `apps/web/src/lib/integrations/actions.ts` — Added `initiateSlackOAuth()`, `disconnectSlack()` server actions
+
+**Test results:** 165 tests pass (24 new Slack + 141 existing, 0 regressions)
+**Build status:** `turbo build` clean, all 4 Slack routes registered
+
+**What's still needed before merge:**
+- [ ] Set env vars: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`
+- [ ] Apply migrations 024, 025 to Supabase production
+- [ ] Deploy to Vercel
+- [ ] Create Slack app at api.slack.com/apps (configure event URLs, slash command, scopes)
+- [ ] E2E: OAuth flow connects workspace
+- [ ] E2E: `/dtn tasks` returns task list
+- [ ] E2E: @mention creates task with interactive card
+- [ ] E2E: Button click transitions task status
+- [ ] E2E: Disconnect cleans up installation + Vault
+
+**Next steps (Phase 8 remaining):**
+- [ ] [8B] Slack cron functions — Morning DM (8am) and EOD summary (5pm)
 
 ---
 

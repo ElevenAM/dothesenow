@@ -47,6 +47,17 @@ export interface ValidationResult {
   errors: string[];
 }
 
+// ─── Blocker Resolution ─────────────────────────────────────
+
+/** Credits consumed per blocker classification. */
+export const BLOCKER_CLASSIFICATION_COST = 1;
+
+/** Credits consumed per blocker research resolution. */
+export const BLOCKER_RESEARCH_COST = 3;
+
+/** Credits consumed per blocker draft resolution. */
+export const BLOCKER_DRAFT_COST = 2;
+
 // ─── Task Decomposition ─────────────────────────────────────
 
 /** Credits consumed per daily task decomposition. */

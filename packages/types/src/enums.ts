@@ -8,6 +8,7 @@ export const TaskStatus = {
   Skipped: "skipped",
   Failed: "failed",
   CarriedOver: "carried_over",
+  Blocked: "blocked",
 } as const;
 export type TaskStatus = (typeof TaskStatus)[keyof typeof TaskStatus];
 
@@ -130,6 +131,7 @@ export const ApprovalItemType = {
   EmailDraft: "email_draft",
   TaskSubmission: "task_submission",
   StrategyChange: "strategy_change",
+  BlockerDecision: "blocker_decision",
 } as const;
 export type ApprovalItemType = (typeof ApprovalItemType)[keyof typeof ApprovalItemType];
 

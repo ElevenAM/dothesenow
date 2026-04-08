@@ -13,6 +13,9 @@ export {
   type TeamMember,
   STRATEGY_GENERATION_COST,
   TASK_DECOMPOSITION_COST,
+  BLOCKER_CLASSIFICATION_COST,
+  BLOCKER_RESEARCH_COST,
+  BLOCKER_DRAFT_COST,
   getMaxChannels,
 } from "./types.js";
 export {
@@ -29,3 +32,18 @@ export {
   selectFrameworks,
   buildFrameworkPrompts,
 } from "./frameworks/index.js";
+export {
+  assembleClassifierPrompt,
+  validateClassifierResult,
+  buildClassifierCorrectionPrompt,
+} from "./blocker-classifier.js";
+export {
+  assembleResearchPrompt,
+  validateResearchResult,
+  buildResearchCorrectionPrompt,
+} from "./research-agent.js";
+export {
+  assembleDraftPrompt,
+  validateDraftResult,
+  buildDraftCorrectionPrompt,
+} from "./draft-agent.js";

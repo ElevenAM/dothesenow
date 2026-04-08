@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,6 +15,7 @@ import {
   SkipForward,
   XCircle,
   Pencil,
+  AlertTriangle,
 } from "lucide-react";
 import {
   completeDailyTask,
@@ -22,6 +23,7 @@ import {
   updateDailyTask,
 } from "@/lib/daily-tasks/actions";
 import type { DailyTask } from "@/lib/daily-tasks/actions";
+import { BlockerDialog } from "./blocker-dialog";
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: "bg-[var(--label-red-bg)] text-[var(--label-red-fg)]",
@@ -38,6 +40,7 @@ const STATUS_COLORS: Record<string, string> = {
   skipped: "bg-[var(--label-default-bg)] text-[var(--label-default-fg)]",
   failed: "bg-[var(--label-red-bg)] text-[var(--label-red-fg)]",
   carried_over: "bg-[var(--label-purple-bg)] text-[var(--label-purple-fg)]",
+  blocked: "bg-[var(--label-orange-bg)] text-[var(--label-orange-fg)]",
 };
 
 interface TaskListProps {
@@ -79,8 +82,9 @@ function TaskRow({
   onSelect: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [blockerOpen, setBlockerOpen] = useState(false);
   const isComplete = task.status === "completed";
-  const isTerminal = ["completed", "skipped", "failed", "carried_over"].includes(
+  const isTerminal = ["completed", "skipped", "failed", "carried_over", "blocked"].includes(
     task.status,
   );
 
@@ -169,6 +173,12 @@ function TaskRow({
                 Start
               </DropdownMenuItem>
             )}
+            {task.status === "in_progress" && (
+              <DropdownMenuItem onClick={() => setBlockerOpen(true)}>
+                <AlertTriangle className="mr-2 h-3.5 w-3.5" />
+                Report Blocker
+              </DropdownMenuItem>
+            )}
             {!isTerminal && (
               <>
                 <DropdownMenuItem onClick={() => handleAction("skip")}>
@@ -187,6 +197,13 @@ function TaskRow({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <BlockerDialog
+        taskId={task.id}
+        taskTitle={task.title}
+        open={blockerOpen}
+        onOpenChange={setBlockerOpen}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { getActiveOrgId } from "@/lib/org-context";
 import { getOrgIntegrations } from "@dothesenow/queries";
 import { getAllExecutorMetadata } from "@/lib/executors/registry";
 import { IntegrationCard } from "@/components/settings/integration-card";
+import { SlackIntegrationCard } from "@/components/settings/slack-integration-card";
 
 export default async function IntegrationsPage() {
   const supabase = await createClient();
@@ -15,6 +16,15 @@ export default async function IntegrationsPage() {
 
   const ctx = { client: supabase, orgId };
   const integrations = await getOrgIntegrations(ctx);
+
+  // Fetch Slack installation for the card
+  const slackIntegration = integrations.find(
+    (i) => i.integration_type === "slack",
+  ) ?? null;
+
+  const slackTeamName = slackIntegration?.is_active
+    ? ((slackIntegration.config as Record<string, unknown>)?.team_name as string) ?? null
+    : null;
 
   // Show executors that have config (BYOS/webhook) or are already connected
   const allMetadata = getAllExecutorMetadata();
@@ -34,26 +44,23 @@ export default async function IntegrationsPage() {
         </p>
       </div>
 
-      {configurableExecutors.length === 0 ? (
-        <p className="text-sm text-[var(--fgColor-muted)]">
-          No integrations available. New executors will appear here as they are
-          added.
-        </p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {configurableExecutors.map((executor) => (
-            <IntegrationCard
-              key={executor.type}
-              executor={executor}
-              integration={
-                integrations.find(
-                  (i) => i.integration_type === executor.type,
-                ) ?? null
-              }
-            />
-          ))}
-        </div>
-      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SlackIntegrationCard
+          integration={slackIntegration}
+          teamName={slackTeamName}
+        />
+        {configurableExecutors.map((executor) => (
+          <IntegrationCard
+            key={executor.type}
+            executor={executor}
+            integration={
+              integrations.find(
+                (i) => i.integration_type === executor.type,
+              ) ?? null
+            }
+          />
+        ))}
+      </div>
     </div>
   );
 }

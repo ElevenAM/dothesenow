@@ -4,6 +4,15 @@ import { dailyTaskGeneration } from "./daily-task-generation";
 import { strategyGeneration } from "./strategy-generation";
 import { taskDecomposition } from "./task-decomposition";
 import { executorDispatch } from "./executor-dispatch";
+import {
+  blockerClassification,
+  blockerResolver,
+  blockerEscalation,
+} from "./blocker-resolution";
+import {
+  slackMentionHandler,
+  slackCommandHandler,
+} from "./slack-event-handler";
 
 /**
  * All Inngest functions registered with the app.
@@ -17,4 +26,9 @@ export const functions = [
   strategyGeneration,
   taskDecomposition,
   executorDispatch,
+  blockerClassification,
+  blockerResolver,
+  blockerEscalation,
+  slackMentionHandler,
+  slackCommandHandler,
 ];

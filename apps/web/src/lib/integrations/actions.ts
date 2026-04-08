@@ -1,6 +1,9 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "crypto";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -12,6 +15,7 @@ import {
   getMembershipsForOrg,
 } from "@dothesenow/queries";
 import { getExecutor } from "@/lib/executors/registry";
+import { buildAuthorizeUrl } from "@/lib/slack/oauth";
 
 /**
  * Connect an integration by storing its config and secrets.
@@ -120,6 +124,67 @@ export async function disconnectIntegration(
 
   // Deactivate the integration
   await deactivateOrgIntegration(adminClient, ctx.orgId, executorType);
+
+  revalidatePath("/settings/integrations");
+}
+
+// ─── Slack-specific actions ─────────────────────────────────
+
+const SLACK_STATE_COOKIE = "dtn_slack_oauth_state";
+
+/**
+ * Initiate Slack OAuth flow.
+ * Sets a CSRF state cookie and redirects to Slack's authorize URL.
+ */
+export async function initiateSlackOAuth(): Promise<void> {
+  const { auth } = await getAuthenticatedOrgContext();
+
+  const state = randomBytes(32).toString("hex");
+  const cookieStore = await cookies();
+  cookieStore.set(SLACK_STATE_COOKIE, state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600, // 10 minutes
+    path: "/",
+  });
+
+  const authorizeUrl = buildAuthorizeUrl(state);
+  redirect(authorizeUrl);
+}
+
+/**
+ * Disconnect Slack integration.
+ * Cleans up: dtn_slack_installations, Vault secret, dtn_org_integrations.
+ */
+export async function disconnectSlack(): Promise<void> {
+  const { auth, ctx } = await getAuthenticatedOrgContext();
+
+  // Verify admin/owner role
+  const memberships = await getMembershipsForOrg(ctx);
+  const currentMembership = memberships.find(
+    (m) => m.user_id === auth.user.id,
+  );
+  if (!currentMembership || !["owner", "admin"].includes(currentMembership.role)) {
+    throw new Error("Only admins and owners can manage integrations");
+  }
+
+  const adminClient = createAdminClient();
+
+  // Delete slack installation record
+  await adminClient
+    .from("dtn_slack_installations")
+    .delete()
+    .eq("org_id", ctx.orgId);
+
+  // Delete Vault secret + deactivate org integration
+  const existing = await getOrgIntegration(ctx, "slack");
+  if (existing) {
+    if (existing.vault_secret_id) {
+      await deleteIntegrationSecret(adminClient, existing.vault_secret_id);
+    }
+    await deactivateOrgIntegration(adminClient, ctx.orgId, "slack");
+  }
 
   revalidatePath("/settings/integrations");
 }

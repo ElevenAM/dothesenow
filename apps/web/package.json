@@ -17,6 +17,7 @@
     "@dothesenow/prompts": "*",
     "@dothesenow/queries": "*",
     "@dothesenow/types": "*",
+    "@slack/web-api": "^7.15.0",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
     "@uiw/react-md-editor": "^4.1.0",
