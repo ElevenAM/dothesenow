@@ -241,7 +241,8 @@ export async function updateSpecialties(
     .from("dtn_memberships")
     .update({ specialties })
     .eq("id", membershipId)
-    .eq("org_id", ctx.membership.orgId);
+    .eq("org_id", ctx.membership.orgId)
+    .eq("is_active", true);
 
   if (error) return { error: error.message };
 

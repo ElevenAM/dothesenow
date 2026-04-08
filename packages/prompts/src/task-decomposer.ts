@@ -80,6 +80,11 @@ export function validateDecompositionOutput(
   teamSize: number = 1,
   dayOfWeek: number = 1,
 ): DecompositionValidationResult {
+  // Sunday: no tasks expected
+  if (dayOfWeek === 0) {
+    return { valid: true, errors: [], tasks: [] };
+  }
+
   const cleaned = cleanJsonOutput(raw);
   const errors: string[] = [];
 

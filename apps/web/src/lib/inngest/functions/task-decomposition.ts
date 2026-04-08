@@ -244,12 +244,17 @@ export const taskDecomposition = inngest.createFunction(
         actualPct: totalSectionTasks > 0 ? Math.round((count / totalSectionTasks) * 100) : 0,
       }));
 
-      // Experiment progress: count completed steps per experiment
+      // Experiment progress: count completed steps per experiment (last 30 days)
+      const thirtyDaysAgo = new Date(targetDate + "T12:00:00");
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+
       const { data: experimentTasks } = await supabase
         .from("dtn_daily_tasks")
         .select("experiment_id, status")
         .eq("org_id", org_id)
-        .not("experiment_id", "is", null);
+        .not("experiment_id", "is", null)
+        .gte("scheduled_date", thirtyDaysAgoStr);
 
       const expProgress: Record<string, { completed: number; total: number }> =
         {};
