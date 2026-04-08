@@ -311,14 +311,15 @@ export async function generateDailyTasks(
     );
   }
 
-  const targetDate = date || todayString();
-
+  // When no date is provided, omit target_date entirely — the Inngest
+  // function computes it from the org's timezone, avoiding the UTC mismatch
+  // that todayString() would introduce for late-evening users in UTC- zones.
   await inngest.send({
     name: "task/decompose.manual",
     data: {
       org_id: ctx.orgId,
       triggered_by: auth.user.id,
-      target_date: targetDate,
+      target_date: date || "",
     },
   });
 
