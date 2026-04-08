@@ -32,7 +32,7 @@ export const executorDispatch = inngest.createFunction(
   {
     id: "executor-dispatch",
     triggers: [{ event: "task/dispatch.requested" }],
-    concurrency: [{ limit: 10, key: "event.data.executor_type" }],
+    concurrency: [{ limit: 5, key: "event.data.executor_type" }],
     rateLimit: { limit: 20, period: "1m", key: "event.data.org_id" },
     idempotency: "event.data.task_id",
     retries: 2,
