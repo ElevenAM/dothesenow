@@ -238,7 +238,7 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 **What's still needed before merge:**
 - [ ] Apply migration 020 to Supabase production
 - [ ] Commit and push to git
-- [ ] Run tests (blocked by Node.js 19.5 — Vitest 4.x requires Node 20+; tests parse correctly but can't execute locally)
+- [ ] Run tests (Node version blocker resolved — `.nvmrc` pins Node 22, `engines` field requires >=20.9.0)
 - [ ] Deploy to Vercel
 - [ ] End-to-end smoke test: generate strategy → verify GACCS structure → verify credit deduction
 
