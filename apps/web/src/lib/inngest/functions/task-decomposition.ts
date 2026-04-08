@@ -9,7 +9,7 @@ import {
   bulkCreateTasks,
 } from "@dothesenow/queries";
 import type { OrgContext } from "@dothesenow/queries";
-import type { Industry, BudgetTier, CreateTaskInput } from "@dothesenow/types";
+import type { Industry, BudgetTier, CreateTaskInput, Priority, ExecutorType } from "@dothesenow/types";
 import {
   assembleDecompositionPrompt,
   validateDecompositionOutput,
@@ -30,7 +30,7 @@ import Anthropic from "@anthropic-ai/sdk";
 const MODEL = "claude-sonnet-4-6-20250514";
 const MAX_TOKENS = 4096;
 
-const PRIORITY_MAP: Record<number, string> = {
+const PRIORITY_MAP: Record<number, Priority> = {
   1: "urgent",
   2: "high",
   3: "medium",
@@ -411,7 +411,7 @@ export const taskDecomposition = inngest.createFunction(
             description: t.description,
             duration_minutes: t.duration_minutes,
             priority: PRIORITY_MAP[t.priority] ?? "medium",
-            executor_type: t.executor_type === "byos" ? "self" : t.executor_type,
+            executor_type: (t.executor_type === "byos" ? "self" : t.executor_type) as ExecutorType,
             strategy_doc_id: context.strategyDocId,
             strategy_section_ref: t.strategy_section_ref,
             experiment_id: t.experiment_id ?? undefined,
