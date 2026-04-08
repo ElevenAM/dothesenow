@@ -19,6 +19,10 @@ import {
 } from "./slack-morning-dm";
 import { slackEodSummary } from "./slack-eod-summary";
 import { slackThreadSync } from "./slack-thread-sync";
+import {
+  weeklyRetrospectiveCron,
+  weeklyRetrospectiveHandler,
+} from "./weekly-retrospective";
 
 /**
  * All Inngest functions registered with the app.
@@ -41,4 +45,6 @@ export const functions = [
   slackMorningDMHandler,
   slackEodSummary,
   slackThreadSync,
+  weeklyRetrospectiveCron,
+  weeklyRetrospectiveHandler,
 ];

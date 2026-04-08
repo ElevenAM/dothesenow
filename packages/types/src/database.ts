@@ -94,6 +94,94 @@ export type Database = {
             referencedRelation: "dtn_organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "dtn_approval_queue_reviewer_profiles_fkey"
+            columns: ["assigned_reviewer"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dtn_blockers: {
+        Row: {
+          blocker_type: string | null
+          blocker_type_secondary: string | null
+          classification_confidence: number | null
+          classification_reasoning: string | null
+          created_at: string | null
+          description: string
+          escalation_level: number
+          id: string
+          inngest_run_id: string | null
+          last_escalated_at: string | null
+          org_id: string
+          reported_by: string | null
+          resolution_metadata: Json
+          resolution_output: string | null
+          resolution_status: string
+          resolved_at: string | null
+          resolved_by: string | null
+          task_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          blocker_type?: string | null
+          blocker_type_secondary?: string | null
+          classification_confidence?: number | null
+          classification_reasoning?: string | null
+          created_at?: string | null
+          description: string
+          escalation_level?: number
+          id?: string
+          inngest_run_id?: string | null
+          last_escalated_at?: string | null
+          org_id: string
+          reported_by?: string | null
+          resolution_metadata?: Json
+          resolution_output?: string | null
+          resolution_status?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          task_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          blocker_type?: string | null
+          blocker_type_secondary?: string | null
+          classification_confidence?: number | null
+          classification_reasoning?: string | null
+          created_at?: string | null
+          description?: string
+          escalation_level?: number
+          id?: string
+          inngest_run_id?: string | null
+          last_escalated_at?: string | null
+          org_id?: string
+          reported_by?: string | null
+          resolution_metadata?: Json
+          resolution_output?: string | null
+          resolution_status?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          task_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtn_blockers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dtn_blockers_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_daily_tasks"
+            referencedColumns: ["id"]
+          },
         ]
       }
       dtn_blog_posts: {
@@ -171,6 +259,50 @@ export type Database = {
           },
         ]
       }
+      dtn_credit_ledger: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string | null
+          id: string
+          org_id: string
+          reason: string
+          reference_id: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string | null
+          id?: string
+          org_id: string
+          reason: string
+          reference_id?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string | null
+          id?: string
+          org_id?: string
+          reason?: string
+          reference_id?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtn_credit_ledger_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dtn_daily_tasks: {
         Row: {
           assigned_to: string | null
@@ -179,10 +311,14 @@ export type Database = {
           contact_id: string | null
           created_at: string | null
           created_by: string | null
+          deleted_at: string | null
           department_id: string | null
           description: string | null
+          duration_minutes: number | null
           executor_config: Json | null
           executor_type: string
+          experiment_id: string | null
+          experiment_uuid: string | null
           generated_by: string | null
           generation_context: Json | null
           id: string
@@ -190,9 +326,13 @@ export type Database = {
           org_id: string
           outcome_notes: string | null
           priority: string
+          recommended_assignee_role: string | null
           scheduled_date: string
+          slack_origin: Json | null
           source_strategy: string | null
           status: string
+          strategy_doc_id: string | null
+          strategy_section_ref: string | null
           task_type: string
           title: string
           updated_at: string | null
@@ -204,10 +344,14 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           department_id?: string | null
           description?: string | null
+          duration_minutes?: number | null
           executor_config?: Json | null
           executor_type?: string
+          experiment_id?: string | null
+          experiment_uuid?: string | null
           generated_by?: string | null
           generation_context?: Json | null
           id?: string
@@ -215,9 +359,13 @@ export type Database = {
           org_id: string
           outcome_notes?: string | null
           priority?: string
+          recommended_assignee_role?: string | null
           scheduled_date?: string
+          slack_origin?: Json | null
           source_strategy?: string | null
           status?: string
+          strategy_doc_id?: string | null
+          strategy_section_ref?: string | null
           task_type?: string
           title: string
           updated_at?: string | null
@@ -229,10 +377,14 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          deleted_at?: string | null
           department_id?: string | null
           description?: string | null
+          duration_minutes?: number | null
           executor_config?: Json | null
           executor_type?: string
+          experiment_id?: string | null
+          experiment_uuid?: string | null
           generated_by?: string | null
           generation_context?: Json | null
           id?: string
@@ -240,9 +392,13 @@ export type Database = {
           org_id?: string
           outcome_notes?: string | null
           priority?: string
+          recommended_assignee_role?: string | null
           scheduled_date?: string
+          slack_origin?: Json | null
           source_strategy?: string | null
           status?: string
+          strategy_doc_id?: string | null
+          strategy_section_ref?: string | null
           task_type?: string
           title?: string
           updated_at?: string | null
@@ -256,10 +412,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "dtn_daily_tasks_experiment_uuid_fkey"
+            columns: ["experiment_uuid"]
+            isOneToOne: false
+            referencedRelation: "dtn_experiments"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "dtn_daily_tasks_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "dtn_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dtn_daily_tasks_strategy_doc_id_fkey"
+            columns: ["strategy_doc_id"]
+            isOneToOne: false
+            referencedRelation: "mktg_strategy_docs"
             referencedColumns: ["id"]
           },
           {
@@ -323,6 +493,138 @@ export type Database = {
           },
         ]
       }
+      dtn_experiment_results: {
+        Row: {
+          created_at: string | null
+          experiment_id: string
+          id: string
+          metric_value: number | null
+          metrics: Json
+          notes: string | null
+          org_id: string
+          recorded_at: string
+          recorded_by: string | null
+          week_start: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          experiment_id: string
+          id?: string
+          metric_value?: number | null
+          metrics?: Json
+          notes?: string | null
+          org_id: string
+          recorded_at?: string
+          recorded_by?: string | null
+          week_start?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          experiment_id?: string
+          id?: string
+          metric_value?: number | null
+          metrics?: Json
+          notes?: string | null
+          org_id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          week_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtn_experiment_results_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_experiments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dtn_experiment_results_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dtn_experiments: {
+        Row: {
+          backlog_ref: string | null
+          baseline_value: number | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          hypothesis: string | null
+          id: string
+          org_id: string
+          planned_duration_days: number | null
+          started_at: string | null
+          status: string
+          strategy_doc_id: string | null
+          strategy_section_ref: string | null
+          success_metric: string | null
+          success_target: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          backlog_ref?: string | null
+          baseline_value?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          hypothesis?: string | null
+          id?: string
+          org_id: string
+          planned_duration_days?: number | null
+          started_at?: string | null
+          status?: string
+          strategy_doc_id?: string | null
+          strategy_section_ref?: string | null
+          success_metric?: string | null
+          success_target?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          backlog_ref?: string | null
+          baseline_value?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          hypothesis?: string | null
+          id?: string
+          org_id?: string
+          planned_duration_days?: number | null
+          started_at?: string | null
+          status?: string
+          strategy_doc_id?: string | null
+          strategy_section_ref?: string | null
+          success_metric?: string | null
+          success_target?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtn_experiments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dtn_experiments_strategy_doc_id_fkey"
+            columns: ["strategy_doc_id"]
+            isOneToOne: false
+            referencedRelation: "mktg_strategy_docs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dtn_memberships: {
         Row: {
           accepted_at: string | null
@@ -334,6 +636,7 @@ export type Database = {
           is_active: boolean | null
           org_id: string
           role: string
+          specialties: string[] | null
           user_id: string | null
         }
         Insert: {
@@ -346,6 +649,7 @@ export type Database = {
           is_active?: boolean | null
           org_id: string
           role?: string
+          specialties?: string[] | null
           user_id?: string | null
         }
         Update: {
@@ -358,6 +662,7 @@ export type Database = {
           is_active?: boolean | null
           org_id?: string
           role?: string
+          specialties?: string[] | null
           user_id?: string | null
         }
         Relationships: [
@@ -370,47 +675,257 @@ export type Database = {
           },
         ]
       }
-      dtn_organizations: {
+      dtn_org_api_keys: {
         Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          key_hash: string
+          key_prefix: string
+          label: string
+          last_used_at: string | null
+          org_id: string
+          scopes: string[]
+          updated_at: string
+          vault_secret_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash: string
+          key_prefix: string
+          label?: string
+          last_used_at?: string | null
+          org_id: string
+          scopes?: string[]
+          updated_at?: string
+          vault_secret_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash?: string
+          key_prefix?: string
+          label?: string
+          last_used_at?: string | null
+          org_id?: string
+          scopes?: string[]
+          updated_at?: string
+          vault_secret_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtn_org_api_keys_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dtn_org_integrations: {
+        Row: {
+          config: Json
+          connected_at: string | null
+          connected_by: string | null
           created_at: string | null
           id: string
+          integration_type: string
+          is_active: boolean | null
+          last_error: string | null
+          last_used_at: string | null
+          org_id: string
+          updated_at: string | null
+          vault_secret_id: string | null
+        }
+        Insert: {
+          config?: Json
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string | null
+          id?: string
+          integration_type: string
+          is_active?: boolean | null
+          last_error?: string | null
+          last_used_at?: string | null
+          org_id: string
+          updated_at?: string | null
+          vault_secret_id?: string | null
+        }
+        Update: {
+          config?: Json
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string | null
+          id?: string
+          integration_type?: string
+          is_active?: boolean | null
+          last_error?: string | null
+          last_used_at?: string | null
+          org_id?: string
+          updated_at?: string | null
+          vault_secret_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtn_org_integrations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dtn_organizations: {
+        Row: {
+          ai_credits_remaining: number
+          ai_credits_reset_at: string | null
+          budget_tier: string | null
+          created_at: string | null
+          growth_motion: string | null
+          id: string
+          industry: string | null
           logo_url: string | null
           name: string
+          onboarding_completed_at: string | null
           plan: string
           plan_status: string
           settings: Json | null
           slug: string
+          stage: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          timezone: string | null
           updated_at: string | null
         }
         Insert: {
+          ai_credits_remaining?: number
+          ai_credits_reset_at?: string | null
+          budget_tier?: string | null
           created_at?: string | null
+          growth_motion?: string | null
           id?: string
+          industry?: string | null
           logo_url?: string | null
           name: string
+          onboarding_completed_at?: string | null
           plan?: string
           plan_status?: string
           settings?: Json | null
           slug: string
+          stage?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          timezone?: string | null
           updated_at?: string | null
         }
         Update: {
+          ai_credits_remaining?: number
+          ai_credits_reset_at?: string | null
+          budget_tier?: string | null
           created_at?: string | null
+          growth_motion?: string | null
           id?: string
+          industry?: string | null
           logo_url?: string | null
           name?: string
+          onboarding_completed_at?: string | null
           plan?: string
           plan_status?: string
           settings?: Json | null
           slug?: string
+          stage?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          timezone?: string | null
           updated_at?: string | null
         }
         Relationships: []
+      }
+      dtn_slack_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          received_at: string | null
+          status: string
+          team_id: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          received_at?: string | null
+          status?: string
+          team_id: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          received_at?: string | null
+          status?: string
+          team_id?: string
+        }
+        Relationships: []
+      }
+      dtn_slack_installations: {
+        Row: {
+          app_id: string
+          bot_scopes: string[]
+          bot_user_id: string
+          created_at: string | null
+          id: string
+          installer_user_id: string | null
+          notification_channel_id: string | null
+          org_id: string
+          team_id: string
+          team_name: string
+          updated_at: string | null
+          user_cache: Json
+        }
+        Insert: {
+          app_id: string
+          bot_scopes?: string[]
+          bot_user_id: string
+          created_at?: string | null
+          id?: string
+          installer_user_id?: string | null
+          notification_channel_id?: string | null
+          org_id: string
+          team_id: string
+          team_name: string
+          updated_at?: string | null
+          user_cache?: Json
+        }
+        Update: {
+          app_id?: string
+          bot_scopes?: string[]
+          bot_user_id?: string
+          created_at?: string | null
+          id?: string
+          installer_user_id?: string | null
+          notification_channel_id?: string | null
+          org_id?: string
+          team_id?: string
+          team_name?: string
+          updated_at?: string | null
+          user_cache?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtn_slack_installations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dtn_social_credentials: {
         Row: {
@@ -477,18 +992,21 @@ export type Database = {
           event_type: string
           id: string
           processed_at: string | null
+          status: string
         }
         Insert: {
           created_at?: string | null
           event_type: string
           id: string
           processed_at?: string | null
+          status?: string
         }
         Update: {
           created_at?: string | null
           event_type?: string
           id?: string
           processed_at?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -542,11 +1060,66 @@ export type Database = {
           },
         ]
       }
+      dtn_task_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          new_state: Json | null
+          org_id: string
+          previous_state: Json | null
+          source: string
+          task_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          new_state?: Json | null
+          org_id: string
+          previous_state?: Json | null
+          source: string
+          task_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          new_state?: Json | null
+          org_id?: string
+          previous_state?: Json | null
+          source?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtn_task_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dtn_task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "dtn_daily_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mktg_campaigns: {
         Row: {
           budget: number | null
           campaign_type: string
           created_at: string | null
+          deleted_at: string | null
           description: string | null
           end_date: string | null
           id: string
@@ -564,6 +1137,7 @@ export type Database = {
           budget?: number | null
           campaign_type: string
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -581,6 +1155,7 @@ export type Database = {
           budget?: number | null
           campaign_type?: string
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -674,6 +1249,7 @@ export type Database = {
           company: string | null
           contact_type: string
           created_at: string | null
+          deleted_at: string | null
           email: string | null
           first_name: string
           id: string
@@ -697,6 +1273,7 @@ export type Database = {
           company?: string | null
           contact_type?: string
           created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
           first_name: string
           id?: string
@@ -720,6 +1297,7 @@ export type Database = {
           company?: string | null
           contact_type?: string
           created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
           first_name?: string
           id?: string
@@ -948,8 +1526,10 @@ export type Database = {
           changed_by: string | null
           content: string
           created_at: string | null
+          deleted_at: string | null
           doc_type: string
           embedding: string | null
+          generation_metadata: Json | null
           id: string
           is_active: boolean | null
           org_id: string
@@ -964,8 +1544,10 @@ export type Database = {
           changed_by?: string | null
           content: string
           created_at?: string | null
+          deleted_at?: string | null
           doc_type: string
           embedding?: string | null
+          generation_metadata?: Json | null
           id?: string
           is_active?: boolean | null
           org_id: string
@@ -980,8 +1562,10 @@ export type Database = {
           changed_by?: string | null
           content?: string
           created_at?: string | null
+          deleted_at?: string | null
           doc_type?: string
           embedding?: string | null
+          generation_metadata?: Json | null
           id?: string
           is_active?: boolean | null
           org_id?: string
@@ -1251,6 +1835,7 @@ export type Database = {
           ai_summary: string | null
           challenges: string[] | null
           created_at: string | null
+          generated_by: string | null
           id: string
           learnings: string[] | null
           metrics: Json | null
@@ -1265,6 +1850,7 @@ export type Database = {
           ai_summary?: string | null
           challenges?: string[] | null
           created_at?: string | null
+          generated_by?: string | null
           id?: string
           learnings?: string[] | null
           metrics?: Json | null
@@ -1279,6 +1865,7 @@ export type Database = {
           ai_summary?: string | null
           challenges?: string[] | null
           created_at?: string | null
+          generated_by?: string | null
           id?: string
           learnings?: string[] | null
           metrics?: Json | null
@@ -1394,6 +1981,16 @@ export type Database = {
       }
     }
     Functions: {
+      carry_over_tasks_v2: {
+        Args: {
+          p_actor_id?: string
+          p_from_date: string
+          p_org_id: string
+          p_source?: string
+          p_to_date?: string
+        }
+        Returns: Json
+      }
       check_and_accept_invite: {
         Args: {
           p_membership_id: string
@@ -1410,6 +2007,7 @@ export type Database = {
           is_active: boolean | null
           org_id: string
           role: string
+          specialties: string[] | null
           user_id: string | null
         }
         SetofOptions: {
@@ -1436,6 +2034,7 @@ export type Database = {
           is_active: boolean | null
           org_id: string
           role: string
+          specialties: string[] | null
           user_id: string | null
         }
         SetofOptions: {
@@ -1445,6 +2044,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      confirm_credits: { Args: { p_ledger_id: string }; Returns: undefined }
+      create_strategy_doc_direct: {
+        Args: {
+          p_change_summary?: string
+          p_changed_by?: string
+          p_content: string
+          p_doc_type: string
+          p_org_id: string
+          p_tags?: string[]
+          p_title: string
+        }
+        Returns: string
+      }
+      get_channel_performance: {
+        Args: { p_date_from?: string; p_date_to?: string; p_org_id: string }
+        Returns: {
+          completed: number
+          completion_rate: number
+          failed: number
+          skipped: number
+          strategy_section_ref: string
+          total_tasks: number
+        }[]
+      }
       get_user_org_ids: { Args: never; Returns: string[] }
       invite_team_member: {
         Args: {
@@ -1452,6 +2075,20 @@ export type Database = {
           p_invited_email: string
           p_org_id: string
           p_role: string
+        }
+        Returns: string
+      }
+      refund_credits: { Args: { p_ledger_id: string }; Returns: undefined }
+      refund_credits_by_reference: {
+        Args: { p_org_id: string; p_reference_id: string }
+        Returns: number
+      }
+      reserve_credits: {
+        Args: {
+          p_amount: number
+          p_org_id: string
+          p_reason: string
+          p_reference_id?: string
         }
         Returns: string
       }
@@ -1464,6 +2101,44 @@ export type Database = {
           p_status: string
         }
         Returns: Json
+      }
+      review_marketplace_submission: {
+        Args: {
+          p_ai_review?: string
+          p_org_id: string
+          p_rating?: number
+          p_reviewer_notes?: string
+          p_status: string
+          p_submission_id: string
+        }
+        Returns: Json
+      }
+      soft_delete_campaign: {
+        Args: { p_campaign_id: string; p_org_id: string }
+        Returns: undefined
+      }
+      soft_delete_contact: {
+        Args: { p_contact_id: string; p_org_id: string }
+        Returns: undefined
+      }
+      soft_delete_strategy_doc: {
+        Args: { p_doc_id: string; p_org_id: string }
+        Returns: undefined
+      }
+      soft_delete_task: {
+        Args: { p_org_id: string; p_task_id: string }
+        Returns: undefined
+      }
+      transition_task_status: {
+        Args: {
+          p_actor_id?: string
+          p_metadata?: Json
+          p_new_status: string
+          p_org_id: string
+          p_source: string
+          p_task_id: string
+        }
+        Returns: string
       }
       update_strategy_doc: {
         Args: {

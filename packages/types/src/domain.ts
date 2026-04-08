@@ -3,6 +3,7 @@ import type {
   Priority,
   TaskType,
   ExecutorType,
+  ExperimentStatus,
   GeneratedBy,
   ContactType,
   ContactStatus,
@@ -508,8 +509,9 @@ export interface WeeklyReview {
   wins: string[] | null;
   challenges: string[] | null;
   learnings: string[] | null;
-  next_week_focus: string[] | null;
-  strategy_adjustments: string | null;
+  next_week_priorities: string[] | null;
+  strategy_changes: string | null;
+  ai_summary: string | null;
   generated_by: GeneratedBy | null;
   created_at: string | null;
 }
@@ -534,8 +536,9 @@ export interface CreateWeeklyReviewInput {
   wins?: string[] | null;
   challenges?: string[] | null;
   learnings?: string[] | null;
-  next_week_focus?: string[] | null;
-  strategy_adjustments?: string | null;
+  next_week_priorities?: string[] | null;
+  strategy_changes?: string | null;
+  ai_summary?: string | null;
   generated_by?: string | null;
 }
 
@@ -608,4 +611,70 @@ export interface PipelineSummary {
   contact_type: ContactType | null;
   total: number;
   avg_lead_score: number | null;
+}
+
+// ─── Experiments & Results ──────────────────────────────────
+
+export interface Experiment {
+  id: string;
+  org_id: string;
+  strategy_doc_id: string | null;
+  title: string;
+  hypothesis: string | null;
+  description: string | null;
+  backlog_ref: string | null;
+  strategy_section_ref: string | null;
+  status: ExperimentStatus;
+  started_at: string | null;
+  completed_at: string | null;
+  success_metric: string | null;
+  success_target: number | null;
+  baseline_value: number | null;
+  planned_duration_days: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExperimentResult {
+  id: string;
+  org_id: string;
+  experiment_id: string;
+  recorded_at: string;
+  week_start: string | null;
+  metrics: Json;
+  metric_value: number | null;
+  notes: string | null;
+  recorded_by: string | null;
+  created_at: string;
+}
+
+export interface CreateExperimentInput {
+  title: string;
+  hypothesis?: string | null;
+  description?: string | null;
+  strategy_doc_id?: string | null;
+  backlog_ref?: string | null;
+  strategy_section_ref?: string | null;
+  success_metric?: string | null;
+  success_target?: number | null;
+  baseline_value?: number | null;
+  planned_duration_days?: number | null;
+}
+
+export interface CreateExperimentResultInput {
+  experiment_id: string;
+  week_start?: string | null;
+  metrics?: Json;
+  metric_value?: number | null;
+  notes?: string | null;
+}
+
+export interface ChannelPerformanceRow {
+  strategy_section_ref: string;
+  total_tasks: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  completion_rate: number;
 }

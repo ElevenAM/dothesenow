@@ -106,6 +106,17 @@ export const OutreachStatus = {
 } as const;
 export type OutreachStatus = (typeof OutreachStatus)[keyof typeof OutreachStatus];
 
+// ─── Experiment Enums ────────────────────────────────────────
+
+export const ExperimentStatus = {
+  Backlog: "backlog",
+  Running: "running",
+  Completed: "completed",
+  Won: "won",
+  Lost: "lost",
+} as const;
+export type ExperimentStatus = (typeof ExperimentStatus)[keyof typeof ExperimentStatus];
+
 // ─── Strategy Enums ───────────────────────────────────────────
 
 export const DocType = {

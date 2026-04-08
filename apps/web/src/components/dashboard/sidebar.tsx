@@ -9,6 +9,7 @@ import {
   Users,
   CheckSquare,
   BarChart3,
+  TrendingUp,
   ShieldCheck,
   PenLine,
   Settings,
@@ -34,6 +35,7 @@ const navItems = [
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/pipeline", label: "Pipeline", icon: BarChart3 },
+  { href: "/results", label: "Results", icon: TrendingUp },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck },
   { href: "/blog", label: "Blog", icon: PenLine },
 ];
