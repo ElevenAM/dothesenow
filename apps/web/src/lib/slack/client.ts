@@ -17,6 +17,7 @@ export interface SlackInstallation {
   installer_user_id: string | null;
   bot_scopes: string[];
   user_cache: Record<string, { dtn_uid: string; cached_at: string }>;
+  notification_channel_id: string | null;
   created_at: string;
   updated_at: string;
 }

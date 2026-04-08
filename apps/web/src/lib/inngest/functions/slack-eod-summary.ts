@@ -18,6 +18,7 @@ export const slackEodSummary = inngest.createFunction(
     id: "slack-eod-summary",
     triggers: [{ cron: "0 * * * *" }],
     concurrency: [{ limit: 5 }],
+    retries: 1,
   },
   async ({ step }) => {
     const supabase = createAdminClient();
@@ -45,14 +46,8 @@ export const slackEodSummary = inngest.createFunction(
           return { status: "skipped", reason: "no_slack" } as const;
         }
 
-        // Check notification channel
-        const { data: installData } = await supabase
-          .from("dtn_slack_installations")
-          .select("notification_channel_id")
-          .eq("org_id", org.id)
-          .single();
-
-        const channelId = installData?.notification_channel_id;
+        // Check notification channel (already included in installation from select("*"))
+        const channelId = installation.notification_channel_id;
         if (!channelId) {
           console.warn(
             `[inngest:eod] Org ${org.id}: No notification channel configured — skipping`,

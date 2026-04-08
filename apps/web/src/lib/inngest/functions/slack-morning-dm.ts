@@ -14,7 +14,7 @@ import { sendMorningDM } from "@/lib/slack/handlers/morning-dm";
  * with Slack connected, then fans out to the per-org handler.
  */
 export const slackMorningDMCron = inngest.createFunction(
-  { id: "slack-morning-dm-cron", triggers: [{ cron: "0 * * * *" }] },
+  { id: "slack-morning-dm-cron", triggers: [{ cron: "0 * * * *" }], retries: 1 },
   async ({ step }) => {
     const supabase = createAdminClient();
 
@@ -76,7 +76,6 @@ export const slackMorningDMHandler = inngest.createFunction(
       const ctx: OrgContext = { client: supabase, orgId: org_id };
       const members = await getTeamWithSpecialties(ctx);
 
-      const tz = installation.team_name; // we need the org timezone, not team_name
       return {
         botToken: installation.botToken,
         members: members

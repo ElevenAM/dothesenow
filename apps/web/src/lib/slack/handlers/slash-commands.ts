@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getTasksForOrg } from "@dothesenow/queries";
+import { getTasksForOrg, getMembershipByUserId } from "@dothesenow/queries";
 import type { OrgContext } from "@dothesenow/queries";
 import { buildTaskListBlocks, buildTaskCard, type TaskBlock } from "../client";
 
@@ -38,7 +38,7 @@ export async function handleSlashCommand(
       return handleHelp();
 
     case "channel":
-      return handleChannel(adminClient, orgId, channelId);
+      return handleChannel(adminClient, orgId, actorId, channelId);
 
     case "complete":
     case "create":
@@ -74,12 +74,22 @@ export function parseSlashCommand(text: string): {
 async function handleChannel(
   adminClient: SupabaseClient,
   orgId: string,
+  actorId: string,
   channelId?: string,
 ): Promise<SlashCommandResult> {
   if (!channelId) {
     return {
       response_type: "ephemeral",
       text: ":warning: Could not detect the current channel. Please try again.",
+    };
+  }
+
+  // Only admins and owners can set the notification channel
+  const membership = await getMembershipByUserId(adminClient, orgId, actorId);
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+    return {
+      response_type: "ephemeral",
+      text: ":warning: Only workspace admins can set the notification channel.",
     };
   }
 
