@@ -223,6 +223,33 @@ export async function cancelInvite(membershipId: string): Promise<ActionResult> 
 }
 
 /**
+ * Update a member's marketing specialties. Owner/admin only.
+ */
+export async function updateSpecialties(
+  membershipId: string,
+  specialties: string[],
+): Promise<ActionResult> {
+  let ctx;
+  try {
+    ctx = await getAuthenticatedMembership(["owner", "admin"]);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Not authenticated" };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("dtn_memberships")
+    .update({ specialties })
+    .eq("id", membershipId)
+    .eq("org_id", ctx.membership.orgId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings/team");
+  return { success: true };
+}
+
+/**
  * Switch the active org. Sets an httpOnly cookie.
  */
 export async function switchOrg(orgId: string): Promise<ActionResult> {

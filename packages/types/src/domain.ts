@@ -46,6 +46,11 @@ export interface DailyTask {
   outcome_notes: string | null;
   completed_at: string | null;
   source_strategy: string | null;
+  strategy_doc_id: string | null;
+  strategy_section_ref: string | null;
+  experiment_id: string | null;
+  duration_minutes: number | null;
+  recommended_assignee_role: string | null;
   campaign_id: string | null;
   contact_id: string | null;
   generated_by: GeneratedBy;
@@ -215,6 +220,7 @@ export interface Membership {
   org_id: string;
   user_id: string | null;
   role: MemberRole;
+  specialties: string[];
   is_active: boolean;
   invited_email: string | null;
   invited_by: string | null;
@@ -248,6 +254,11 @@ export interface CreateTaskInput {
   department_id?: string | null;
   assigned_to?: string | null;
   source_strategy?: string | null;
+  strategy_doc_id?: string | null;
+  strategy_section_ref?: string | null;
+  experiment_id?: string | null;
+  duration_minutes?: number | null;
+  recommended_assignee_role?: string | null;
   campaign_id?: string | null;
   contact_id?: string | null;
   generated_by?: GeneratedBy | null;

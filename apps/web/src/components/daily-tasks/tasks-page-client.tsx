@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
-import { User, Bot, Cpu, Briefcase, RotateCcw, CheckSquare } from "lucide-react";
+import { User, Bot, Cpu, Briefcase, RotateCcw, CheckSquare, Sparkles } from "lucide-react";
 import { DatePicker } from "./date-picker";
 import { SummaryCards } from "./summary-cards";
 import { TaskList } from "./task-list";
 import { TaskFormDialog } from "./task-form-dialog";
 import { TaskDetailSheet } from "./task-detail-sheet";
-import { carryOverTasks } from "@/lib/daily-tasks/actions";
+import { carryOverTasks, generateDailyTasks } from "@/lib/daily-tasks/actions";
 import type { DailyTask, DailyTasksSummary, TeamMember } from "@/lib/daily-tasks/actions";
 
 const EXECUTOR_TABS = [
@@ -48,6 +48,8 @@ export function TasksPageClient({
   const [selectedTask, setSelectedTask] = useState<DailyTask | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isCarrying, startCarryTransition] = useTransition();
+  const [isGenerating, startGenerateTransition] = useTransition();
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
   const isViewingPast = date < today;
@@ -65,6 +67,19 @@ export function TasksPageClient({
   function handleCarryOver() {
     startCarryTransition(async () => {
       await carryOverTasks(dept, date);
+    });
+  }
+
+  function handleGenerate() {
+    setGenerateError(null);
+    startGenerateTransition(async () => {
+      try {
+        await generateDailyTasks(dept, date);
+      } catch (err) {
+        setGenerateError(
+          err instanceof Error ? err.message : "Failed to generate tasks",
+        );
+      }
     });
   }
 
@@ -103,6 +118,16 @@ export function TasksPageClient({
                 : `Carry Over (${incompleteTasks})`}
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="gap-1.5"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {isGenerating ? "Generating..." : "Generate Tasks"}
+          </Button>
           <TaskFormDialog
             dept={dept}
             date={date}
@@ -112,6 +137,13 @@ export function TasksPageClient({
           />
         </div>
       </div>
+
+      {/* Generation error */}
+      {generateError && (
+        <div className="rounded-md border border-[var(--borderColor-danger-emphasis,#cf222e)] bg-[var(--bgColor-danger-muted,#ffebe9)] px-3 py-2 text-sm text-[var(--fgColor-danger,#d1242f)]">
+          {generateError}
+        </div>
+      )}
 
       {/* Summary cards */}
       <SummaryCards summary={summary} totalTasks={tasks.length} />

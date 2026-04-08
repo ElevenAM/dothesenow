@@ -47,6 +47,71 @@ export interface ValidationResult {
   errors: string[];
 }
 
+// ─── Task Decomposition ─────────────────────────────────────
+
+/** Credits consumed per daily task decomposition. */
+export const TASK_DECOMPOSITION_COST = 2;
+
+export interface TeamMember {
+  userId: string;
+  displayName: string | null;
+  specialties: string[];
+  role: string;
+}
+
+export interface DecompositionContext {
+  org: OrgProfile & { teamSize: number; timezone: string | null };
+  strategyDocId: string;
+  strategyContent: string;
+  yesterdayOutcomes: YesterdayOutcome[];
+  channelBalance: ChannelBalanceEntry[];
+  experimentProgress: ExperimentProgressEntry[];
+  team: TeamMember[];
+  targetDate: string;
+  dayOfWeek: number; // 0=Sunday, 6=Saturday
+}
+
+export interface YesterdayOutcome {
+  taskId: string;
+  title: string;
+  status: string;
+  executorType: string;
+  strategySection: string | null;
+  experimentId: string | null;
+  failureReason?: string;
+  daysCarried?: number;
+}
+
+export interface ChannelBalanceEntry {
+  channel: string;
+  targetPct: number;
+  actualPct: number;
+}
+
+export interface ExperimentProgressEntry {
+  experimentId: string;
+  experimentTitle: string;
+  completedSteps: number;
+  totalEstimatedSteps: number;
+}
+
+export interface DecomposedTask {
+  title: string;
+  description: string;
+  duration_minutes: number;
+  priority: number;
+  executor_type: string;
+  strategy_section_ref: string;
+  experiment_id: string | null;
+  recommended_assignee_role: string | null;
+}
+
+export interface DecompositionValidationResult {
+  valid: boolean;
+  errors: string[];
+  tasks: DecomposedTask[];
+}
+
 // ─── Budget Tier Helpers ──────────────────────────────────────
 
 /** Maximum number of marketing channels for a given budget tier. */

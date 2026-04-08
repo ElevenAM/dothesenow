@@ -2,6 +2,7 @@ import { overdueTaskDetection } from "./overdue-tasks";
 import { agentExecutor } from "./agent-executor";
 import { dailyTaskGeneration } from "./daily-task-generation";
 import { strategyGeneration } from "./strategy-generation";
+import { taskDecomposition } from "./task-decomposition";
 
 /**
  * All Inngest functions registered with the app.
@@ -13,4 +14,5 @@ export const functions = [
   agentExecutor,
   dailyTaskGeneration,
   strategyGeneration,
+  taskDecomposition,
 ];

@@ -84,6 +84,49 @@ export async function updateMembershipRole(
   return data as Membership;
 }
 
+export interface MembershipWithSpecialties extends Membership {
+  profile?: { display_name: string | null; email: string } | null;
+}
+
+/**
+ * Get team members with their marketing specialties.
+ * Used by the task decomposition engine for role-based assignment.
+ */
+export async function getTeamWithSpecialties(
+  ctx: OrgContext,
+): Promise<MembershipWithSpecialties[]> {
+  const { data, error } = await ctx.client
+    .from(TABLE)
+    .select("*, profile:profiles!dtn_memberships_user_id_fkey(display_name, email)")
+    .eq("org_id", ctx.orgId)
+    .eq("is_active", true)
+    .not("user_id", "is", null)
+    .order("created_at", { ascending: true });
+
+  if (error) throw new QueryError(error.message, TABLE, "getTeamWithSpecialties", ctx.orgId, error);
+  return (data ?? []) as MembershipWithSpecialties[];
+}
+
+/**
+ * Update marketing specialties for a team member.
+ */
+export async function updateMemberSpecialties(
+  ctx: OrgContext,
+  membershipId: string,
+  specialties: string[],
+): Promise<Membership> {
+  const { data, error } = await ctx.client
+    .from(TABLE)
+    .update({ specialties })
+    .eq("id", membershipId)
+    .eq("org_id", ctx.orgId)
+    .select()
+    .single();
+
+  if (error) throw new QueryError(error.message, TABLE, "updateMemberSpecialties", ctx.orgId, error);
+  return data as Membership;
+}
+
 export async function deactivateMembership(
   ctx: OrgContext,
   membershipId: string,

@@ -3,13 +3,14 @@ import { filterOrgsByLocalHour } from "../utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveOrgs, getCreditBalance } from "@dothesenow/queries";
 import type { OrgContext } from "@dothesenow/queries";
+import { TASK_DECOMPOSITION_COST } from "@dothesenow/prompts";
 
 /**
- * Daily task generation — stub for Phase 6.
+ * Daily task generation — hourly cron that fans out by timezone.
  *
- * Runs hourly, fans out by timezone. Only processes orgs where
- * the current local time is ~7am. Real LLM decomposition pipeline
- * will be wired in Phase 6B.
+ * Runs every hour, finds orgs whose local time is ~7am, checks they have
+ * sufficient credits, then emits a task/daily.generate event for each.
+ * The actual decomposition happens in task-decomposition.ts.
  */
 export const dailyTaskGeneration = inngest.createFunction(
   { id: "daily-task-generation", triggers: [{ cron: "0 * * * *" }] },
@@ -28,20 +29,32 @@ export const dailyTaskGeneration = inngest.createFunction(
 
     console.log(`[inngest:daily-gen] ${orgs.length} orgs at their local 7am`);
 
+    const events: { name: "task/daily.generate"; data: { org_id: string } }[] = [];
+
     for (const org of orgs) {
-      await step.run(`generate-org-${org.id}`, async () => {
+      await step.run(`check-credits-${org.id}`, async () => {
         const ctx: OrgContext = { client: supabase, orgId: org.id };
         const { remaining } = await getCreditBalance(ctx);
-        if (remaining <= 0) {
-          console.log(`[inngest:daily-gen] Org ${org.id} has zero credits — skipping generation`);
+
+        if (remaining < TASK_DECOMPOSITION_COST) {
+          console.log(
+            `[inngest:daily-gen] Org ${org.id} has ${remaining} credits (need ${TASK_DECOMPOSITION_COST}) — skipping`,
+          );
           return;
         }
 
-        console.log("[inngest:daily-gen] Generation requested for org:", org.id);
-        // Stub: real LLM pipeline deferred to Phase 6
+        events.push({
+          name: "task/daily.generate",
+          data: { org_id: org.id },
+        });
       });
     }
 
-    return { processed: orgs.length };
+    // Send all events at once — Inngest handles fan-out and concurrency
+    if (events.length > 0) {
+      await step.sendEvent("fan-out-decomposition", events);
+    }
+
+    return { processed: events.length };
   },
 );

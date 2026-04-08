@@ -12,7 +12,11 @@ import {
   updateTaskForOrg,
   transitionTaskStatus,
   getMembershipsForOrg,
+  getStrategyDocs,
+  getCreditBalance,
 } from "@dothesenow/queries";
+import { TASK_DECOMPOSITION_COST } from "@dothesenow/prompts";
+import { inngest } from "@/lib/inngest/client";
 import type {
   DailyTask,
   DailyTaskWithProfiles,
@@ -31,6 +35,7 @@ export interface TeamMember {
   displayName: string | null;
   email: string;
   role: string;
+  specialties: string[];
 }
 
 const PRIORITY_RANK: Record<string, number> = {
@@ -270,5 +275,48 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
       displayName: m.profile?.display_name ?? null,
       email: m.profile?.email ?? "",
       role: m.role,
+      specialties: m.specialties ?? [],
     }));
+}
+
+/**
+ * Trigger AI task generation for a given date.
+ * Validates strategy doc exists and credits are sufficient before sending event.
+ */
+export async function generateDailyTasks(
+  deptSlug: string,
+  date?: string,
+): Promise<{ success: boolean }> {
+  const { auth, ctx } = await getAuthenticatedOrgContext();
+
+  // Validate: active strategy doc exists
+  const docs = await getStrategyDocs(ctx, {
+    is_active: true,
+    doc_type: "master_strategy",
+  });
+  if (docs.length === 0) {
+    throw new Error("No active strategy document. Generate a strategy first.");
+  }
+
+  // Validate: sufficient credits
+  const { remaining } = await getCreditBalance(ctx);
+  if (remaining < TASK_DECOMPOSITION_COST) {
+    throw new Error(
+      `Insufficient credits. Need ${TASK_DECOMPOSITION_COST}, have ${remaining}.`,
+    );
+  }
+
+  const targetDate = date || todayString();
+
+  await inngest.send({
+    name: "task/decompose.manual",
+    data: {
+      org_id: ctx.orgId,
+      triggered_by: auth.user.id,
+      target_date: targetDate,
+    },
+  });
+
+  revalidatePath("/", "layout");
+  return { success: true };
 }
