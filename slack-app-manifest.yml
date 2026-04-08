@@ -1,0 +1,40 @@
+display_information:
+  name: DoTheseNow
+  description: Create tasks, check progress, and manage your marketing work directly from Slack.
+  background_color: "#1f883d"
+  long_description: |
+    DoTheseNow brings your marketing task management into Slack. Create tasks by @mentioning the bot, check today's tasks with /dtn commands, and complete or snooze tasks with interactive buttons — all without leaving your conversation.
+
+features:
+  bot_user:
+    display_name: DoTheseNow
+    always_online: true
+  slash_commands:
+    - command: /dtn
+      url: https://dothesenow.com/api/slack/commands
+      description: Manage your DoTheseNow tasks
+      usage_hint: "[tasks | complete <id> | create <title> | help]"
+      should_escape: false
+
+oauth_config:
+  redirect_urls:
+    - https://dothesenow.com/api/slack/oauth
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+      - commands
+      - users:read
+      - users:read.email
+
+settings:
+  event_subscriptions:
+    request_url: https://dothesenow.com/api/slack/events
+    bot_events:
+      - app_mention
+  interactivity:
+    is_enabled: true
+    request_url: https://dothesenow.com/api/slack/interactions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

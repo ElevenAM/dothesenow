@@ -57,7 +57,11 @@
       "Bash(pnpm --filter web test -- --run)",
       "Bash(pnpm --filter @dothesenow/types build)",
       "Bash(pnpm add:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(curl -s -X PUT \"https://dothesenow.vercel.app/api/inngest\" -H \"Content-Type: application/json\")",
+      "Bash(curl -s -X PUT \"https://dothesenow.com/api/inngest\" -H \"Content-Type: application/json\")",
+      "Bash(npx vercel:*)",
+      "Bash(curl -s -X PUT \"https://dothesenow.com/api/inngest\")"
     ]
   }
 }
