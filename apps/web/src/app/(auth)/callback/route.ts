@@ -1,21 +1,44 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
-  const isSignup = searchParams.get("signup") === "true";
+export async function GET(request: NextRequest) {
+  const code = request.nextUrl.searchParams.get("code");
+  const origin = request.nextUrl.origin;
+  // Collect cookies set by the Supabase client during exchange —
+  // we apply them directly to the redirect response below.
+  const cookiesToSet: { name: string; value: string; options: any }[] = [];
 
   if (code) {
-    const supabase = await createClient();
+    // Inline client: the callback needs request-based cookies for the PKCE
+    // code_verifier exchange and must set session cookies directly on the
+    // redirect response. The shared createClient() from server.ts uses
+    // cookies() from next/headers, which doesn't reliably propagate
+    // Set-Cookie headers onto NextResponse.redirect() in Next.js 16.
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookies) {
+            cookiesToSet.push(...cookies);
+          },
+        },
+      }
+    );
+
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      let redirectPath = "/";
 
       if (user) {
-        // Check for active org memberships
         const { data: memberships } = await supabase
           .from("dtn_memberships")
           .select("org_id")
@@ -26,7 +49,6 @@ export async function GET(request: Request) {
         const hasOrg = memberships && memberships.length > 0;
 
         if (!hasOrg && user.email) {
-          // Check for pending invites via admin client (pending invites have user_id=null)
           const admin = createAdminClient();
           const { data: pendingInvites } = await admin
             .from("dtn_memberships")
@@ -36,19 +58,31 @@ export async function GET(request: Request) {
             .limit(1);
 
           if (pendingInvites && pendingInvites.length > 0) {
-            return NextResponse.redirect(`${origin}/invites`);
+            redirectPath = "/invites";
           }
         }
 
-        if (!hasOrg) {
-          return NextResponse.redirect(`${origin}/onboarding`);
+        if (!hasOrg && redirectPath === "/") {
+          redirectPath = "/onboarding";
         }
       }
 
-      return NextResponse.redirect(origin);
+      const response = NextResponse.redirect(new URL(redirectPath, origin));
+      cookiesToSet.forEach(({ name, value, options }) =>
+        response.cookies.set(name, value, options)
+      );
+      return response;
     }
+
+    console.error("[auth callback] code exchange failed:", error.message);
+  } else {
+    console.error("[auth callback] no code parameter in URL");
   }
 
-  // Auth error — redirect to login
-  return NextResponse.redirect(`${origin}/login`);
+  // Error or no code — redirect to login
+  const response = NextResponse.redirect(new URL("/login", origin));
+  cookiesToSet.forEach(({ name, value, options }) =>
+    response.cookies.set(name, value, options)
+  );
+  return response;
 }
