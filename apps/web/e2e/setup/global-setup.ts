@@ -6,12 +6,11 @@ import fs from "node:fs";
 const STORAGE_STATE = path.join(__dirname, "../.auth/user.json");
 
 const TEST_EMAIL = process.env.TEST_USER_EMAIL;
-const TEST_PASSWORD = process.env.TEST_USER_PASSWORD;
 
-if (!TEST_EMAIL || !TEST_PASSWORD) {
+if (!TEST_EMAIL) {
   throw new Error(
-    "Missing TEST_USER_EMAIL or TEST_USER_PASSWORD in environment. " +
-      "Create apps/web/.env.test with these values."
+    "Missing TEST_USER_EMAIL in environment. " +
+      "Create apps/web/.env.test with this value."
   );
 }
 
@@ -40,7 +39,6 @@ setup("authenticate", async ({ page }) => {
   // Create test user (idempotent — catches "already exists")
   const { error: createError } = await supabase.auth.admin.createUser({
     email: TEST_EMAIL,
-    password: TEST_PASSWORD,
     email_confirm: true,
   });
 
@@ -48,15 +46,12 @@ setup("authenticate", async ({ page }) => {
     throw new Error(`Failed to create test user: ${createError.message}`);
   }
 
-  // Log in through the app's login page
-  await page.goto("/login");
-  await page.getByLabel(/email/i).fill(TEST_EMAIL);
-  await page.getByLabel(/password/i).fill(TEST_PASSWORD);
-  await page.getByRole("button", { name: /sign in|log in/i }).click();
+  // Authenticate via dev auto-login route (sets session cookies without email)
+  await page.goto(`/api/dev/login?email=${encodeURIComponent(TEST_EMAIL)}`);
 
-  // Wait for redirect to dashboard
-  await expect(page).not.toHaveURL(/\/login/);
+  // Wait for redirect away from the dev login route
+  await expect(page).not.toHaveURL(/\/api\/dev\/login/);
 
-  // Save auth state
+  // Save auth state for other test projects
   await page.context().storageState({ path: STORAGE_STATE });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [devEmail, setDevEmail] = useState("");
+  const [showDev, setShowDev] = useState(false);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") setShowDev(true);
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -62,7 +68,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Sign in to DoTheseNow</CardTitle>
@@ -98,6 +104,37 @@ export default function LoginPage() {
           </p>
         </CardContent>
       </Card>
+
+      {showDev && (
+        <Card className="w-full max-w-md mt-4 border-dashed border-2 bg-muted/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Dev Auto-Login
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="test@example.com"
+                value={devEmail}
+                onChange={(e) => setDevEmail(e.target.value)}
+                className="text-sm"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!devEmail}
+                onClick={() => {
+                  window.location.href = `/api/dev/login?email=${encodeURIComponent(devEmail)}`;
+                }}
+              >
+                Go
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
