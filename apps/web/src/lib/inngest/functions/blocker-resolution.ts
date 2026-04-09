@@ -34,7 +34,7 @@ import {
 } from "@dothesenow/prompts";
 import Anthropic from "@anthropic-ai/sdk";
 
-const MODEL = "claude-sonnet-4-6-20250514";
+const MODEL = "claude-sonnet-4-6";
 const CLASSIFIER_MAX_TOKENS = 1024;
 const AGENT_MAX_TOKENS = 4096;
 

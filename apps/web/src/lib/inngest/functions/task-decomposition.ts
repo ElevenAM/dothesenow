@@ -27,7 +27,7 @@ import type {
 } from "@dothesenow/prompts";
 import Anthropic from "@anthropic-ai/sdk";
 
-const MODEL = "claude-sonnet-4-6-20250514";
+const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 4096;
 
 const PRIORITY_MAP: Record<number, Priority> = {

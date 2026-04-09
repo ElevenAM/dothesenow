@@ -22,7 +22,7 @@ vi.mock("@anthropic-ai/sdk", () => {
     default: vi.fn().mockImplementation(() => ({
       messages: {
         create: vi.fn().mockResolvedValue({
-          model: "claude-sonnet-4-6-20250514",
+          model: "claude-sonnet-4-6",
           content: [{ type: "text", text: "Generated marketing content" }],
           usage: { input_tokens: 500, output_tokens: 200 },
         }),

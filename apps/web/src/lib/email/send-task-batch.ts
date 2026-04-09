@@ -1,6 +1,14 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend: Resend | null = null;
+function getResend(): Resend {
+  if (!_resend) {
+    const key = process.env.RESEND_API_KEY;
+    if (!key) throw new Error("RESEND_API_KEY not configured");
+    _resend = new Resend(key);
+  }
+  return _resend;
+}
 
 const FROM_ADDRESS = "DoTheseNow <tasks@dothesenow.com>";
 
@@ -127,7 +135,7 @@ export async function sendTaskBatchEmail(
   params: SendTaskBatchEmailParams,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: FROM_ADDRESS,
       to: params.to,
       subject: `${params.tasks.length} task${params.tasks.length === 1 ? "" : "s"} for ${formatDate(params.targetDate)} — ${params.orgName}`,
