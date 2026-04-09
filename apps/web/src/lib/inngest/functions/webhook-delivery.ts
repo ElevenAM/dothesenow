@@ -23,7 +23,7 @@ export const webhookDelivery = inngest.createFunction(
   {
     id: "webhook-delivery",
     triggers: [{ event: "webhook/deliver" }],
-    concurrency: [{ limit: 10 }],
+    concurrency: [{ limit: 5 }],
     retries: 0, // We handle retries manually via re-emit
   },
   async ({ event, step }) => {
