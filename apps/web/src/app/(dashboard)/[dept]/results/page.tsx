@@ -1,8 +1,11 @@
+import { unstable_cache } from "next/cache";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  getResultsDashboardData,
-  getWeeklyRetrospectivesList,
-} from "@/lib/results/actions";
+  getExperimentsForOrg,
+  getChannelPerformance,
+  getWeeklyReviews,
+} from "@dothesenow/queries";
 import { RealtimeListener } from "@/components/realtime-listener";
 import { ChannelPerformance } from "@/components/results/channel-performance";
 import { ExperimentTracker } from "@/components/results/experiment-tracker";
@@ -10,6 +13,21 @@ import { WeeklyRetrospective } from "@/components/results/weekly-retrospective";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TrendingUp } from "lucide-react";
+
+const getCachedResultsData = unstable_cache(
+  async (orgId: string) => {
+    const admin = createAdminClient();
+    const ctx = { client: admin, orgId };
+    const [experiments, channelPerformance, retrospectives] = await Promise.all([
+      getExperimentsForOrg(ctx),
+      getChannelPerformance(ctx),
+      getWeeklyReviews(ctx, 8),
+    ]);
+    return { experiments, channelPerformance, retrospectives };
+  },
+  ["results"],
+  { revalidate: 60, tags: ["results"] },
+);
 
 export default async function ResultsPage({
   params,
@@ -19,12 +37,8 @@ export default async function ResultsPage({
   const { dept } = await params;
   const { membership } = await getAuthenticatedMembership();
 
-  const [dashboardData, retrospectives] = await Promise.all([
-    getResultsDashboardData(),
-    getWeeklyRetrospectivesList(8),
-  ]);
-
-  const { experiments, channelPerformance } = dashboardData;
+  const { experiments, channelPerformance, retrospectives } =
+    await getCachedResultsData(membership.orgId);
 
   const hasData =
     experiments.length > 0 ||

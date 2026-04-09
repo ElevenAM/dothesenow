@@ -28,12 +28,10 @@ export async function getOrgMembers(orgId: string) {
     memberIds.map((id) => admin.auth.admin.getUserById(id))
   );
   for (const result of results) {
-    console.log("[getOrgMembers] getUserById result:", JSON.stringify({ data: result.data?.user?.id, email: result.data?.user?.email, error: result.error?.message }));
     if (result.data?.user) {
       emailMap.set(result.data.user.id, result.data.user.email ?? "");
     }
   }
-  console.log("[getOrgMembers] memberIds:", memberIds, "emailMap:", Object.fromEntries(emailMap));
 
   return data.map((m) => ({
     ...m,

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { getCreditBalance, updateOrg } from "@dothesenow/queries";
 import { inngest } from "@/lib/inngest/client";
@@ -70,7 +70,7 @@ export async function saveStrategyContext(fields: {
       website_url: fields.websiteUrl || null,
       target_customer: fields.targetCustomer || null,
     });
-    revalidatePath("/", "layout");
+    revalidateTag("strategy", "max");
     return { success: true };
   } catch (err) {
     return {

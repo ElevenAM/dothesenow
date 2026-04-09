@@ -25,11 +25,13 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // If an auth code arrives on the wrong page (Supabase redirect_to fallback),
+  // If a Supabase auth code arrives on the wrong page (redirect_to fallback),
   // forward it to /callback where it can be exchanged for a session.
+  // Exclude /api routes — they receive OAuth codes from third-party providers
+  // (Slack, HubSpot, Google Analytics) that must reach their own handlers.
   const code = request.nextUrl.searchParams.get("code");
   const path = request.nextUrl.pathname;
-  if (code && !path.startsWith("/callback")) {
+  if (code && !path.startsWith("/callback") && !path.startsWith("/api")) {
     const url = request.nextUrl.clone();
     url.pathname = "/callback";
     return NextResponse.redirect(url);

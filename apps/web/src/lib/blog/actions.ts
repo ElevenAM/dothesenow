@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { getDepartmentId } from "@/lib/departments";
 import {
@@ -43,6 +43,7 @@ export async function createPost(
       user_id: auth.user.id,
     });
 
+    revalidateTag("blog", "max");
     revalidatePath(`/${deptSlug}/blog`);
     return { success: true, post };
   } catch (err) {
@@ -62,6 +63,7 @@ export async function updatePost(
     const { ctx } = await getAuthenticatedOrgContext();
 
     const post = await updateBlogPost(ctx, postId, updates);
+    revalidateTag("blog", "max");
     revalidatePath(`/${deptSlug}/blog`);
     return { success: true, post };
   } catch (err) {
@@ -77,6 +79,7 @@ export async function deletePost(
   try {
     const { ctx } = await getAuthenticatedOrgContext();
     await deleteBlogPost(ctx, postId);
+    revalidateTag("blog", "max");
     revalidatePath(`/${deptSlug}/blog`);
     return { success: true };
   } catch (err) {

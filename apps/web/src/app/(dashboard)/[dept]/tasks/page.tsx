@@ -1,5 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { getRequestContext } from "@/lib/auth-helpers";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getDepartmentId } from "@/lib/departments";
 import {
   getTasksForOrg,
@@ -14,6 +15,25 @@ import { TasksPageClient } from "@/components/daily-tasks/tasks-page-client";
 import type { TeamMember } from "@/lib/daily-tasks/actions";
 import { PRIORITY_RANK } from "@/lib/daily-tasks/constants";
 
+const getCachedTasksData = unstable_cache(
+  async (orgId: string, date: string, departmentId: string | null) => {
+    const admin = createAdminClient();
+    const ctx = { client: admin, orgId };
+    const [tasks, summary, memberships, integrations] = await Promise.all([
+      getTasksForOrg(ctx, {
+        scheduled_date: date,
+        department_id: departmentId ?? undefined,
+      }),
+      getTasksSummary(ctx, date),
+      getMembershipsForOrg(ctx),
+      getOrgIntegrations(ctx),
+    ]);
+    return { tasks, summary, memberships, integrations };
+  },
+  ["tasks"],
+  { revalidate: 30, tags: ["tasks"] },
+);
+
 export default async function TasksPage({
   params,
   searchParams,
@@ -24,28 +44,16 @@ export default async function TasksPage({
   const { dept } = await params;
   const resolvedSearch = await searchParams;
 
-  // Single auth call (cached across RSC render tree)
   const { membership, user, org } = await getRequestContext();
 
-  // Use org timezone for default date — task decomposition stores
-  // scheduled_date in the org's local timezone, not UTC.
   const tz = org.timezone ?? "America/New_York";
   const date =
     resolvedSearch.date ||
     new Date().toLocaleDateString("en-CA", { timeZone: tz });
-  const supabase = await createClient();
-  const ctx = { client: supabase, orgId: membership.orgId };
   const departmentId = await getDepartmentId(membership.orgId, dept);
 
-  const [tasks, summary, memberships, integrations] = await Promise.all([
-    getTasksForOrg(ctx, {
-      scheduled_date: date,
-      department_id: departmentId ?? undefined,
-    }),
-    getTasksSummary(ctx, date),
-    getMembershipsForOrg(ctx),
-    getOrgIntegrations(ctx),
-  ]);
+  const { tasks, summary, memberships, integrations } =
+    await getCachedTasksData(membership.orgId, date, departmentId);
 
   // Transform memberships → TeamMember[]
   const members: TeamMember[] = memberships
@@ -58,8 +66,8 @@ export default async function TasksPage({
       specialties: m.specialties ?? [],
     }));
 
-  // Sort tasks by priority
-  tasks.sort(
+  // Sort tasks by priority (shallow copy to avoid mutating cached array)
+  const sortedTasks = [...tasks].sort(
     (a, b) =>
       (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3),
   );
@@ -74,7 +82,7 @@ export default async function TasksPage({
   return (
     <RealtimeListener table="dtn_daily_tasks" orgId={membership.orgId}>
       <TasksPageClient
-        tasks={tasks}
+        tasks={sortedTasks}
         summary={summary}
         date={date}
         dept={dept}

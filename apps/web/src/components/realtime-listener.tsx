@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { invalidateCacheForTable } from "@/lib/cache-actions";
 
 interface RealtimeListenerProps {
   table: string;
@@ -14,13 +15,16 @@ export function RealtimeListener({ table, orgId, children }: RealtimeListenerPro
   const router = useRouter();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced refresh: coalesce rapid change events into a single refresh
+  // Debounced refresh: coalesce rapid change events into a single refresh.
+  // Invalidates the relevant cache tag (marking it stale) before triggering
+  // router.refresh() so the RSC re-render regenerates from the database.
   const scheduleRefresh = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
+    timerRef.current = setTimeout(async () => {
+      await invalidateCacheForTable(table, orgId);
       router.refresh();
     }, 500);
-  }, [router]);
+  }, [router, table, orgId]);
 
   useEffect(() => {
     const supabase = createClient();

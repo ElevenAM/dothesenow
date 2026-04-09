@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import {
   createBlocker,
@@ -56,7 +56,7 @@ export async function reportBlocker(
     },
   });
 
-  revalidatePath("/", "layout");
+  revalidateTag("tasks", "max");
   return { blocker };
 }
 
@@ -95,7 +95,7 @@ export async function dismissBlocker(
     action: "dismissed",
   });
 
-  revalidatePath("/", "layout");
+  revalidateTag("tasks", "max");
 }
 
 /**
@@ -125,7 +125,7 @@ export async function resolveBlockerManually(
     action: "manually_resolved",
   });
 
-  revalidatePath("/", "layout");
+  revalidateTag("tasks", "max");
 }
 
 // ─── Auth helper ────────────────────────────────────────────────

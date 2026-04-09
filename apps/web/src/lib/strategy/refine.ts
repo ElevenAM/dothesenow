@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import {
   getCreditBalance,
@@ -141,7 +141,7 @@ export async function applyRefinementSuggestions(
       });
     }
 
-    revalidatePath("/", "layout");
+    revalidateTag("strategy", "max");
     return { success: true, applyResults: { applied: 0, fallback: 0, failed: 0 } };
   }
 
@@ -222,7 +222,7 @@ export async function applyRefinementSuggestions(
     });
   }
 
-  revalidatePath("/", "layout");
+  revalidateTag("strategy", "max");
 
   return {
     success: true,

@@ -1,10 +1,25 @@
+import { unstable_cache } from "next/cache";
 import { getRequestContext } from "@/lib/auth-helpers";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PipelineFunnel } from "@/components/pipeline/pipeline-funnel";
 import { EngagementCards } from "@/components/pipeline/engagement-cards";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BarChart3 } from "lucide-react";
+
+const getCachedPipelineData = unstable_cache(
+  async (orgId: string) => {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("mktg_pipeline_summary")
+      .select("*")
+      .eq("org_id", orgId);
+    if (error) throw error;
+    return data ?? [];
+  },
+  ["pipeline"],
+  { revalidate: 60, tags: ["pipeline"] },
+);
 
 export default async function PipelinePage({
   params,
@@ -13,18 +28,8 @@ export default async function PipelinePage({
 }) {
   const { dept } = await params;
   const { membership } = await getRequestContext();
-  const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("mktg_pipeline_summary")
-    .select("*")
-    .eq("org_id", membership.orgId);
-
-  if (error) {
-    throw error;
-  }
-
-  const pipelineData = data ?? [];
+  const pipelineData = await getCachedPipelineData(membership.orgId);
 
   if (pipelineData.length === 0) {
     return (

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { getDepartmentId } from "@/lib/departments";
 import {
@@ -57,7 +57,7 @@ export async function reviewApprovalItem(
     reviewer_notes: reviewerNotes || null,
   });
 
-  revalidatePath("/", "layout");
+  revalidateTag("approvals", "max");
   return result;
 }
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import {
   getContactsForOrg,
@@ -64,7 +64,7 @@ export async function createContact(
     ...(contactData as CreateContactInput),
     owner_id: auth.user.id,
   });
-  revalidatePath("/", "layout");
+  revalidateTag("contacts", "max");
   return contact;
 }
 
@@ -89,7 +89,7 @@ export async function updateContact(
   }
 
   const contact = await sharedUpdateContact(ctx, contactId, filtered as UpdateContactInput);
-  revalidatePath("/", "layout");
+  revalidateTag("contacts", "max");
   return contact;
 }
 
@@ -99,7 +99,7 @@ export async function logContactOutreach(
 ): Promise<OutreachEntry> {
   const { ctx } = await getAuthenticatedOrgContext();
   const result = await sharedLogOutreach(ctx, { ...entry, contact_id: contactId });
-  revalidatePath("/", "layout");
+  revalidateTag("contacts", "max");
   return result;
 }
 
@@ -153,5 +153,5 @@ export async function cancelContactImport(importId: string): Promise<void> {
 
   const adminClient = createAdminClient();
   await updateImportProgress(adminClient, importId, { status: "cancelled" });
-  revalidatePath("/", "layout");
+  revalidateTag("contacts", "max");
 }

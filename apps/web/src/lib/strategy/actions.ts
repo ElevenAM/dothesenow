@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import {
   getStrategyDocs as sharedGetStrategyDocs,
@@ -49,14 +49,14 @@ export async function createStrategyDoc(
     changed_by: auth.user.id,
   });
 
-  revalidatePath("/", "layout");
+  revalidateTag("strategy", "max");
   return docId;
 }
 
 export async function deleteStrategyDoc(docType: string): Promise<void> {
   const { ctx } = await getAuthenticatedOrgContext(["owner", "admin"]);
   await sharedDeleteStrategyDoc(ctx, docType);
-  revalidatePath("/", "layout");
+  revalidateTag("strategy", "max");
 }
 
 export async function updateStrategyDoc(
@@ -76,6 +76,6 @@ export async function updateStrategyDoc(
     tags,
   });
 
-  revalidatePath("/", "layout");
+  revalidateTag("strategy", "max");
   return newDocId;
 }

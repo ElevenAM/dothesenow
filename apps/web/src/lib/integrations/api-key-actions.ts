@@ -32,6 +32,7 @@ export async function generateApiKey(
     revalidatePath(SETTINGS_PATH);
     return result;
   } catch (err) {
+    console.error("[generateApiKey]", err);
     throw new Error(
       err instanceof Error ? err.message : "Failed to generate API key",
     );
@@ -46,6 +47,7 @@ export async function listApiKeys(): Promise<OrgApiKey[]> {
     const { ctx } = await getAuthenticatedOrgContext();
     return await getOrgApiKeys(ctx);
   } catch (err) {
+    console.error("[listApiKeys]", err);
     throw new Error(
       err instanceof Error ? err.message : "Failed to list API keys",
     );
@@ -64,6 +66,7 @@ export async function revokeApiKeyAction(keyId: string): Promise<void> {
 
     revalidatePath(SETTINGS_PATH);
   } catch (err) {
+    console.error("[revokeApiKeyAction]", err);
     throw new Error(
       err instanceof Error ? err.message : "Failed to revoke API key",
     );

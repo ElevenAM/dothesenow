@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { dispatchTask } from "@/lib/daily-tasks/dispatch";
@@ -33,8 +33,8 @@ export interface TeamMember {
   specialties: string[];
 }
 
-function todayString(): string {
-  return new Date().toISOString().split("T")[0];
+function todayString(timezone = "America/New_York"): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: timezone });
 }
 
 export async function createDailyTask(
@@ -49,13 +49,14 @@ export async function createDailyTask(
     department_id: departmentId,
     created_by: auth.user.id,
     assigned_to: taskData.assigned_to || auth.user.id,
-    scheduled_date: taskData.scheduled_date || todayString(),
+    scheduled_date: taskData.scheduled_date || todayString(auth.org.timezone),
   });
 
   // Dispatch to executor if non-self (awaited to prevent serverless termination)
   await dispatchTask(created);
 
-  revalidatePath("/", "layout");
+  revalidateTag("tasks", "max");
+  revalidateTag("overview", "max");
   return created;
 }
 
@@ -117,7 +118,8 @@ export async function updateDailyTask(
       });
   }
 
-  revalidatePath("/", "layout");
+  revalidateTag("tasks", "max");
+  revalidateTag("overview", "max");
   return result;
 }
 
@@ -161,7 +163,8 @@ export async function completeDailyTask(
       console.error("[actions] Failed to emit task/status.changed:", err);
     });
 
-  revalidatePath("/", "layout");
+  revalidateTag("tasks", "max");
+  revalidateTag("overview", "max");
   return task;
 }
 
@@ -196,7 +199,8 @@ export async function skipDailyTask(taskId: string): Promise<DailyTask> {
       console.error("[actions] Failed to emit task/status.changed:", err);
     });
 
-  revalidatePath("/", "layout");
+  revalidateTag("tasks", "max");
+  revalidateTag("overview", "max");
   return task;
 }
 
@@ -216,10 +220,10 @@ export async function carryOverTasks(
   deptSlug: string,
   fromDate: string,
 ): Promise<{ count: number }> {
-  const { ctx } = await getAuthenticatedOrgContext();
+  const { auth, ctx } = await getAuthenticatedOrgContext();
   const supabase = await createClient();
   const departmentId = await getDepartmentId(ctx.orgId, deptSlug);
-  const today = todayString();
+  const today = todayString(auth.org.timezone);
 
   // Step 1: Fetch eligible tasks (don't modify yet)
   let fetchQuery = supabase
@@ -282,9 +286,8 @@ export async function carryOverTasks(
     .eq("org_id", ctx.orgId);
 
   if (markError) {
-    console.error(
-      `[carry-over] Copies inserted but failed to mark originals as carried_over:`,
-      markError.message,
+    throw new Error(
+      `Copies inserted but failed to mark originals as carried_over: ${markError.message}`,
     );
   } else {
     // Emit thread sync events for all carried-over tasks (fire-and-forget)
@@ -307,7 +310,8 @@ export async function carryOverTasks(
     });
   }
 
-  revalidatePath("/", "layout");
+  revalidateTag("tasks", "max");
+  revalidateTag("overview", "max");
   return { count: eligible.length };
 }
 
@@ -350,6 +354,7 @@ export async function generateDailyTasks(
     },
   });
 
-  revalidatePath("/", "layout");
+  revalidateTag("tasks", "max");
+  revalidateTag("overview", "max");
   return { success: true };
 }

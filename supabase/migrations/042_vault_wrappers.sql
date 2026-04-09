@@ -1,6 +1,6 @@
 -- Vault wrapper functions: expose vault operations via public schema for PostgREST.
 -- PostgREST cannot call vault.* directly (schema not in pgrst.db_schemas).
--- All wrappers are SECURITY DEFINER + service_role-only.
+-- All wrappers are SECURITY DEFINER with EXECUTE restricted to service_role via GRANT.
 BEGIN;
 
 -- ─── 1. Create secret ──────────────────────────────────────────
@@ -14,10 +14,6 @@ CREATE OR REPLACE FUNCTION public.dtn_vault_create_secret(
   SET search_path = public, vault
 AS $$
 BEGIN
-  IF current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
-    RAISE EXCEPTION 'access denied: service_role required';
-  END IF;
-
   RETURN vault.create_secret(p_secret, p_name);
 END;
 $$;
@@ -37,13 +33,13 @@ AS $$
 DECLARE
   result TEXT;
 BEGIN
-  IF current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
-    RAISE EXCEPTION 'access denied: service_role required';
-  END IF;
-
   SELECT decrypted_secret INTO result
   FROM vault.decrypted_secrets
   WHERE id = p_secret_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'vault secret not found: %', p_secret_id;
+  END IF;
 
   RETURN result;
 END;
@@ -62,10 +58,6 @@ CREATE OR REPLACE FUNCTION public.dtn_vault_delete_secret(
   SET search_path = public, vault
 AS $$
 BEGIN
-  IF current_setting('request.jwt.claim.role', true) IS DISTINCT FROM 'service_role' THEN
-    RAISE EXCEPTION 'access denied: service_role required';
-  END IF;
-
   DELETE FROM vault.secrets WHERE id = p_secret_id;
 END;
 $$;

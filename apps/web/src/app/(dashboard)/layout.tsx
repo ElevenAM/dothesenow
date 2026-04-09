@@ -1,9 +1,41 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sidebar } from "@/components/dashboard/sidebar";
-import { getPendingInvitesForUser } from "@/lib/team/queries";
+import { NavigationProgress } from "@/components/navigation-progress";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+
+const getCachedDeptSlug = unstable_cache(
+  async (orgId: string) => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("dtn_departments")
+      .select("slug")
+      .eq("org_id", orgId)
+      .eq("is_active", true)
+      .order("created_at")
+      .limit(1);
+    return data?.[0]?.slug || "marketing";
+  },
+  ["dept-slug"],
+  { revalidate: 120, tags: ["departments"] },
+);
+
+const getCachedPendingInvites = unstable_cache(
+  async (email: string) => {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("dtn_memberships")
+      .select("id")
+      .eq("invited_email", email)
+      .is("user_id", null)
+      .eq("is_active", true);
+    return data ?? [];
+  },
+  ["pending-invites"],
+  { revalidate: 60, tags: ["invites"] },
+);
 
 export default async function DashboardLayout({
   children,
@@ -21,37 +53,23 @@ export default async function DashboardLayout({
     if (message === "No active organization membership") {
       redirect("/onboarding");
     }
-    // Transient errors (DB timeout, network failure, etc.) — don't silently
-    // redirect to onboarding, surface the error instead.
     throw err;
   }
 
   const { user, org, allOrgs } = ctx;
 
-  // Redirect to onboarding wizard if user hasn't completed it
   if (!org.onboardingCompletedAt) {
     redirect("/onboarding");
   }
 
-  // Get the first department for this org
-  const supabase = await createClient();
-  const { data: departments } = await supabase
-    .from("dtn_departments")
-    .select("slug, name")
-    .eq("org_id", org.id)
-    .eq("is_active", true)
-    .order("created_at")
-    .limit(1);
-
-  const dept = departments?.[0]?.slug || "marketing";
-
-  // Check for pending invites
-  const pendingInvites = user.email
-    ? await getPendingInvitesForUser(user.email)
-    : [];
+  const [dept, pendingInvites] = await Promise.all([
+    getCachedDeptSlug(org.id),
+    user.email ? getCachedPendingInvites(user.email) : [],
+  ]);
 
   return (
     <div className="flex h-screen bg-muted">
+      <NavigationProgress />
       <Sidebar
         dept={dept}
         orgName={org.name}

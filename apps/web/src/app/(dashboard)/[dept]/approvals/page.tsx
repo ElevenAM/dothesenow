@@ -1,6 +1,7 @@
 import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import { getRequestContext } from "@/lib/auth-helpers";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getDepartmentId } from "@/lib/departments";
 import {
   getApprovalsForOrg,
@@ -10,6 +11,33 @@ import { RealtimeListener } from "@/components/realtime-listener";
 import { ApprovalsPageClient } from "@/components/approvals/approvals-page-client";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import type { ApprovalStatus, ApprovalItemType, SubmittedByType } from "@dothesenow/types";
+
+const getCachedApprovalsData = unstable_cache(
+  async (
+    orgId: string,
+    departmentId: string | null,
+    status?: string,
+    itemType?: string,
+    submittedByType?: string,
+    page?: number,
+  ) => {
+    const admin = createAdminClient();
+    const ctx = { client: admin, orgId };
+    const [result, stats] = await Promise.all([
+      getApprovalsForOrg(ctx, {
+        status: status as ApprovalStatus | undefined,
+        item_type: itemType as ApprovalItemType | undefined,
+        submitted_by_type: submittedByType as SubmittedByType | undefined,
+        page: page ?? 1,
+        department_id: departmentId ?? undefined,
+      }),
+      getApprovalStats(ctx, departmentId ?? undefined),
+    ]);
+    return { result, stats };
+  },
+  ["approvals"],
+  { revalidate: 30, tags: ["approvals"] },
+);
 
 export default async function ApprovalsPage({
   params,
@@ -25,20 +53,16 @@ export default async function ApprovalsPage({
   const canReview =
     membership.role === "owner" || membership.role === "admin";
 
-  const supabase = await createClient();
-  const ctx = { client: supabase, orgId: membership.orgId };
   const departmentId = await getDepartmentId(membership.orgId, dept);
 
-  const [result, stats] = await Promise.all([
-    getApprovalsForOrg(ctx, {
-      status: resolvedSearch.status as ApprovalStatus | undefined,
-      item_type: resolvedSearch.item_type as ApprovalItemType | undefined,
-      submitted_by_type: resolvedSearch.submitted_by_type as SubmittedByType | undefined,
-      page: resolvedSearch.page ? parseInt(resolvedSearch.page, 10) : 1,
-      department_id: departmentId ?? undefined,
-    }),
-    getApprovalStats(ctx, departmentId ?? undefined),
-  ]);
+  const { result, stats } = await getCachedApprovalsData(
+    membership.orgId,
+    departmentId,
+    resolvedSearch.status,
+    resolvedSearch.item_type,
+    resolvedSearch.submitted_by_type,
+    resolvedSearch.page ? parseInt(resolvedSearch.page, 10) : undefined,
+  );
 
   return (
     <RealtimeListener table="dtn_approval_queue" orgId={membership.orgId}>

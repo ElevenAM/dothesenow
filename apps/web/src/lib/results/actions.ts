@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { inngest } from "@/lib/inngest/client";
 import {
@@ -84,7 +84,7 @@ export async function createNewExperiment(
 ): Promise<Experiment> {
   const { ctx } = await getAuthenticatedOrgContext();
   const experiment = await createExperiment(ctx, input);
-  revalidatePath("/", "layout");
+  revalidateTag("results", "max");
   return experiment;
 }
 
@@ -98,7 +98,7 @@ export async function updateExperimentStatusAction(
     experimentId,
     newStatus,
   );
-  revalidatePath("/", "layout");
+  revalidateTag("results", "max");
   return experiment;
 }
 
@@ -107,7 +107,7 @@ export async function recordExperimentResultAction(
 ): Promise<ExperimentResult> {
   const { ctx } = await getAuthenticatedOrgContext();
   const result = await createExperimentResult(ctx, input);
-  revalidatePath("/", "layout");
+  revalidateTag("results", "max");
   return result;
 }
 
@@ -144,7 +144,7 @@ export async function logManualMetric(input: {
     },
   ]);
 
-  revalidatePath("/", "layout");
+  revalidateTag("results", "max");
 }
 
 export async function getMetricsSummaryData(opts?: {

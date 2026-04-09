@@ -1,19 +1,42 @@
+import { unstable_cache } from "next/cache";
 import { getRequestContext } from "@/lib/auth-helpers";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getStrategyDocs, getCreditBalance, getDocumentsForOrg } from "@dothesenow/queries";
 import { STRATEGY_GENERATION_COST } from "@dothesenow/prompts";
 import { DocList } from "@/components/strategy/doc-list";
 import { StrategyGeneratorDialog } from "@/components/strategy/strategy-generator-dialog";
 import { RealtimeListener } from "@/components/realtime-listener";
 
+const getCachedStrategyData = unstable_cache(
+  async (orgId: string) => {
+    const admin = createAdminClient();
+    const ctx = { client: admin, orgId };
+    const [docs, { documents: uploadedDocs }] = await Promise.all([
+      getStrategyDocs(ctx),
+      getDocumentsForOrg(ctx),
+    ]);
+    return { docs, uploadedDocs };
+  },
+  ["strategy"],
+  { revalidate: 60, tags: ["strategy"] },
+);
+
+const getCachedCreditBalance = unstable_cache(
+  async (orgId: string) => {
+    const admin = createAdminClient();
+    const balance = await getCreditBalance({ client: admin, orgId });
+    return balance.remaining;
+  },
+  ["credits"],
+  { revalidate: 30, tags: ["credits"] },
+);
+
 export default async function StrategyPage() {
   const { membership, org } = await getRequestContext();
-  const supabase = await createClient();
-  const ctx = { client: supabase, orgId: membership.orgId };
-  const [docs, { remaining }, { documents: uploadedDocs }] = await Promise.all([
-    getStrategyDocs(ctx),
-    getCreditBalance(ctx),
-    getDocumentsForOrg(ctx),
+
+  const [{ docs, uploadedDocs }, remaining] = await Promise.all([
+    getCachedStrategyData(membership.orgId),
+    getCachedCreditBalance(membership.orgId),
   ]);
 
   const existingTypes = docs.map((d) => d.doc_type);

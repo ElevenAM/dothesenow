@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
@@ -64,6 +64,7 @@ export async function acceptInvite(membershipId: string): Promise<ActionResult> 
     return { error: error.message };
   }
 
+  revalidateTag("invites", "max");
   revalidatePath("/");
   return { success: true };
 }
@@ -93,6 +94,7 @@ export async function declineInvite(membershipId: string): Promise<ActionResult>
 
   await admin.from("dtn_memberships").delete().eq("id", membershipId);
 
+  revalidateTag("invites", "max");
   revalidatePath("/");
   return { success: true };
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -139,7 +139,7 @@ export async function finalizeUpload(
     }
   }
 
-  revalidatePath("/");
+  revalidateTag("documents", "max");
   return doc;
 }
 
@@ -150,7 +150,7 @@ export async function updateDocumentMetadata(
   const { auth } = await getAuthenticatedOrgContext();
   const admin = createAdminClient();
   const doc = await updateDocument(admin, auth.membership.orgId, documentId, updates);
-  revalidatePath("/");
+  revalidateTag("documents", "max");
   return doc;
 }
 
@@ -168,7 +168,7 @@ export async function removeDocument(documentId: string): Promise<void> {
   // Remove from storage
   await deleteStorageObject(admin, doc.storage_path);
 
-  revalidatePath("/");
+  revalidateTag("documents", "max");
 }
 
 export async function getDownloadUrl(documentId: string): Promise<string> {
