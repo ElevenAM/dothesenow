@@ -16,6 +16,10 @@ export interface OrgProfile {
   stage: string | null;
   growthMotion: string | null;
   name: string;
+  productDescription?: string | null;
+  valueProposition?: string | null;
+  websiteUrl?: string | null;
+  targetCustomer?: string | null;
 }
 
 export interface PromptFragment {

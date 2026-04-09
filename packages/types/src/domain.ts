@@ -196,6 +196,10 @@ export interface Organization {
   budget_tier: string | null;
   growth_motion: string | null;
   timezone: string | null;
+  product_description: string | null;
+  value_proposition: string | null;
+  website_url: string | null;
+  target_customer: string | null;
   onboarding_completed_at: string | null;
   ai_credits_remaining: number;
   ai_credits_reset_at: string | null;

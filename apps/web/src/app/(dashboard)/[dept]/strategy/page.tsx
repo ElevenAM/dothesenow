@@ -33,6 +33,10 @@ export default async function StrategyPage() {
             existingTypes={existingTypes}
             creditBalance={remaining}
             creditCost={STRATEGY_GENERATION_COST}
+            orgProductDescription={org.productDescription}
+            orgValueProposition={org.valueProposition}
+            orgWebsiteUrl={org.websiteUrl}
+            orgTargetCustomer={org.targetCustomer}
           />
         </div>
         <DocList docs={docs} />

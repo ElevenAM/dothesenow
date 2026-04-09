@@ -28,6 +28,12 @@ export async function getStrategyDocs(
     query = query.eq("doc_type", filters.doc_type);
   }
 
+  // Hide placeholder docs still being generated. Use `or` to preserve NULL rows
+  // (manual/uploaded docs have no generation_metadata).
+  query = query.or(
+    "generation_metadata.is.null,generation_metadata->>status.not.in.(generating,validating)",
+  );
+
   const { data, error } = await query
     .order("doc_type")
     .order("updated_at", { ascending: false });

@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DocEditor } from "./doc-editor";
 import { VersionHistory } from "./version-history";
 import { CreateDocDialog } from "./create-doc-dialog";
-import { DocumentUploadDialog } from "@/components/documents/document-upload-dialog";
+import { StrategyUploadDialog } from "./strategy-upload-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { StrategyDoc } from "@/lib/strategy/actions";
 import { DOC_TYPE_LABELS } from "@/lib/strategy/constants";
@@ -63,7 +63,7 @@ export function DocList({ docs }: DocListProps) {
           description="Create your first strategy document to get started."
         />
         <div className="flex justify-center gap-2">
-          <DocumentUploadDialog label="Upload File" variant="outline" />
+          <StrategyUploadDialog existingTypes={existingTypes} label="Upload File" variant="outline" />
           <CreateDocDialog existingTypes={[]} />
         </div>
       </div>
@@ -77,7 +77,7 @@ export function DocList({ docs }: DocListProps) {
           {docs.length} document{docs.length !== 1 ? "s" : ""}
         </p>
         <div className="flex items-center gap-2">
-          <DocumentUploadDialog label="Upload File" variant="outline" />
+          <StrategyUploadDialog existingTypes={existingTypes} label="Upload File" variant="outline" />
           <CreateDocDialog existingTypes={existingTypes} />
         </div>
       </div>
@@ -111,6 +111,12 @@ export function DocList({ docs }: DocListProps) {
   );
 }
 
+function getGenerationStatus(meta: unknown): string | null {
+  if (meta && typeof meta === "object" && "status" in meta)
+    return (meta as Record<string, unknown>).status as string;
+  return null;
+}
+
 function DocGrid({
   docs,
   onSelect,
@@ -135,9 +141,16 @@ function DocGrid({
                 v{doc.version}
               </Badge>
             </div>
-            <Badge variant="secondary" className="w-fit text-[10px]">
-              {DOC_TYPE_LABELS[doc.doc_type] || doc.doc_type}
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              <Badge variant="secondary" className="w-fit text-[10px]">
+                {DOC_TYPE_LABELS[doc.doc_type] || doc.doc_type}
+              </Badge>
+              {getGenerationStatus(doc.generation_metadata) === "failed" && (
+                <Badge variant="destructive" className="text-[10px]">
+                  Generation Failed
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground line-clamp-2">

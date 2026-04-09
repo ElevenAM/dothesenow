@@ -26,7 +26,7 @@ GET /api/dev/login?email=user@example.com
 - Redirects to `/` (or `/onboarding` if user has no org, `/invites` if pending invite)
 - If the user doesn't exist yet, Supabase creates them automatically
 
-**Usage from Claude**: Navigate to `http://localhost:3000/api/dev/login?email=test@example.com` to authenticate.
+**Usage from Claude**: Navigate to `http://localhost:3000/api/dev/login?email=liamnguyen.mail@gmail.com` to authenticate.
 
 **Usage in E2E tests**: `global-setup.ts` calls this route automatically — just set `TEST_USER_EMAIL` in `.env.test`.
 

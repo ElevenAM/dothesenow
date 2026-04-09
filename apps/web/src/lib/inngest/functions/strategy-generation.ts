@@ -19,7 +19,7 @@ import {
 import type { GenerationMetadata, OrgProfile } from "@dothesenow/prompts";
 import Anthropic from "@anthropic-ai/sdk";
 
-const MODEL = "claude-sonnet-4-6-20250514";
+const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 8192;
 
 /**
@@ -155,6 +155,10 @@ export const strategyGeneration = inngest.createFunction(
         stage: org.stage,
         growthMotion: org.growth_motion,
         name: org.name,
+        productDescription: org.product_description,
+        valueProposition: org.value_proposition,
+        websiteUrl: org.website_url,
+        targetCustomer: org.target_customer,
       };
 
       const { systemPrompt, userPrompt } = assembleStrategyPrompt(

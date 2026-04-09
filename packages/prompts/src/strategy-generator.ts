@@ -79,6 +79,18 @@ function buildOrgContext(org: OrgProfile): string {
   if (org.growthMotion) {
     parts.push(`- **Growth Motion**: ${org.growthMotion.replace(/_/g, " ")}`);
   }
+  if (org.productDescription) {
+    parts.push(`- **Product/Service**: ${org.productDescription}`);
+  }
+  if (org.valueProposition) {
+    parts.push(`- **Value Proposition**: ${org.valueProposition}`);
+  }
+  if (org.websiteUrl) {
+    parts.push(`- **Website**: ${org.websiteUrl}`);
+  }
+  if (org.targetCustomer) {
+    parts.push(`- **Target Customer**: ${org.targetCustomer}`);
+  }
 
   if (org.industry === "other") {
     parts.push("", OTHER_INDUSTRY_DISCLAIMER);

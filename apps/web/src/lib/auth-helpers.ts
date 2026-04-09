@@ -15,6 +15,10 @@ interface OrgJoinRow {
   plan_status: string;
   industry: string | null;
   budget_tier: string | null;
+  product_description: string | null;
+  value_proposition: string | null;
+  website_url: string | null;
+  target_customer: string | null;
   onboarding_completed_at: string | null;
   ai_credits_remaining: number;
 }
@@ -42,6 +46,10 @@ export interface AuthenticatedMembership {
     planStatus: string;
     industry: string | null;
     budgetTier: string | null;
+    productDescription: string | null;
+    valueProposition: string | null;
+    websiteUrl: string | null;
+    targetCustomer: string | null;
     onboardingCompletedAt: string | null;
     creditsRemaining: number;
   };
@@ -77,7 +85,7 @@ export async function getAuthenticatedMembership(
   const { data: memberships, error } = await supabase
     .from("dtn_memberships")
     .select(
-      "id, org_id, role, dtn_organizations(id, name, slug, plan, plan_status, industry, budget_tier, onboarding_completed_at, ai_credits_remaining)"
+      "id, org_id, role, dtn_organizations(id, name, slug, plan, plan_status, industry, budget_tier, product_description, value_proposition, website_url, target_customer, onboarding_completed_at, ai_credits_remaining)"
     )
     .eq("user_id", user.id)
     .eq("is_active", true);
@@ -131,6 +139,10 @@ export async function getAuthenticatedMembership(
       planStatus: org.plan_status,
       industry: org.industry,
       budgetTier: org.budget_tier,
+      productDescription: org.product_description,
+      valueProposition: org.value_proposition,
+      websiteUrl: org.website_url,
+      targetCustomer: org.target_customer,
       onboardingCompletedAt: org.onboarding_completed_at,
       creditsRemaining: org.ai_credits_remaining,
     },

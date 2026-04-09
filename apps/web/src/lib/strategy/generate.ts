@@ -1,7 +1,8 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
-import { getCreditBalance } from "@dothesenow/queries";
+import { getCreditBalance, updateOrg } from "@dothesenow/queries";
 import { inngest } from "@/lib/inngest/client";
 import { STRATEGY_GENERATION_COST } from "@dothesenow/prompts";
 
@@ -48,4 +49,32 @@ export async function generateStrategy(): Promise<{
   });
 
   return { success: true, generationId };
+}
+
+/**
+ * Save strategy generation context fields to the org profile.
+ * Requires owner or admin role.
+ */
+export async function saveStrategyContext(fields: {
+  productDescription: string;
+  valueProposition: string;
+  websiteUrl: string | null;
+  targetCustomer: string | null;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { ctx } = await getAuthenticatedOrgContext(["owner", "admin"]);
+    await updateOrg(ctx, {
+      product_description: fields.productDescription,
+      value_proposition: fields.valueProposition,
+      website_url: fields.websiteUrl || null,
+      target_customer: fields.targetCustomer || null,
+    });
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to save context",
+    };
+  }
 }

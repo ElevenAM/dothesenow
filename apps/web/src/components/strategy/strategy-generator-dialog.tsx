@@ -11,11 +11,21 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { generateStrategy } from "@/lib/strategy/generate";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { generateStrategy, saveStrategyContext } from "@/lib/strategy/generate";
 import { createStrategyDoc } from "@/lib/strategy/actions";
 import { selectTemplate } from "@/lib/onboarding/templates";
 import type { Industry } from "@dothesenow/types";
-import { Sparkles, Loader2, Zap, AlertTriangle } from "lucide-react";
+import {
+  Sparkles,
+  Loader2,
+  Zap,
+  AlertTriangle,
+  Pencil,
+  ArrowLeft,
+} from "lucide-react";
 
 interface StrategyGeneratorDialogProps {
   orgIndustry: string | null;
@@ -23,10 +33,15 @@ interface StrategyGeneratorDialogProps {
   existingTypes: string[];
   creditBalance: number;
   creditCost: number;
+  orgProductDescription: string | null;
+  orgValueProposition: string | null;
+  orgWebsiteUrl: string | null;
+  orgTargetCustomer: string | null;
 }
 
 type GenerationStep =
   | "idle"
+  | "context"
   | "generating"
   | "completed"
   | "failed";
@@ -44,6 +59,10 @@ export function StrategyGeneratorDialog({
   existingTypes,
   creditBalance,
   creditCost,
+  orgProductDescription,
+  orgValueProposition,
+  orgWebsiteUrl,
+  orgTargetCustomer,
 }: StrategyGeneratorDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -52,6 +71,18 @@ export function StrategyGeneratorDialog({
   const [progressIndex, setProgressIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Context form state — pre-populated from org profile
+  const [productDescription, setProductDescription] = useState(
+    orgProductDescription ?? "",
+  );
+  const [valueProposition, setValueProposition] = useState(
+    orgValueProposition ?? "",
+  );
+  const [websiteUrl, setWebsiteUrl] = useState(orgWebsiteUrl ?? "");
+  const [targetCustomer, setTargetCustomer] = useState(
+    orgTargetCustomer ?? "",
+  );
 
   // Clean up timers on unmount
   useEffect(() => {
@@ -69,6 +100,13 @@ export function StrategyGeneratorDialog({
   const hasCredits = creditBalance === -1 || creditBalance >= creditCost;
   const canGenerate = !!orgIndustry && !!orgBudgetTier && hasCredits;
 
+  // All enrichment fields already populated — can skip context step
+  const hasAllContext =
+    !!orgProductDescription && !!orgValueProposition;
+
+  const contextValid =
+    productDescription.trim().length > 0 && valueProposition.trim().length > 0;
+
   const clearTimers = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -78,6 +116,40 @@ export function StrategyGeneratorDialog({
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+  };
+
+  const handleStartGeneration = () => {
+    if (hasAllContext) {
+      // Skip context step — fields already populated
+      handleGenerate();
+    } else {
+      setGenerationStep("context");
+    }
+  };
+
+  const handleContextSubmitAndGenerate = () => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const saveResult = await saveStrategyContext({
+          productDescription: productDescription.trim(),
+          valueProposition: valueProposition.trim(),
+          websiteUrl: websiteUrl.trim() || null,
+          targetCustomer: targetCustomer.trim() || null,
+        });
+
+        if (!saveResult.success) {
+          setError(saveResult.error ?? "Failed to save context");
+          return;
+        }
+
+        handleGenerate();
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to save context",
+        );
+      }
+    });
   };
 
   const handleGenerate = () => {
@@ -105,9 +177,8 @@ export function StrategyGeneratorDialog({
 
         // Generation is async — the Realtime listener on the parent page
         // will trigger a refresh when the strategy doc is created/updated.
-        // Show a success state and close the dialog.
         setGenerationStep("completed");
-        timeoutRef.current = setTimeout(() => setOpen(false), 1500);
+        timeoutRef.current = setTimeout(() => setOpen(false), 2500);
       } catch (err) {
         clearTimers();
         setError(
@@ -162,11 +233,68 @@ export function StrategyGeneratorDialog({
           <DialogTitle>
             {generationStep === "generating"
               ? "Generating Strategy..."
-              : "Generate Marketing Strategy"}
+              : generationStep === "context"
+                ? "Tell us about your product"
+                : "Generate Marketing Strategy"}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          {generationStep === "generating" ? (
+          {generationStep === "context" ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Help us create a strategy tailored to your specific product and
+                market.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="ctx-product">
+                  Product / Service Description{" "}
+                  <span className="text-[var(--fgColor-danger)]">*</span>
+                </Label>
+                <Textarea
+                  id="ctx-product"
+                  value={productDescription}
+                  onChange={(e) => setProductDescription(e.target.value)}
+                  placeholder="e.g., A project management tool for remote engineering teams that automates sprint planning and standup summaries."
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ctx-value">
+                  Value Proposition / Differentiator{" "}
+                  <span className="text-[var(--fgColor-danger)]">*</span>
+                </Label>
+                <Textarea
+                  id="ctx-value"
+                  value={valueProposition}
+                  onChange={(e) => setValueProposition(e.target.value)}
+                  placeholder="e.g., We save engineering managers 5+ hours per week by replacing manual status updates with AI-generated summaries."
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ctx-website">Website URL (optional)</Label>
+                <Input
+                  id="ctx-website"
+                  type="url"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ctx-customer">
+                  Target Customer (optional)
+                </Label>
+                <Textarea
+                  id="ctx-customer"
+                  value={targetCustomer}
+                  onChange={(e) => setTargetCustomer(e.target.value)}
+                  placeholder="e.g., Series A–C SaaS companies with 20–200 engineers, specifically engineering managers and VPs of Engineering."
+                  rows={2}
+                />
+              </div>
+            </div>
+          ) : generationStep === "generating" ? (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -179,7 +307,8 @@ export function StrategyGeneratorDialog({
             </div>
           ) : generationStep === "completed" ? (
             <p className="text-sm text-[var(--fgColor-success)]">
-              Strategy generated successfully! Refreshing...
+              Strategy generation started! This page will update automatically
+              when your strategy is ready (15–30 seconds).
             </p>
           ) : (
             <>
@@ -187,8 +316,8 @@ export function StrategyGeneratorDialog({
                 <>
                   <p className="text-sm text-muted-foreground">
                     We&apos;ll use AI to create a personalized marketing strategy
-                    based on your organization&apos;s industry and budget tier, using
-                    proven frameworks like Bullseye, GACCS, and ICE scoring.
+                    based on your organization&apos;s profile, using proven
+                    frameworks like Bullseye, GACCS, and ICE scoring.
                   </p>
                   <div className="flex items-center gap-2 rounded-md border border-[var(--borderColor-default)] bg-[var(--bgColor-muted)] px-3 py-2 text-sm">
                     <Zap className="h-4 w-4 text-[var(--fgColor-attention)]" />
@@ -199,6 +328,16 @@ export function StrategyGeneratorDialog({
                         : ` You have ${creditBalance} remaining.`}
                     </span>
                   </div>
+                  {hasAllContext && (
+                    <button
+                      type="button"
+                      onClick={() => setGenerationStep("context")}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Edit product context
+                    </button>
+                  )}
                 </>
               ) : !hasCredits ? (
                 <div className="flex items-start gap-2 rounded-md border border-[var(--borderColor-default)] bg-[var(--bgColor-muted)] px-3 py-2 text-sm">
@@ -206,9 +345,9 @@ export function StrategyGeneratorDialog({
                   <div>
                     <p className="font-medium">Insufficient credits</p>
                     <p className="text-muted-foreground">
-                      Strategy generation costs {creditCost} credits,
-                      but you have {creditBalance}. Upgrade your plan or use a
-                      pre-built template instead.
+                      Strategy generation costs {creditCost} credits, but you
+                      have {creditBalance}. Upgrade your plan or use a pre-built
+                      template instead.
                     </p>
                   </div>
                 </div>
@@ -243,20 +382,38 @@ export function StrategyGeneratorDialog({
           )}
         </div>
         <DialogFooter>
-          {generationStep !== "generating" && generationStep !== "completed" && (
+          {generationStep === "context" ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setGenerationStep("idle")}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <Button
+                onClick={handleContextSubmitAndGenerate}
+                disabled={!contextValid || isPending}
+              >
+                {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Generate with AI
+              </Button>
+            </>
+          ) : generationStep !== "generating" &&
+            generationStep !== "completed" ? (
             <>
               <DialogClose render={<Button variant="outline" />}>
                 Cancel
               </DialogClose>
               <Button
-                onClick={handleGenerate}
+                onClick={handleStartGeneration}
                 disabled={!canGenerate || isPending}
               >
                 {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 Generate with AI
               </Button>
             </>
-          )}
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
