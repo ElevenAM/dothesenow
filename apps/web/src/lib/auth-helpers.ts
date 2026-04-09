@@ -21,6 +21,7 @@ interface OrgJoinRow {
   target_customer: string | null;
   onboarding_completed_at: string | null;
   ai_credits_remaining: number;
+  timezone: string | null;
 }
 
 /** Shape of a single membership row with its org join. */
@@ -52,6 +53,7 @@ export interface AuthenticatedMembership {
     targetCustomer: string | null;
     onboardingCompletedAt: string | null;
     creditsRemaining: number;
+    timezone: string | null;
   };
   allOrgs: Array<{
     id: string;
@@ -85,7 +87,7 @@ export async function getAuthenticatedMembership(
   const { data: memberships, error } = await supabase
     .from("dtn_memberships")
     .select(
-      "id, org_id, role, dtn_organizations(id, name, slug, plan, plan_status, industry, budget_tier, product_description, value_proposition, website_url, target_customer, onboarding_completed_at, ai_credits_remaining)"
+      "id, org_id, role, dtn_organizations(id, name, slug, plan, plan_status, industry, budget_tier, product_description, value_proposition, website_url, target_customer, onboarding_completed_at, ai_credits_remaining, timezone)"
     )
     .eq("user_id", user.id)
     .eq("is_active", true);
@@ -145,6 +147,7 @@ export async function getAuthenticatedMembership(
       targetCustomer: org.target_customer,
       onboardingCompletedAt: org.onboarding_completed_at,
       creditsRemaining: org.ai_credits_remaining,
+      timezone: org.timezone,
     },
     allOrgs,
   };

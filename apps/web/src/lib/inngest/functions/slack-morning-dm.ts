@@ -34,14 +34,18 @@ export const slackMorningDMCron = inngest.createFunction(
     const events: { name: "slack/morning-dm.send"; data: { org_id: string } }[] = [];
 
     for (const org of orgs) {
-      await step.run(`check-slack-${org.id}`, async () => {
+      const evt = await step.run(`check-slack-${org.id}`, async () => {
         const installation = await getSlackInstallationByOrg(supabase, org.id);
         if (!installation) {
           console.log(`[inngest:morning-dm] Org ${org.id}: No Slack — skipping`);
-          return;
+          return null;
         }
-        events.push({ name: "slack/morning-dm.send", data: { org_id: org.id } });
+        return { name: "slack/morning-dm.send" as const, data: { org_id: org.id } };
       });
+
+      if (evt) {
+        events.push(evt);
+      }
     }
 
     if (events.length > 0) {

@@ -119,6 +119,13 @@ export type Events = {
       attempt: number;
     };
   };
+  "task/batch.created": {
+    data: {
+      org_id: string;
+      task_count: number;
+      target_date: string;
+    };
+  };
 };
 
 export const inngest = new Inngest({ id: "dothesenow" });

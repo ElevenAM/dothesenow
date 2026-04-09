@@ -265,7 +265,7 @@ export const strategyRefinementCron = inngest.createFunction(
     }[] = [];
 
     for (const org of orgs) {
-      await step.run(`preflight-${org.id}`, async () => {
+      const evt = await step.run(`preflight-${org.id}`, async () => {
         const ctx: OrgContext = { client: supabase, orgId: org.id };
 
         // Check credit balance
@@ -274,7 +274,7 @@ export const strategyRefinementCron = inngest.createFunction(
           console.log(
             `[inngest:refine-cron] Org ${org.id} insufficient credits — skipping`,
           );
-          return;
+          return null;
         }
 
         // Check active master_strategy exists
@@ -286,19 +286,23 @@ export const strategyRefinementCron = inngest.createFunction(
           console.log(
             `[inngest:refine-cron] Org ${org.id} no active strategy — skipping`,
           );
-          return;
+          return null;
         }
 
         const dateStr = localDateString(org.timezone ?? "America/New_York");
-        events.push({
-          name: "strategy/refine",
+        return {
+          name: "strategy/refine" as const,
           data: {
             org_id: org.id,
             triggered_by: "cron",
             refinement_id: `weekly-${org.id}-${dateStr}`,
           },
-        });
+        };
       });
+
+      if (evt) {
+        events.push(evt);
+      }
     }
 
     if (events.length > 0) {

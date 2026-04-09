@@ -12,7 +12,8 @@
         "N8N_WEBHOOK_SECRET",
         "EXECUTOR_INTERNAL_SECRET",
         "INNGEST_SIGNING_KEY",
-        "INNGEST_EVENT_KEY"
+        "INNGEST_EVENT_KEY",
+        "RESEND_API_KEY"
       ]
     },
     "dev": {

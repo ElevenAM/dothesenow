@@ -32,7 +32,7 @@ export const dailyTaskGeneration = inngest.createFunction(
     const events: { name: "task/daily.generate"; data: { org_id: string } }[] = [];
 
     for (const org of orgs) {
-      await step.run(`check-credits-${org.id}`, async () => {
+      const evt = await step.run(`check-credits-${org.id}`, async () => {
         const ctx: OrgContext = { client: supabase, orgId: org.id };
         const { remaining } = await getCreditBalance(ctx);
 
@@ -40,14 +40,18 @@ export const dailyTaskGeneration = inngest.createFunction(
           console.log(
             `[inngest:daily-gen] Org ${org.id} has ${remaining} credits (need ${TASK_DECOMPOSITION_COST}) — skipping`,
           );
-          return;
+          return null;
         }
 
-        events.push({
-          name: "task/daily.generate",
+        return {
+          name: "task/daily.generate" as const,
           data: { org_id: org.id },
-        });
+        };
       });
+
+      if (evt) {
+        events.push(evt);
+      }
     }
 
     // Send all events at once — Inngest handles fan-out and concurrency

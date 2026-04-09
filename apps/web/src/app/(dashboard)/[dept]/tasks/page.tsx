@@ -23,11 +23,16 @@ export default async function TasksPage({
 }) {
   const { dept } = await params;
   const resolvedSearch = await searchParams;
-  const date =
-    resolvedSearch.date || new Date().toISOString().split("T")[0];
 
   // Single auth call (cached across RSC render tree)
-  const { membership, user } = await getRequestContext();
+  const { membership, user, org } = await getRequestContext();
+
+  // Use org timezone for default date — task decomposition stores
+  // scheduled_date in the org's local timezone, not UTC.
+  const tz = org.timezone ?? "America/New_York";
+  const date =
+    resolvedSearch.date ||
+    new Date().toLocaleDateString("en-CA", { timeZone: tz });
   const supabase = await createClient();
   const ctx = { client: supabase, orgId: membership.orgId };
   const departmentId = await getDepartmentId(membership.orgId, dept);

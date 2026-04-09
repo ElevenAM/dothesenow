@@ -449,6 +449,18 @@ export const taskDecomposition = inngest.createFunction(
       await confirmCredits(ctx, ledgerId);
     });
 
+    // Step 8: Notify downstream (Slack, email) that tasks were created
+    if (saveResult.taskCount > 0) {
+      await step.sendEvent("notify-tasks-created", {
+        name: "task/batch.created",
+        data: {
+          org_id,
+          task_count: saveResult.taskCount,
+          target_date: targetDate,
+        },
+      });
+    }
+
     return {
       success: true,
       org_id,
