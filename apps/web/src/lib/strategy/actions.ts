@@ -8,6 +8,7 @@ import {
   getDocHistory,
   createDoc,
   updateDoc,
+  deleteStrategyDoc as sharedDeleteStrategyDoc,
 } from "@dothesenow/queries";
 import type { StrategyDoc, DocType } from "@dothesenow/types";
 
@@ -50,6 +51,12 @@ export async function createStrategyDoc(
 
   revalidatePath("/", "layout");
   return docId;
+}
+
+export async function deleteStrategyDoc(docType: string): Promise<void> {
+  const { ctx } = await getAuthenticatedOrgContext(["owner", "admin"]);
+  await sharedDeleteStrategyDoc(ctx, docType);
+  revalidatePath("/", "layout");
 }
 
 export async function updateStrategyDoc(

@@ -13,14 +13,16 @@ export interface PlanLimits {
   departments: number; // -1 = unlimited
   credits: number; // AI credits per month
   strategyDocs: number; // -1 = unlimited
+  documents: number; // max uploaded docs per org, -1 = unlimited
+  maxFileSizeMb: number; // max per-file size in MB, -1 = unlimited
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
-  free: { members: 2, contacts: 100, departments: 1, credits: 0, strategyDocs: 3 },
-  starter: { members: 5, contacts: 500, departments: 3, credits: 50, strategyDocs: 10 },
-  growth: { members: 10, contacts: -1, departments: -1, credits: 200, strategyDocs: -1 },
-  team: { members: -1, contacts: -1, departments: -1, credits: 500, strategyDocs: -1 },
-  enterprise: { members: -1, contacts: -1, departments: -1, credits: -1, strategyDocs: -1 },
+  free: { members: 2, contacts: 100, departments: 1, credits: 0, strategyDocs: 3, documents: 10, maxFileSizeMb: 25 },
+  starter: { members: 5, contacts: 500, departments: 3, credits: 50, strategyDocs: 10, documents: 50, maxFileSizeMb: 100 },
+  growth: { members: 10, contacts: -1, departments: -1, credits: 200, strategyDocs: -1, documents: -1, maxFileSizeMb: -1 },
+  team: { members: -1, contacts: -1, departments: -1, credits: 500, strategyDocs: -1, documents: -1, maxFileSizeMb: -1 },
+  enterprise: { members: -1, contacts: -1, departments: -1, credits: -1, strategyDocs: -1, documents: -1, maxFileSizeMb: -1 },
 };
 
 export const PLAN_HIERARCHY: PlanTier[] = ["free", "starter", "growth", "team", "enterprise"];

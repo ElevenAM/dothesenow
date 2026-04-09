@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { generateStrategy, saveStrategyContext } from "@/lib/strategy/generate";
 import { createStrategyDoc } from "@/lib/strategy/actions";
 import { selectTemplate } from "@/lib/onboarding/templates";
@@ -25,7 +26,16 @@ import {
   AlertTriangle,
   Pencil,
   ArrowLeft,
+  FileText,
 } from "lucide-react";
+
+interface SupplementalDoc {
+  id: string;
+  title: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+}
 
 interface StrategyGeneratorDialogProps {
   orgIndustry: string | null;
@@ -37,6 +47,7 @@ interface StrategyGeneratorDialogProps {
   orgValueProposition: string | null;
   orgWebsiteUrl: string | null;
   orgTargetCustomer: string | null;
+  availableDocuments: SupplementalDoc[];
 }
 
 type GenerationStep =
@@ -63,6 +74,7 @@ export function StrategyGeneratorDialog({
   orgValueProposition,
   orgWebsiteUrl,
   orgTargetCustomer,
+  availableDocuments,
 }: StrategyGeneratorDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -83,6 +95,7 @@ export function StrategyGeneratorDialog({
   const [targetCustomer, setTargetCustomer] = useState(
     orgTargetCustomer ?? "",
   );
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
 
   // Clean up timers on unmount
   useEffect(() => {
@@ -92,7 +105,7 @@ export function StrategyGeneratorDialog({
     };
   }, []);
 
-  const hasMasterStrategy = existingTypes.includes("master_strategy");
+  const isRegeneration = existingTypes.includes("master_strategy");
   const template = orgIndustry
     ? selectTemplate(orgIndustry as Industry)
     : null;
@@ -100,9 +113,31 @@ export function StrategyGeneratorDialog({
   const hasCredits = creditBalance === -1 || creditBalance >= creditCost;
   const canGenerate = !!orgIndustry && !!orgBudgetTier && hasCredits;
 
-  // All enrichment fields already populated — can skip context step
+  // All enrichment fields already populated — can skip context step on first generation only
   const hasAllContext =
     !!orgProductDescription && !!orgValueProposition;
+
+  // Supported file types for strategy context
+  const supportedDocs = availableDocuments.filter((d) =>
+    d.file_type.startsWith("text/") || d.file_type === "application/pdf",
+  );
+
+  const MAX_SELECTED_DOCS = 5;
+  const MAX_AGGREGATE_MB = 10;
+
+  const selectedSize = supportedDocs
+    .filter((d) => selectedDocIds.includes(d.id))
+    .reduce((sum, d) => sum + d.file_size, 0);
+
+  const toggleDoc = (docId: string) => {
+    setSelectedDocIds((prev) => {
+      if (prev.includes(docId)) return prev.filter((id) => id !== docId);
+      if (prev.length >= MAX_SELECTED_DOCS) return prev;
+      const doc = supportedDocs.find((d) => d.id === docId);
+      if (doc && selectedSize + doc.file_size > MAX_AGGREGATE_MB * 1024 * 1024) return prev;
+      return [...prev, docId];
+    });
+  };
 
   const contextValid =
     productDescription.trim().length > 0 && valueProposition.trim().length > 0;
@@ -119,8 +154,11 @@ export function StrategyGeneratorDialog({
   };
 
   const handleStartGeneration = () => {
-    if (hasAllContext) {
-      // Skip context step — fields already populated
+    if (isRegeneration) {
+      // Always show context step on regeneration so users can review/edit context
+      setGenerationStep("context");
+    } else if (hasAllContext) {
+      // Skip context step on first generation — fields already populated
       handleGenerate();
     } else {
       setGenerationStep("context");
@@ -166,7 +204,9 @@ export function StrategyGeneratorDialog({
 
     startTransition(async () => {
       try {
-        const result = await generateStrategy();
+        const result = await generateStrategy(
+          selectedDocIds.length > 0 ? selectedDocIds : undefined,
+        );
         clearTimers();
 
         if (!result.success) {
@@ -218,15 +258,13 @@ export function StrategyGeneratorDialog({
     setOpen(nextOpen);
   };
 
-  if (hasMasterStrategy) return null;
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={<Button size="sm" variant="outline" disabled={!orgIndustry} />}
       >
         <Sparkles className="h-4 w-4" />
-        Generate Strategy
+        {isRegeneration ? "Regenerate Strategy" : "Generate Strategy"}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -235,15 +273,18 @@ export function StrategyGeneratorDialog({
               ? "Generating Strategy..."
               : generationStep === "context"
                 ? "Tell us about your product"
-                : "Generate Marketing Strategy"}
+                : isRegeneration
+                  ? "Regenerate Marketing Strategy"
+                  : "Generate Marketing Strategy"}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           {generationStep === "context" ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Help us create a strategy tailored to your specific product and
-                market.
+                {isRegeneration
+                  ? "Review your product context below. Your current strategy will be preserved in version history."
+                  : "Help us create a strategy tailored to your specific product and market."}
               </p>
               <div className="space-y-2">
                 <Label htmlFor="ctx-product">
@@ -293,6 +334,55 @@ export function StrategyGeneratorDialog({
                   rows={2}
                 />
               </div>
+
+              {/* Document selector for supplemental context */}
+              <div className="space-y-2">
+                <Label>Supplemental Documents (optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Select uploaded documents to use as additional context.
+                  Max {MAX_SELECTED_DOCS} documents, {MAX_AGGREGATE_MB} MB total.
+                </p>
+                {supportedDocs.length > 0 ? (
+                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-[var(--borderColor-default)] p-2">
+                    {supportedDocs.map((doc) => {
+                      const checked = selectedDocIds.includes(doc.id);
+                      const atLimit =
+                        !checked && selectedDocIds.length >= MAX_SELECTED_DOCS;
+                      const overSize =
+                        !checked &&
+                        selectedSize + doc.file_size >
+                          MAX_AGGREGATE_MB * 1024 * 1024;
+
+                      return (
+                        <label
+                          key={doc.id}
+                          className={`flex items-center gap-2 rounded px-2 py-1.5 text-sm ${
+                            atLimit || overSize
+                              ? "cursor-not-allowed opacity-50"
+                              : "cursor-pointer hover:bg-[var(--bgColor-muted)]"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleDoc(doc.id)}
+                            disabled={atLimit || overSize}
+                          />
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{doc.title}</span>
+                          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                            {(doc.file_size / 1024).toFixed(0)} KB
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    No supported documents uploaded yet. Upload .md, .txt, .csv,
+                    or PDF files from the Documents page.
+                  </p>
+                )}
+              </div>
             </div>
           ) : generationStep === "generating" ? (
             <div className="space-y-3">
@@ -315,9 +405,9 @@ export function StrategyGeneratorDialog({
               {canGenerate ? (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    We&apos;ll use AI to create a personalized marketing strategy
-                    based on your organization&apos;s profile, using proven
-                    frameworks like Bullseye, GACCS, and ICE scoring.
+                    {isRegeneration
+                      ? "Regenerate your marketing strategy with updated context. Your current version will be preserved in history."
+                      : "We'll use AI to create a personalized marketing strategy based on your organization's profile, using proven frameworks like Bullseye, GACCS, and ICE scoring."}
                   </p>
                   <div className="flex items-center gap-2 rounded-md border border-[var(--borderColor-default)] bg-[var(--bgColor-muted)] px-3 py-2 text-sm">
                     <Zap className="h-4 w-4 text-[var(--fgColor-attention)]" />
@@ -410,7 +500,7 @@ export function StrategyGeneratorDialog({
                 disabled={!canGenerate || isPending}
               >
                 {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Generate with AI
+                {isRegeneration ? "Regenerate with AI" : "Generate with AI"}
               </Button>
             </>
           ) : null}

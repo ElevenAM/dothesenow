@@ -255,6 +255,21 @@ export async function generateSignedDownloadUrl(
   return data.signedUrl;
 }
 
+export async function downloadDocumentContent(
+  adminClient: SupabaseClient,
+  storagePath: string,
+): Promise<Blob> {
+  const { data, error } = await adminClient.storage
+    .from(BUCKET)
+    .download(storagePath);
+
+  if (error) {
+    throw new QueryError(error.message, "storage", "downloadDocumentContent", "", error);
+  }
+
+  return data;
+}
+
 export async function deleteStorageObject(
   adminClient: SupabaseClient,
   storagePath: string,

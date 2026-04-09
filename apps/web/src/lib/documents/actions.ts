@@ -45,13 +45,47 @@ export async function getEntityDocuments(
   return getDocumentsForEntity(ctx, entityType, entityId);
 }
 
-export async function prepareUpload(fileName: string, fileType: string) {
+export async function prepareUpload(
+  fileName: string,
+  fileType: string,
+  fileSize?: number,
+) {
   if (!isAllowedFileType(fileType)) {
     throw new Error(`File type "${fileType}" is not allowed`);
   }
 
   const { auth } = await getAuthenticatedOrgContext();
   const admin = createAdminClient();
+
+  // Enforce plan-based document limits
+  const { getPlanLimits } = await import("@dothesenow/types");
+  const limits = getPlanLimits(auth.org.plan as import("@dothesenow/types").PlanTier);
+
+  // Check document count limit
+  if (limits.documents !== -1) {
+    const { count } = await admin
+      .from("dtn_documents")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", auth.membership.orgId)
+      .is("deleted_at", null);
+
+    if ((count ?? 0) >= limits.documents) {
+      throw new Error(
+        `Document limit reached (${count}/${limits.documents}). Upgrade your plan to upload more.`,
+      );
+    }
+  }
+
+  // Check per-file size limit
+  if (fileSize && limits.maxFileSizeMb !== -1) {
+    const maxBytes = limits.maxFileSizeMb * 1024 * 1024;
+    if (fileSize > maxBytes) {
+      throw new Error(
+        `File exceeds ${limits.maxFileSizeMb} MB limit for your plan. Upgrade to upload larger files.`,
+      );
+    }
+  }
+
   const documentId = crypto.randomUUID();
 
   const { signedUrl, path } = await generateSignedUploadUrl(
@@ -74,6 +108,36 @@ export async function finalizeUpload(
     ...input,
     uploaded_by: auth.user.id,
   });
+
+  // Extract text from DOCX files for AI context
+  if (
+    input.file_type ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    try {
+      const { data: fileBlob } = await admin.storage
+        .from("org-documents")
+        .download(input.storage_path);
+
+      if (fileBlob) {
+        const mammoth = await import("mammoth");
+        const buffer = Buffer.from(await fileBlob.arrayBuffer());
+        const result = await mammoth.extractRawText({ buffer });
+
+        if (result.value) {
+          await admin
+            .from("dtn_documents")
+            .update({ extracted_text: result.value })
+            .eq("id", doc.id);
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `[documents] DOCX text extraction failed for ${doc.id}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
 
   revalidatePath("/");
   return doc;

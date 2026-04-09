@@ -727,6 +727,7 @@ export interface Document {
   campaign_id: string | null;
   strategy_doc_id: string | null;
   experiment_id: string | null;
+  extracted_text: string | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;

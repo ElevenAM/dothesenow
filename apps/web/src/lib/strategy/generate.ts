@@ -6,7 +6,7 @@ import { getCreditBalance, updateOrg } from "@dothesenow/queries";
 import { inngest } from "@/lib/inngest/client";
 import { STRATEGY_GENERATION_COST } from "@dothesenow/prompts";
 
-export async function generateStrategy(): Promise<{
+export async function generateStrategy(documentIds?: string[]): Promise<{
   success: boolean;
   error?: string;
   generationId?: string;
@@ -45,6 +45,7 @@ export async function generateStrategy(): Promise<{
       org_id: ctx.orgId,
       triggered_by: auth.user.id,
       generation_id: generationId,
+      document_ids: documentIds ?? [],
     },
   });
 

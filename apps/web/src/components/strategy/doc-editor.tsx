@@ -5,9 +5,17 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { updateStrategyDoc } from "@/lib/strategy/actions";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { updateStrategyDoc, deleteStrategyDoc } from "@/lib/strategy/actions";
 import type { StrategyDoc } from "@/lib/strategy/actions";
-import { Save, Loader2, ArrowLeft } from "lucide-react";
+import { Save, Loader2, ArrowLeft, Trash2 } from "lucide-react";
 
 const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
 
@@ -35,6 +43,8 @@ export function DocEditor({ doc, onBack }: DocEditorProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Track dirty state
   useEffect(() => {
@@ -76,6 +86,21 @@ export function DocEditor({ doc, onBack }: DocEditorProps) {
     });
   }, [doc.id, doc.tags, title, content, changeSummary]);
 
+  const handleDelete = () => {
+    setDeleteError(null);
+    startTransition(async () => {
+      try {
+        await deleteStrategyDoc(doc.doc_type);
+        setShowDeleteConfirm(false);
+        onBack();
+      } catch (err) {
+        setDeleteError(
+          err instanceof Error ? err.message : "Failed to delete",
+        );
+      }
+    });
+  };
+
   // Ctrl+S / Cmd+S shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -109,6 +134,14 @@ export function DocEditor({ doc, onBack }: DocEditorProps) {
           {saved && (
             <span className="text-xs text-success">Saved</span>
           )}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-[var(--fgColor-danger)] hover:text-[var(--fgColor-danger)] hover:bg-[var(--bgColor-danger-muted,#ffebe9)]"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
           <Button onClick={handleSave} disabled={!isDirty || isPending} size="sm">
             {isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -149,6 +182,38 @@ export function DocEditor({ doc, onBack }: DocEditorProps) {
           preview="live"
         />
       </div>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Strategy Document</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              This will remove <strong>{doc.title}</strong> and all its versions.
+              This cannot be undone.
+            </p>
+            {deleteError && (
+              <p className="text-sm text-[var(--fgColor-danger)]">
+                {deleteError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>
+              Cancel
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isPending}
+            >
+              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -156,6 +156,44 @@ export async function createDocDirect(
 }
 
 /**
+ * Soft-delete a strategy doc by deactivating all versions of a given doc_type.
+ * Guards against deleting while generation is in progress.
+ */
+export async function deleteStrategyDoc(
+  ctx: OrgContext,
+  docType: string,
+): Promise<void> {
+  // Guard: block delete if an active doc of this type is mid-generation
+  const { data: generating } = await ctx.client
+    .from(TABLE)
+    .select("id")
+    .eq("org_id", ctx.orgId)
+    .eq("doc_type", docType)
+    .eq("is_active", true)
+    .in("generation_metadata->>status", ["generating", "validating"])
+    .limit(1);
+
+  if (generating && generating.length > 0) {
+    throw new QueryError(
+      "Cannot delete while strategy is being generated. Please wait for generation to complete.",
+      TABLE,
+      "deleteStrategyDoc",
+      ctx.orgId,
+    );
+  }
+
+  const { error } = await ctx.client
+    .from(TABLE)
+    .update({ is_active: false })
+    .eq("org_id", ctx.orgId)
+    .eq("doc_type", docType);
+
+  if (error) {
+    throw new QueryError(error.message, TABLE, "deleteStrategyDoc", ctx.orgId, error);
+  }
+}
+
+/**
  * Text search across active strategy docs.
  * Uses ilike for content matching.
  */

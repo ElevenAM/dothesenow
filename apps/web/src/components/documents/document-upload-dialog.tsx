@@ -78,6 +78,7 @@ export function DocumentUploadDialog({
         const { signedUrl, path, documentId } = await prepareUpload(
           file.name,
           file.type,
+          file.size,
         );
 
         // 2. Upload file directly to Storage

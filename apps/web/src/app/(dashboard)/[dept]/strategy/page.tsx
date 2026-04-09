@@ -1,6 +1,6 @@
 import { getRequestContext } from "@/lib/auth-helpers";
 import { createClient } from "@/lib/supabase/server";
-import { getStrategyDocs, getCreditBalance } from "@dothesenow/queries";
+import { getStrategyDocs, getCreditBalance, getDocumentsForOrg } from "@dothesenow/queries";
 import { STRATEGY_GENERATION_COST } from "@dothesenow/prompts";
 import { DocList } from "@/components/strategy/doc-list";
 import { StrategyGeneratorDialog } from "@/components/strategy/strategy-generator-dialog";
@@ -10,9 +10,10 @@ export default async function StrategyPage() {
   const { membership, org } = await getRequestContext();
   const supabase = await createClient();
   const ctx = { client: supabase, orgId: membership.orgId };
-  const [docs, { remaining }] = await Promise.all([
+  const [docs, { remaining }, { documents: uploadedDocs }] = await Promise.all([
     getStrategyDocs(ctx),
     getCreditBalance(ctx),
+    getDocumentsForOrg(ctx),
   ]);
 
   const existingTypes = docs.map((d) => d.doc_type);
@@ -37,6 +38,13 @@ export default async function StrategyPage() {
             orgValueProposition={org.valueProposition}
             orgWebsiteUrl={org.websiteUrl}
             orgTargetCustomer={org.targetCustomer}
+            availableDocuments={uploadedDocs.map((d) => ({
+              id: d.id,
+              title: d.title,
+              file_name: d.file_name,
+              file_type: d.file_type,
+              file_size: d.file_size,
+            }))}
           />
         </div>
         <DocList docs={docs} />
