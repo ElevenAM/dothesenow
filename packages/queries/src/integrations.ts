@@ -142,11 +142,9 @@ export async function getIntegrationSecret(
   adminClient: SupabaseClient,
   vaultSecretId: string,
 ): Promise<string> {
-  const { data, error } = await adminClient
-    .from("vault.decrypted_secrets")
-    .select("decrypted_secret")
-    .eq("id", vaultSecretId)
-    .single();
+  const { data, error } = await adminClient.rpc("dtn_vault_read_secret", {
+    p_secret_id: vaultSecretId,
+  });
 
   if (error) {
     throw new QueryError(
@@ -158,7 +156,7 @@ export async function getIntegrationSecret(
     );
   }
 
-  if (!data?.decrypted_secret) {
+  if (!data) {
     throw new QueryError(
       "Secret not found in Vault",
       "vault.decrypted_secrets",
@@ -167,7 +165,7 @@ export async function getIntegrationSecret(
     );
   }
 
-  return data.decrypted_secret as string;
+  return data as string;
 }
 
 /**
@@ -179,9 +177,9 @@ export async function storeIntegrationSecret(
   name: string,
   value: string,
 ): Promise<string> {
-  const { data, error } = await adminClient.rpc("vault.create_secret", {
-    new_secret: value,
-    new_name: name,
+  const { data, error } = await adminClient.rpc("dtn_vault_create_secret", {
+    p_secret: value,
+    p_name: name,
   });
 
   if (error) {
@@ -204,10 +202,9 @@ export async function deleteIntegrationSecret(
   adminClient: SupabaseClient,
   vaultSecretId: string,
 ): Promise<void> {
-  const { error } = await adminClient
-    .from("vault.secrets")
-    .delete()
-    .eq("id", vaultSecretId);
+  const { error } = await adminClient.rpc("dtn_vault_delete_secret", {
+    p_secret_id: vaultSecretId,
+  });
 
   if (error) {
     throw new QueryError(

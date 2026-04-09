@@ -20,34 +20,52 @@ const SETTINGS_PATH = "/settings/integrations/claude-plugin";
 export async function generateApiKey(
   label: string,
 ): Promise<{ key: string; apiKey: OrgApiKey }> {
-  const { auth, ctx } = await getAuthenticatedOrgContext(["admin", "owner"]);
+  try {
+    const { auth, ctx } = await getAuthenticatedOrgContext(["admin", "owner"]);
 
-  const adminClient = createAdminClient();
-  const result = await createOrgApiKey(adminClient, ctx.orgId, {
-    label: label || "Default",
-    createdBy: auth.user.id,
-  });
+    const adminClient = createAdminClient();
+    const result = await createOrgApiKey(adminClient, ctx.orgId, {
+      label: label || "Default",
+      createdBy: auth.user.id,
+    });
 
-  revalidatePath(SETTINGS_PATH);
-  return result;
+    revalidatePath(SETTINGS_PATH);
+    return result;
+  } catch (err) {
+    throw new Error(
+      err instanceof Error ? err.message : "Failed to generate API key",
+    );
+  }
 }
 
 /**
  * List all active API keys for the org.
  */
 export async function listApiKeys(): Promise<OrgApiKey[]> {
-  const { ctx } = await getAuthenticatedOrgContext();
-  return getOrgApiKeys(ctx);
+  try {
+    const { ctx } = await getAuthenticatedOrgContext();
+    return await getOrgApiKeys(ctx);
+  } catch (err) {
+    throw new Error(
+      err instanceof Error ? err.message : "Failed to list API keys",
+    );
+  }
 }
 
 /**
  * Revoke an API key. Requires admin or owner role.
  */
 export async function revokeApiKeyAction(keyId: string): Promise<void> {
-  const { ctx } = await getAuthenticatedOrgContext(["admin", "owner"]);
+  try {
+    const { ctx } = await getAuthenticatedOrgContext(["admin", "owner"]);
 
-  const adminClient = createAdminClient();
-  await revokeApiKeyQuery(adminClient, ctx.orgId, keyId);
+    const adminClient = createAdminClient();
+    await revokeApiKeyQuery(adminClient, ctx.orgId, keyId);
 
-  revalidatePath(SETTINGS_PATH);
+    revalidatePath(SETTINGS_PATH);
+  } catch (err) {
+    throw new Error(
+      err instanceof Error ? err.message : "Failed to revoke API key",
+    );
+  }
 }

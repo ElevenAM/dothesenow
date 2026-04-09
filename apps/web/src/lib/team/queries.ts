@@ -22,16 +22,18 @@ export async function getOrgMembers(orgId: string) {
 
   // Fetch emails for each member from auth.users
   const memberIds = data.map((m) => m.user_id).filter(Boolean) as string[];
-  const {
-    data: { users },
-  } = await admin.auth.admin.listUsers();
-
   const emailMap = new Map<string, string>();
-  for (const u of users) {
-    if (memberIds.includes(u.id)) {
-      emailMap.set(u.id, u.email ?? "");
+
+  const results = await Promise.all(
+    memberIds.map((id) => admin.auth.admin.getUserById(id))
+  );
+  for (const result of results) {
+    console.log("[getOrgMembers] getUserById result:", JSON.stringify({ data: result.data?.user?.id, email: result.data?.user?.email, error: result.error?.message }));
+    if (result.data?.user) {
+      emailMap.set(result.data.user.id, result.data.user.email ?? "");
     }
   }
+  console.log("[getOrgMembers] memberIds:", memberIds, "emailMap:", Object.fromEntries(emailMap));
 
   return data.map((m) => ({
     ...m,

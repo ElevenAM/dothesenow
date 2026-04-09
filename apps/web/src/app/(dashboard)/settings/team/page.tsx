@@ -24,10 +24,10 @@ import { MemberActions } from "@/components/team/member-actions";
 import { CancelInviteButton } from "@/components/team/cancel-invite-button";
 import { getActiveOrgId } from "@/lib/org-context";
 
-const roleBadgeVariant: Record<string, "default" | "secondary" | "outline"> = {
-  owner: "default",
-  admin: "secondary",
-  member: "outline",
+const roleBadgeVariant: Record<string, "purple" | "blue" | "default"> = {
+  owner: "purple",
+  admin: "blue",
+  member: "default",
 };
 
 export default async function TeamPage() {
@@ -129,9 +129,6 @@ export default async function TeamPage() {
                 <TableRow key={m.id}>
                   <TableCell className="font-medium">
                     {m.email}
-                    {m.user_id === user.id && (
-                      <span className="ml-2 text-xs text-muted-foreground">(you)</span>
-                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={roleBadgeVariant[m.role] ?? "outline"}>
@@ -180,7 +177,9 @@ export default async function TeamPage() {
                       {inv.invited_email}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{inv.role}</Badge>
+                      <Badge variant={roleBadgeVariant[inv.role] ?? "default"}>
+                      {inv.role}
+                    </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {inv.invited_at
