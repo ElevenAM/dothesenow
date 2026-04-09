@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DocEditor } from "./doc-editor";
 import { VersionHistory } from "./version-history";
 import { CreateDocDialog } from "./create-doc-dialog";
+import { DocumentUploadDialog } from "@/components/documents/document-upload-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { StrategyDoc } from "@/lib/strategy/actions";
 import { DOC_TYPE_LABELS } from "@/lib/strategy/constants";
@@ -61,7 +62,8 @@ export function DocList({ docs }: DocListProps) {
           title="No strategy documents yet"
           description="Create your first strategy document to get started."
         />
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-2">
+          <DocumentUploadDialog label="Upload File" variant="outline" />
           <CreateDocDialog existingTypes={[]} />
         </div>
       </div>
@@ -74,7 +76,10 @@ export function DocList({ docs }: DocListProps) {
         <p className="text-sm text-muted-foreground">
           {docs.length} document{docs.length !== 1 ? "s" : ""}
         </p>
-        <CreateDocDialog existingTypes={existingTypes} />
+        <div className="flex items-center gap-2">
+          <DocumentUploadDialog label="Upload File" variant="outline" />
+          <CreateDocDialog existingTypes={existingTypes} />
+        </div>
       </div>
 
       {docTypes.length > 1 ? (

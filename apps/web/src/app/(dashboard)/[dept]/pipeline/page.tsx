@@ -1,4 +1,4 @@
-import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+import { getRequestContext } from "@/lib/auth-helpers";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PipelineFunnel } from "@/components/pipeline/pipeline-funnel";
@@ -12,7 +12,7 @@ export default async function PipelinePage({
   params: Promise<{ dept: string }>;
 }) {
   const { dept } = await params;
-  const { membership } = await getAuthenticatedMembership();
+  const { membership } = await getRequestContext();
   const supabase = await createClient();
 
   const { data, error } = await supabase

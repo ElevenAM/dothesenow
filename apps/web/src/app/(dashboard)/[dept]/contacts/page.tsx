@@ -1,25 +1,32 @@
-import { getAuthenticatedMembership } from "@/lib/auth-helpers";
-import { searchContacts, getContactImports } from "@/lib/contacts/actions";
+import { getRequestContext } from "@/lib/auth-helpers";
+import { createClient } from "@/lib/supabase/server";
+import { getContactsForOrg, getImportsForOrg } from "@dothesenow/queries";
 import { ContactsPageClient } from "@/components/contacts/contacts-page-client";
 import { RealtimeListener } from "@/components/realtime-listener";
+import type { ContactImport, ContactFilters } from "@dothesenow/types";
 
 export default async function ContactsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { membership } = await getAuthenticatedMembership();
+  const { membership } = await getRequestContext();
+  const supabase = await createClient();
+  const ctx = { client: supabase, orgId: membership.orgId };
   const params = await searchParams;
 
   const [result, imports] = await Promise.all([
-    searchContacts({
+    getContactsForOrg(ctx, {
       search: params.search,
-      contact_type: params.type,
-      status: params.status,
-      lifecycle_stage: params.stage,
+      contact_type: params.type as ContactFilters["contact_type"],
+      status: params.status as ContactFilters["status"],
+      lifecycle_stage: params.stage as ContactFilters["lifecycle_stage"],
       page: params.page ? parseInt(params.page, 10) : 1,
     }),
-    getContactImports(),
+    getImportsForOrg(ctx).catch((err: unknown) => {
+      console.error("getImportsForOrg failed:", err);
+      return [] as ContactImport[];
+    }),
   ]);
 
   // Show banners for imports that are still active or recently completed (last 5 min)

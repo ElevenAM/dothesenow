@@ -3,26 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
-import { dispatchTask, getExecutorAvailability } from "@/lib/daily-tasks/dispatch";
+import { dispatchTask } from "@/lib/daily-tasks/dispatch";
 import { getDepartmentId } from "@/lib/departments";
-import { getAllExecutorMetadata } from "@/lib/executors/registry";
 import {
-  getTasksForOrg,
-  getTasksSummary,
   createTaskForOrg,
   updateTaskForOrg,
   transitionTaskStatus,
-  getMembershipsForOrg,
   getStrategyDocs,
   getCreditBalance,
-  getOrgIntegrations,
 } from "@dothesenow/queries";
 import { TASK_DECOMPOSITION_COST } from "@dothesenow/prompts";
 import { inngest } from "@/lib/inngest/client";
 import type {
   DailyTask,
-  DailyTaskWithProfiles,
-  DailyTasksSummary,
   CreateTaskInput,
   UpdateTaskInput,
 } from "@dothesenow/types";
@@ -40,46 +33,8 @@ export interface TeamMember {
   specialties: string[];
 }
 
-const PRIORITY_RANK: Record<string, number> = {
-  urgent: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-};
-
 function todayString(): string {
   return new Date().toISOString().split("T")[0];
-}
-
-export async function getDailyTasks(
-  deptSlug: string,
-  date?: string,
-): Promise<DailyTaskWithProfiles[]> {
-  const { ctx } = await getAuthenticatedOrgContext();
-  const targetDate = date || todayString();
-  const departmentId = await getDepartmentId(ctx.orgId, deptSlug);
-
-  const tasks = await getTasksForOrg(ctx, {
-    scheduled_date: targetDate,
-    department_id: departmentId ?? undefined,
-  });
-
-  // Client-side priority sort (one day's tasks is a small set)
-  tasks.sort(
-    (a, b) =>
-      (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3),
-  );
-
-  return tasks;
-}
-
-export async function getDailyTasksSummary(
-  deptSlug: string,
-  date?: string,
-): Promise<DailyTasksSummary[]> {
-  const { ctx } = await getAuthenticatedOrgContext();
-  const targetDate = date || todayString();
-  return getTasksSummary(ctx, targetDate);
 }
 
 export async function createDailyTask(
@@ -354,37 +309,6 @@ export async function carryOverTasks(
 
   revalidatePath("/", "layout");
   return { count: eligible.length };
-}
-
-export async function fetchExecutorAvailability(): Promise<ReturnType<typeof getExecutorAvailability>> {
-  const { ctx } = await getAuthenticatedOrgContext();
-  const integrations = await getOrgIntegrations(ctx);
-  return getExecutorAvailability(integrations);
-}
-
-export async function fetchExecutorTypes(): Promise<
-  { value: string; label: string; icon: string }[]
-> {
-  return getAllExecutorMetadata().map((m) => ({
-    value: m.type,
-    label: m.label,
-    icon: m.icon,
-  }));
-}
-
-export async function getTeamMembers(): Promise<TeamMember[]> {
-  const { ctx } = await getAuthenticatedOrgContext();
-  const memberships = await getMembershipsForOrg(ctx);
-
-  return memberships
-    .filter((m) => m.user_id !== null)
-    .map((m) => ({
-      userId: m.user_id as string,
-      displayName: m.profile?.display_name ?? null,
-      email: m.profile?.email ?? "",
-      role: m.role,
-      specialties: m.specialties ?? [],
-    }));
 }
 
 /**

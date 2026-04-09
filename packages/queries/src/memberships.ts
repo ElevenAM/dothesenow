@@ -14,7 +14,7 @@ export async function getMembershipsForOrg(
 ): Promise<MembershipWithProfile[]> {
   const { data, error } = await ctx.client
     .from(TABLE)
-    .select("*, profile:profiles!dtn_memberships_user_id_fkey(display_name, email)")
+    .select("*, profile:profiles!dtn_memberships_user_id_profiles_fkey(display_name, email)")
     .eq("org_id", ctx.orgId)
     .order("created_at", { ascending: true });
 
@@ -97,7 +97,7 @@ export async function getTeamWithSpecialties(
 ): Promise<MembershipWithSpecialties[]> {
   const { data, error } = await ctx.client
     .from(TABLE)
-    .select("*, profile:profiles!dtn_memberships_user_id_fkey(display_name, email)")
+    .select("*, profile:profiles!dtn_memberships_user_id_profiles_fkey(display_name, email)")
     .eq("org_id", ctx.orgId)
     .eq("is_active", true)
     .not("user_id", "is", null)

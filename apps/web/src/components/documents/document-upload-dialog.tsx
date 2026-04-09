@@ -14,8 +14,28 @@ import {
 } from "@/components/ui/dialog";
 import { Upload, Loader2, X } from "lucide-react";
 import { prepareUpload, finalizeUpload } from "@/lib/documents/actions";
+import { ALLOWED_FILE_TYPE_LABEL } from "@dothesenow/queries";
 
-export function DocumentUploadDialog() {
+interface DocumentUploadDialogProps {
+  /** Link upload to a strategy doc, contact, campaign, or experiment */
+  strategyDocId?: string | null;
+  contactId?: string | null;
+  campaignId?: string | null;
+  experimentId?: string | null;
+  /** Override button label (default: "Upload") */
+  label?: string;
+  /** Override button variant (default: "default") */
+  variant?: "default" | "outline" | "ghost";
+}
+
+export function DocumentUploadDialog({
+  strategyDocId,
+  contactId,
+  campaignId,
+  experimentId,
+  label = "Upload",
+  variant = "default",
+}: DocumentUploadDialogProps = {}) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
@@ -82,6 +102,10 @@ export function DocumentUploadDialog() {
           tags: tags
             ? tags.split(",").map((t) => t.trim()).filter(Boolean)
             : [],
+          strategy_doc_id: strategyDocId ?? null,
+          contact_id: contactId ?? null,
+          campaign_id: campaignId ?? null,
+          experiment_id: experimentId ?? null,
         });
 
         resetForm();
@@ -94,9 +118,9 @@ export function DocumentUploadDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-      <DialogTrigger render={<Button size="sm" />}>
+      <DialogTrigger render={<Button size="sm" variant={variant} />}>
         <Upload className="mr-1.5 h-4 w-4" />
-        Upload
+        {label}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -130,7 +154,7 @@ export function DocumentUploadDialog() {
                 </label>
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                PDF, DOCX, XLSX, PNG, JPG, CSV, TXT (max 50MB)
+                {ALLOWED_FILE_TYPE_LABEL}
               </p>
             </div>
           ) : (

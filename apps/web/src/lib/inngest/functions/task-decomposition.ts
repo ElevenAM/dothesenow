@@ -157,7 +157,7 @@ export const taskDecomposition = inngest.createFunction(
       // Load team with specialties
       const { data: memberships } = await supabase
         .from("dtn_memberships")
-        .select("user_id, role, specialties, profiles:profiles!dtn_memberships_user_id_fkey(display_name, email)")
+        .select("user_id, role, specialties, profiles:profiles!dtn_memberships_user_id_profiles_fkey(display_name, email)")
         .eq("org_id", org_id)
         .eq("is_active", true)
         .not("user_id", "is", null);

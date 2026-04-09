@@ -212,6 +212,10 @@ const ALLOWED_MIME_TYPES = new Set([
   "text/markdown",
 ]);
 
+/** Human-readable label for the allowed file types (for UI hints). */
+export const ALLOWED_FILE_TYPE_LABEL =
+  "PDF, DOCX, XLSX, PNG, JPG, GIF, SVG, CSV, TXT, Markdown (max 50 MB)";
+
 export function isAllowedFileType(mimeType: string): boolean {
   return ALLOWED_MIME_TYPES.has(mimeType);
 }

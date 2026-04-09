@@ -1,14 +1,18 @@
-import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
-import { getStrategyDocs } from "@/lib/strategy/actions";
-import { getCreditBalance } from "@dothesenow/queries";
+import { getRequestContext } from "@/lib/auth-helpers";
+import { createClient } from "@/lib/supabase/server";
+import { getStrategyDocs, getCreditBalance } from "@dothesenow/queries";
 import { DocList } from "@/components/strategy/doc-list";
 import { StrategyGeneratorDialog } from "@/components/strategy/strategy-generator-dialog";
 import { RealtimeListener } from "@/components/realtime-listener";
 
 export default async function StrategyPage() {
-  const { auth: { membership, org }, ctx } = await getAuthenticatedOrgContext();
-  const docs = await getStrategyDocs();
-  const { remaining } = await getCreditBalance(ctx);
+  const { membership, org } = await getRequestContext();
+  const supabase = await createClient();
+  const ctx = { client: supabase, orgId: membership.orgId };
+  const [docs, { remaining }] = await Promise.all([
+    getStrategyDocs(ctx),
+    getCreditBalance(ctx),
+  ]);
 
   const existingTypes = docs.map((d) => d.doc_type);
 

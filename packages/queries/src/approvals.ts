@@ -83,49 +83,18 @@ export async function getApprovalStats(
   ctx: OrgContext,
   departmentId?: string,
 ): Promise<ApprovalStats> {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const since = sevenDaysAgo.toISOString();
+  const { data, error } = await ctx.client.rpc("get_approval_stats", {
+    p_org_id: ctx.orgId,
+    p_department_id: departmentId ?? null,
+  });
 
-  // Pending count
-  let pendingQuery = ctx.client
-    .from(TABLE)
-    .select("*", { count: "exact", head: true })
-    .eq("org_id", ctx.orgId)
-    .eq("status", "pending");
-  if (departmentId) pendingQuery = pendingQuery.eq("department_id", departmentId);
-  const { count: pending, error: e1 } = await pendingQuery;
+  if (error) throw new QueryError(error.message, TABLE, "getApprovalStats", ctx.orgId, error);
 
-  if (e1) throw new QueryError(e1.message, TABLE, "getApprovalStats", ctx.orgId, e1);
-
-  // Approved last 7 days
-  let approvedQuery = ctx.client
-    .from(TABLE)
-    .select("*", { count: "exact", head: true })
-    .eq("org_id", ctx.orgId)
-    .eq("status", "approved")
-    .gte("reviewed_at", since);
-  if (departmentId) approvedQuery = approvedQuery.eq("department_id", departmentId);
-  const { count: approved_7d, error: e2 } = await approvedQuery;
-
-  if (e2) throw new QueryError(e2.message, TABLE, "getApprovalStats", ctx.orgId, e2);
-
-  // Rejected last 7 days
-  let rejectedQuery = ctx.client
-    .from(TABLE)
-    .select("*", { count: "exact", head: true })
-    .eq("org_id", ctx.orgId)
-    .eq("status", "rejected")
-    .gte("reviewed_at", since);
-  if (departmentId) rejectedQuery = rejectedQuery.eq("department_id", departmentId);
-  const { count: rejected_7d, error: e3 } = await rejectedQuery;
-
-  if (e3) throw new QueryError(e3.message, TABLE, "getApprovalStats", ctx.orgId, e3);
-
+  const row = data?.[0] ?? { pending: 0, approved_7d: 0, rejected_7d: 0 };
   return {
-    pending: pending ?? 0,
-    approved_7d: approved_7d ?? 0,
-    rejected_7d: rejected_7d ?? 0,
+    pending: Number(row.pending),
+    approved_7d: Number(row.approved_7d),
+    rejected_7d: Number(row.rejected_7d),
   };
 }
 
