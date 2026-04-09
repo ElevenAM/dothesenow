@@ -25,12 +25,21 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  // If an auth code arrives on the wrong page (Supabase redirect_to fallback),
+  // forward it to /callback where it can be exchanged for a session.
+  const code = request.nextUrl.searchParams.get("code");
+  const path = request.nextUrl.pathname;
+  if (code && !path.startsWith("/callback")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/callback";
+    return NextResponse.redirect(url);
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   // Redirect unauthenticated users to login (except auth pages and API routes)
-  const path = request.nextUrl.pathname;
   const isAuthPage = path.startsWith("/login") || path.startsWith("/signup") || path.startsWith("/callback");
   const isApiRoute = path.startsWith("/api");
 
