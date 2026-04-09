@@ -71,3 +71,15 @@ export interface OutreachFilters {
   since_days?: number;
   limit?: number;
 }
+
+export type DocumentEntityType = "contact" | "campaign" | "strategy_doc" | "experiment";
+
+export interface DocumentFilters {
+  search?: string;
+  file_type?: string;
+  tags?: string[];
+  entity_type?: DocumentEntityType;
+  entity_id?: string;
+  page?: number;
+  pageSize?: number;
+}

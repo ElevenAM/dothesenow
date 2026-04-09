@@ -13,7 +13,10 @@ import { Separator } from "@/components/ui/separator";
 import { OutreachTimeline } from "./outreach-timeline";
 import { getOutreachHistory } from "@/lib/contacts/actions";
 import type { Contact, OutreachEntry } from "@/lib/contacts/actions";
-import { Loader2, Mail, Phone, Building, MapPin, Tag } from "lucide-react";
+import { Loader2, Mail, Phone, Building, MapPin, Tag, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 interface ContactSheetProps {
   contact: Contact | null;
@@ -22,6 +25,7 @@ interface ContactSheetProps {
 }
 
 export function ContactSheet({ contact, open, onOpenChange }: ContactSheetProps) {
+  const pathname = usePathname();
   const [outreach, setOutreach] = useState<OutreachEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -58,6 +62,18 @@ export function ContactSheet({ contact, open, onOpenChange }: ContactSheetProps)
             {contact.company && ` at ${contact.company}`}
           </SheetDescription>
         </SheetHeader>
+
+        <div className="py-2">
+          <Link
+            href={`${pathname.replace(/\/contacts.*/, "")}/contacts/${contact.id}`}
+            onClick={() => onOpenChange(false)}
+          >
+            <Button variant="outline" size="sm" className="w-full">
+              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+              View full details
+            </Button>
+          </Link>
+        </div>
 
         <div className="space-y-4 py-4">
           {/* Contact info */}

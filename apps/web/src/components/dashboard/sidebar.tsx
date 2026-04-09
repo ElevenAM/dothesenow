@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
+  FolderOpen,
   Users,
   CheckSquare,
   BarChart3,
@@ -15,6 +16,7 @@ import {
   Settings,
   LogOut,
   Building2,
+  Puzzle,
   ChevronsUpDown,
   Check,
 } from "lucide-react";
@@ -34,6 +36,7 @@ const navItems = [
   { href: "/strategy", label: "Strategy", icon: FileText },
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/documents", label: "Documents", icon: FolderOpen },
   { href: "/pipeline", label: "Pipeline", icon: BarChart3 },
   { href: "/results", label: "Results", icon: TrendingUp },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck },
@@ -43,6 +46,7 @@ const navItems = [
 const settingsItems = [
   { href: "/settings", label: "General", icon: Settings },
   { href: "/settings/team", label: "Team", icon: Users },
+  { href: "/settings/integrations", label: "Integrations", icon: Puzzle },
   { href: "/settings/billing", label: "Billing", icon: Building2 },
 ];
 

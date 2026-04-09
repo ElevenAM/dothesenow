@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
+import { PluginSetupBanner } from "@/components/dashboard/plugin-setup-banner";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
+import { getOrgApiKeys } from "@dothesenow/queries";
 import { CheckSquare, Users, ShieldCheck, FileText } from "lucide-react";
 
 export default async function DepartmentOverview({
@@ -15,6 +17,8 @@ export default async function DepartmentOverview({
   const supabase = await createClient();
 
   // Fetch summary stats
+  const apiKeys = await getOrgApiKeys({ client: supabase, orgId });
+
   const [tasksResult, contactsResult, approvalsResult, strategyResult] = await Promise.all([
     supabase
       .from("dtn_daily_tasks")
@@ -76,6 +80,8 @@ export default async function DepartmentOverview({
         <h1 className="text-2xl font-bold capitalize">{dept}</h1>
         <p className="text-muted-foreground">Department overview</p>
       </div>
+
+      <PluginSetupBanner apiKeyCount={apiKeys.length} />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (

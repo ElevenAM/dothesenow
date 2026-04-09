@@ -96,6 +96,9 @@ export interface Contact {
   lead_score: number;
   last_engaged: string | null;
   notes: string | null;
+  external_ids: Record<string, string>;
+  external_updated_at: string | null;
+  sync_status: string;
   created_at: string;
   updated_at: string;
 }
@@ -313,6 +316,9 @@ export interface UpdateContactInput {
   persona?: string | null;
   lead_score?: number | null;
   notes?: string | null;
+  external_ids?: Record<string, string>;
+  external_updated_at?: string | null;
+  sync_status?: string;
 }
 
 export interface CreateStrategyDocInput {
@@ -699,3 +705,237 @@ export interface RefinementRun {
   created_at: string;
   updated_at: string;
 }
+
+// ─── Documents ──────────────────────────────────────────────
+
+export interface Document {
+  id: string;
+  org_id: string;
+  title: string;
+  description: string | null;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  storage_path: string;
+  tags: string[];
+  uploaded_by: string | null;
+  contact_id: string | null;
+  campaign_id: string | null;
+  strategy_doc_id: string | null;
+  experiment_id: string | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateDocumentInput {
+  title: string;
+  description?: string | null;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  storage_path: string;
+  tags?: string[];
+  uploaded_by?: string;
+  contact_id?: string | null;
+  campaign_id?: string | null;
+  strategy_doc_id?: string | null;
+  experiment_id?: string | null;
+}
+
+export interface UpdateDocumentInput {
+  title?: string;
+  description?: string | null;
+  tags?: string[];
+  contact_id?: string | null;
+  campaign_id?: string | null;
+  strategy_doc_id?: string | null;
+  experiment_id?: string | null;
+}
+
+// ─── Contact Imports ───────────────────────────────────────
+
+export type ContactImportStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "partial"
+  | "cancelled";
+
+export interface ContactImport {
+  id: string;
+  org_id: string;
+  file_name: string;
+  status: ContactImportStatus;
+  total_rows: number | null;
+  max_rows: number;
+  imported_rows: number;
+  skipped_rows: number;
+  error_rows: number;
+  errors: ImportRowError[];
+  column_mapping: Record<string, string> | null;
+  storage_path: string | null;
+  uploaded_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImportRowError {
+  row_number: number;
+  field: string;
+  reason: string;
+}
+
+export interface CreateImportInput {
+  file_name: string;
+  storage_path: string;
+  column_mapping: Record<string, string>;
+  total_rows: number;
+  uploaded_by?: string;
+}
+
+export interface ImportProgressUpdate {
+  status?: ContactImportStatus;
+  imported_rows?: number;
+  skipped_rows?: number;
+  error_rows?: number;
+  errors?: ImportRowError[];
+  completed_at?: string;
+}
+
+// ─── Sync Infrastructure ───────────────────────────────────
+
+export type SyncLogStatus = "running" | "completed" | "failed";
+export type SyncType = "initial" | "incremental";
+export type SyncDirection = "inbound" | "outbound" | "bidirectional";
+
+export interface SyncLog {
+  id: string;
+  org_id: string;
+  integration_type: string;
+  sync_type: SyncType;
+  direction: string;
+  status: SyncLogStatus;
+  records_processed: number;
+  records_created: number;
+  records_updated: number;
+  records_failed: number;
+  errors: Json;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface CreateSyncLogInput {
+  integration_type: string;
+  sync_type: SyncType;
+  direction?: string;
+}
+
+export interface UpdateSyncLogInput {
+  status?: SyncLogStatus;
+  records_processed?: number;
+  records_created?: number;
+  records_updated?: number;
+  records_failed?: number;
+  errors?: unknown[];
+  completed_at?: string;
+}
+
+// ─── HubSpot Field Mappings ────────────────────────────────
+
+export type HubSpotFieldDirection = "hubspot_to_dtn" | "dtn_to_hubspot" | "bidirectional";
+
+export interface HubSpotFieldMapping {
+  id: string;
+  org_id: string;
+  hubspot_property: string;
+  dtn_field: string;
+  direction: HubSpotFieldDirection;
+  transform_config: Json;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpsertFieldMappingInput {
+  hubspot_property: string;
+  dtn_field: string;
+  direction?: HubSpotFieldDirection;
+  transform_config?: Json;
+}
+
+// ─── External Metrics ──────────────────────────────────────
+
+export interface ExternalMetric {
+  id: string;
+  org_id: string;
+  source: string;
+  metric_type: string | null;
+  metric_name: string;
+  metric_value: number;
+  dimensions: Record<string, string>;
+  period_start: string;
+  period_end: string;
+  recorded_at: string;
+  raw_data: Json | null;
+  experiment_id: string | null;
+  created_at: string;
+}
+
+export interface CreateExternalMetricInput {
+  source: string;
+  metric_type?: string;
+  metric_name: string;
+  metric_value: number;
+  dimensions?: Record<string, string>;
+  period_start: string;
+  period_end: string;
+  raw_data?: Json;
+  experiment_id?: string;
+}
+
+export interface MetricTrendPoint {
+  period_start: string;
+  period_end: string;
+  metric_value: number;
+}
+
+export interface MetricsSummary {
+  source: string;
+  metric_name: string;
+  total_value: number;
+  count: number;
+  latest_period_start: string;
+}
+
+// ─── Webhook Subscriptions ─────────────────────────────────
+
+export interface WebhookSubscription {
+  id: string;
+  org_id: string;
+  event_type: string;
+  target_url: string;
+  vault_secret_id: string;
+  is_active: boolean;
+  last_triggered_at: string | null;
+  last_failure_at: string | null;
+  failure_count: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateWebhookSubscriptionInput {
+  event_type: string;
+  target_url: string;
+}
+
+export type WebhookEventType =
+  | "task.created"
+  | "task.status_changed"
+  | "experiment.completed"
+  | "strategy.refined"
+  | "contact.created"
+  | "contact.updated";

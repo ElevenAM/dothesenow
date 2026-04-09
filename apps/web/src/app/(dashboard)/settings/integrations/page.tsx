@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrgId } from "@/lib/org-context";
-import { getOrgIntegrations, getOrgApiKeys } from "@dothesenow/queries";
+import { getOrgIntegrations, getOrgApiKeys, getLatestSyncLog } from "@dothesenow/queries";
 import { getAllExecutorMetadata } from "@/lib/executors/registry";
 import { IntegrationCard } from "@/components/settings/integration-card";
 import { SlackIntegrationCard } from "@/components/settings/slack-integration-card";
+import { HubSpotIntegrationCard } from "@/components/settings/hubspot-integration-card";
 import { ClaudePluginCard } from "@/components/settings/claude-plugin-card";
+import { PlatformStatusBanner } from "@/components/settings/platform-status-banner";
 
 export default async function IntegrationsPage() {
   const supabase = await createClient();
@@ -27,6 +29,19 @@ export default async function IntegrationsPage() {
     ? ((slackIntegration.config as Record<string, unknown>)?.team_name as string) ?? null
     : null;
 
+  // Fetch HubSpot integration
+  const hubspotIntegration = integrations.find(
+    (i) => i.integration_type === "hubspot",
+  ) ?? null;
+
+  const hubId = hubspotIntegration?.is_active
+    ? ((hubspotIntegration.config as Record<string, unknown>)?.hub_id as string) ?? null
+    : null;
+
+  const hubspotLastSync = hubspotIntegration?.is_active
+    ? await getLatestSyncLog(ctx, "hubspot")
+    : null;
+
   // Fetch API keys for Claude Plugin card
   const apiKeys = await getOrgApiKeys(ctx);
   const claudeLastUsed = apiKeys.reduce<string | null>((latest, key) => {
@@ -43,6 +58,8 @@ export default async function IntegrationsPage() {
       integrations.some((i) => i.integration_type === m.type),
   );
 
+  const hasClaudeApiKey = !!process.env.ANTHROPIC_API_KEY;
+
   return (
     <div className="space-y-6">
       <div>
@@ -53,6 +70,8 @@ export default async function IntegrationsPage() {
         </p>
       </div>
 
+      <PlatformStatusBanner hasClaudeApiKey={hasClaudeApiKey} />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <ClaudePluginCard
           keyCount={apiKeys.length}
@@ -61,6 +80,11 @@ export default async function IntegrationsPage() {
         <SlackIntegrationCard
           integration={slackIntegration}
           teamName={slackTeamName}
+        />
+        <HubSpotIntegrationCard
+          integration={hubspotIntegration}
+          hubId={hubId}
+          lastSync={hubspotLastSync}
         />
         {configurableExecutors.map((executor) => (
           <IntegrationCard

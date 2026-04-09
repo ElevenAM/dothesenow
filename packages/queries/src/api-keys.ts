@@ -26,6 +26,7 @@ export interface OrgApiKey {
 export interface ValidatedApiKey {
   orgId: string;
   keyId: string;
+  scopes: string[];
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -125,7 +126,7 @@ export async function validateApiKey(
 
   const { data, error } = await adminClient
     .from(TABLE)
-    .select("id, org_id, is_active, expires_at")
+    .select("id, org_id, scopes, is_active, expires_at")
     .eq("key_hash", hash)
     .maybeSingle();
 
@@ -149,7 +150,7 @@ export async function validateApiKey(
     .eq("id", data.id)
     .then(() => {});
 
-  return { orgId: data.org_id, keyId: data.id };
+  return { orgId: data.org_id, keyId: data.id, scopes: data.scopes ?? ["mcp"] };
 }
 
 /**

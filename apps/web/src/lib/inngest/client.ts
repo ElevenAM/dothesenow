@@ -84,6 +84,41 @@ export type Events = {
   "strategy/refine": {
     data: { org_id: string; triggered_by: string; refinement_id: string };
   };
+  "contacts/import.requested": {
+    data: { import_id: string; org_id: string; storage_path: string };
+  };
+  "hubspot/initial-sync.requested": {
+    data: { org_id: string };
+  };
+  "hubspot/incremental-sync": {
+    data: { org_id: string };
+  };
+  "hubspot/outbound-sync.contact": {
+    data: { org_id: string; contact_id: string };
+  };
+  "hubspot/webhook.received": {
+    data: {
+      org_id: string;
+      event_type: string;
+      object_id: string;
+      event_id: string;
+    };
+  };
+  "metrics/ga-sync.daily": {
+    data: { org_id: string };
+  };
+  "metrics/weekly-aggregate": {
+    data: { org_id: string };
+  };
+  "webhook/deliver": {
+    data: {
+      subscription_id: string;
+      org_id: string;
+      event_type: string;
+      payload: Record<string, unknown>;
+      attempt: number;
+    };
+  };
 };
 
 export const inngest = new Inngest({ id: "dothesenow" });

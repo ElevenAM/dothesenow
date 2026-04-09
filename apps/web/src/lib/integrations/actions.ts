@@ -16,6 +16,7 @@ import {
 } from "@dothesenow/queries";
 import { getExecutor } from "@/lib/executors/registry";
 import { buildAuthorizeUrl } from "@/lib/slack/oauth";
+import { buildAuthorizeUrl as buildHubSpotAuthorizeUrl } from "@/lib/hubspot/oauth";
 
 /**
  * Connect an integration by storing its config and secrets.
@@ -151,6 +152,67 @@ export async function initiateSlackOAuth(): Promise<void> {
 
   const authorizeUrl = buildAuthorizeUrl(state);
   redirect(authorizeUrl);
+}
+
+// ─── HubSpot-specific actions ──────────────────────────────
+
+const HUBSPOT_STATE_COOKIE = "dtn_hubspot_oauth_state";
+
+/**
+ * Initiate HubSpot OAuth flow.
+ * Sets a CSRF state cookie and redirects to HubSpot's authorize URL.
+ */
+export async function initiateHubSpotOAuth(): Promise<void> {
+  const { auth } = await getAuthenticatedOrgContext();
+
+  const state = randomBytes(32).toString("hex");
+  const cookieStore = await cookies();
+  cookieStore.set(HUBSPOT_STATE_COOKIE, state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600,
+    path: "/",
+  });
+
+  const authorizeUrl = buildHubSpotAuthorizeUrl(state);
+  redirect(authorizeUrl);
+}
+
+/**
+ * Disconnect HubSpot integration.
+ * Cleans up: Vault secret, dtn_org_integrations, dtn_hubspot_field_mappings.
+ */
+export async function disconnectHubSpot(): Promise<void> {
+  const { auth, ctx } = await getAuthenticatedOrgContext();
+
+  // Verify admin/owner role
+  const memberships = await getMembershipsForOrg(ctx);
+  const currentMembership = memberships.find(
+    (m) => m.user_id === auth.user.id,
+  );
+  if (!currentMembership || !["owner", "admin"].includes(currentMembership.role)) {
+    throw new Error("Only admins and owners can manage integrations");
+  }
+
+  const adminClient = createAdminClient();
+
+  // Delete Vault secret + deactivate org integration
+  const existing = await getOrgIntegration(ctx, "hubspot");
+  if (existing) {
+    if (existing.vault_secret_id) {
+      await deleteIntegrationSecret(adminClient, existing.vault_secret_id);
+    }
+    await deactivateOrgIntegration(adminClient, ctx.orgId, "hubspot");
+  }
+
+  // Clean up field mappings
+  await adminClient
+    .from("dtn_hubspot_field_mappings")
+    .delete()
+    .eq("org_id", ctx.orgId);
+
+  revalidatePath("/settings/integrations");
 }
 
 /**

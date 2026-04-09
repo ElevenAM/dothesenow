@@ -6,19 +6,28 @@ import {
   getContactsForOrg,
   getContactById,
   getOutreachLog,
+  logOutreach as sharedLogOutreach,
   createContact as sharedCreateContact,
   updateContact as sharedUpdateContact,
+  createImport,
+  getImportsForOrg,
+  getImport,
+  updateImportProgress,
   type PaginatedContacts,
 } from "@dothesenow/queries";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { inngest } from "@/lib/inngest/client";
 import type {
   Contact,
   OutreachEntry,
   ContactFilters,
+  ContactImport,
   CreateContactInput,
   UpdateContactInput,
+  LogOutreachInput,
 } from "@dothesenow/types";
 
-export type { Contact, OutreachEntry } from "@dothesenow/types";
+export type { Contact, OutreachEntry, ContactImport } from "@dothesenow/types";
 export type { PaginatedContacts } from "@dothesenow/queries";
 
 /** Accepts string-typed filter values from search params and forwards to shared queries. */
@@ -62,7 +71,7 @@ export async function createContact(
 const ALLOWED_UPDATE_FIELDS = [
   "first_name", "last_name", "email", "phone", "company", "title",
   "contact_type", "status", "lifecycle_stage", "tags", "location",
-  "source", "persona", "notes",
+  "source", "persona", "notes", "lead_score",
 ] as const;
 
 export async function updateContact(
@@ -82,4 +91,67 @@ export async function updateContact(
   const contact = await sharedUpdateContact(ctx, contactId, filtered as UpdateContactInput);
   revalidatePath("/", "layout");
   return contact;
+}
+
+export async function logContactOutreach(
+  contactId: string,
+  entry: Omit<LogOutreachInput, "contact_id">,
+): Promise<OutreachEntry> {
+  const { ctx } = await getAuthenticatedOrgContext();
+  const result = await sharedLogOutreach(ctx, { ...entry, contact_id: contactId });
+  revalidatePath("/", "layout");
+  return result;
+}
+
+// ─── CSV Import actions ────────────────────────────────────
+
+export async function startContactImport(input: {
+  file_name: string;
+  storage_path: string;
+  column_mapping: Record<string, string>;
+  total_rows: number;
+}): Promise<ContactImport> {
+  const { auth, ctx } = await getAuthenticatedOrgContext();
+  const adminClient = createAdminClient();
+
+  const importRecord = await createImport(adminClient, ctx.orgId, {
+    ...input,
+    uploaded_by: auth.user.id,
+  });
+
+  await inngest.send({
+    name: "contacts/import.requested",
+    data: {
+      import_id: importRecord.id,
+      org_id: ctx.orgId,
+      storage_path: input.storage_path,
+    },
+  });
+
+  return importRecord;
+}
+
+export async function getContactImports(): Promise<ContactImport[]> {
+  const { ctx } = await getAuthenticatedOrgContext();
+  return getImportsForOrg(ctx);
+}
+
+export async function getContactImport(importId: string): Promise<ContactImport | null> {
+  const { ctx } = await getAuthenticatedOrgContext();
+  return getImport(ctx, importId);
+}
+
+export async function cancelContactImport(importId: string): Promise<void> {
+  const { ctx } = await getAuthenticatedOrgContext();
+
+  // Verify the import belongs to this org
+  const record = await getImport(ctx, importId);
+  if (!record) throw new Error("Import not found");
+  if (record.status !== "processing" && record.status !== "pending") {
+    throw new Error("Import cannot be cancelled in its current state");
+  }
+
+  const adminClient = createAdminClient();
+  await updateImportProgress(adminClient, importId, { status: "cancelled" });
+  revalidatePath("/", "layout");
 }

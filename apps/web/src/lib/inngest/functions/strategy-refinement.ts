@@ -13,6 +13,7 @@ import {
   getExperimentsForOrg,
   getAllExperimentResultsForOrg,
   createApproval,
+  getMetricsSummary,
 } from "@dothesenow/queries";
 import type { OrgContext } from "@dothesenow/queries";
 import type { Industry, BudgetTier, ExperimentResult } from "@dothesenow/types";
@@ -333,10 +334,15 @@ export const strategyRefinement = inngest.createFunction(
     idempotency: "event.data.refinement_id",
     retries: 1,
     onFailure: async ({ event, error }) => {
-      const { org_id, refinement_id } = event.data.event.data as {
-        org_id: string;
-        refinement_id: string;
-      };
+      const innerData = event.data?.event?.data as Record<string, unknown> | undefined;
+      const org_id = typeof innerData?.org_id === "string" ? innerData.org_id : null;
+      const refinement_id = typeof innerData?.refinement_id === "string" ? innerData.refinement_id : null;
+
+      if (!org_id || !refinement_id) {
+        console.error("[inngest:refine] onFailure: could not extract org_id/refinement_id from event");
+        return;
+      }
+
       console.error(
         `[inngest:refine] Failed for org ${org_id}:`,
         error.message,
@@ -417,12 +423,14 @@ export const strategyRefinement = inngest.createFunction(
         channelPerf,
         allExperiments,
         allResults,
+        externalMetricsSummary,
       ] = await Promise.all([
         getOrgById(supabase, org_id),
         getStrategyDocs(ctx, { is_active: true, doc_type: "master_strategy" }),
         getChannelPerformance(ctx, periodStart, periodEnd),
         getExperimentsForOrg(ctx),
         getAllExperimentResultsForOrg(ctx, { since: thirtyDaysAgo.toISOString() }),
+        getMetricsSummary(ctx, { periodStart, periodEnd }),
       ]);
 
       if (!orgRecord) throw new Error(`Organization ${org_id} not found`);
@@ -529,6 +537,9 @@ export const strategyRefinement = inngest.createFunction(
         totalTasks,
         daysOfData,
         redFlags,
+        externalMetrics: externalMetricsSummary.filter(
+          (m) => m.source !== "weekly_aggregate",
+        ),
       };
     });
 
@@ -558,15 +569,26 @@ export const strategyRefinement = inngest.createFunction(
       return { success: true, skipped: true, org_id, refinement_id };
     }
 
-    // Step 4: Build prompt
+    // Step 4: Build prompt (includes external metrics as additional context)
     const promptResult = await step.run("build-prompt", async () => {
       const benchmarks = getIndustryBenchmarks(context.orgProfile.industry);
-      return assembleRefinerPrompt(
+      const result = assembleRefinerPrompt(
         context.orgProfile,
         context.strategyDoc.content,
         context.performanceData,
         benchmarks,
       );
+
+      // Append external metrics to user prompt if available
+      if (context.externalMetrics.length > 0) {
+        const metricsBlock = context.externalMetrics
+          .map((m) => `- ${m.source} / ${m.metric_name}: ${m.total_value.toLocaleString()} (${m.count} data points)`)
+          .join("\n");
+
+        result.userPrompt += `\n\n## External Metrics (Last 30 Days)\n${metricsBlock}`;
+      }
+
+      return result;
     });
 
     // Step 5: Reserve credits

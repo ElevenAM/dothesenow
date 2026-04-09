@@ -6,6 +6,7 @@ import {
   getTasksForOrg,
   getExperimentsForOrg,
   createWeeklyReview,
+  getMetricsForWeek,
 } from "@dothesenow/queries";
 import type { OrgContext } from "@dothesenow/queries";
 
@@ -153,7 +154,32 @@ export const weeklyRetrospectiveHandler = inngest.createFunction(
       };
     });
 
-    // Step 5: Build retrospective content
+    // Step 5: Aggregate external metrics for the week
+    const externalMetrics = await step.run("aggregate-external-metrics", async () => {
+      const ctx: OrgContext = { client: supabase, orgId: org_id };
+      const metrics = await getMetricsForWeek(ctx, weekRange.week_start, weekRange.week_end);
+
+      // Skip weekly_aggregate rows to avoid double counting
+      const raw = metrics.filter((m) => m.source !== "weekly_aggregate");
+
+      // Summarize by metric name
+      const summary: Record<string, number> = {};
+      for (const m of raw) {
+        const key = m.metric_name;
+        summary[key] = (summary[key] ?? 0) + Number(m.metric_value);
+      }
+
+      return {
+        hasMetrics: raw.length > 0,
+        sessions: summary.sessions ?? null,
+        page_views: summary.page_views ?? null,
+        conversions: summary.conversions ?? null,
+        bounce_rate: summary.bounce_rate ?? null,
+        sources: [...new Set(raw.map((m) => m.source))],
+      };
+    });
+
+    // Step 6: Build retrospective content
     // For the initial implementation, generate a structured summary without
     // Claude API. AI-powered summaries will be enhanced in Phase 9B.
     const retro = await step.run("build-retrospective", async () => {
@@ -206,6 +232,16 @@ export const weeklyRetrospectiveHandler = inngest.createFunction(
         }
       }
 
+      // Include external metrics in wins/challenges if available
+      if (externalMetrics.hasMetrics) {
+        if (externalMetrics.sessions != null) {
+          wins.push(`${Math.round(externalMetrics.sessions).toLocaleString()} sessions this week`);
+        }
+        if (externalMetrics.conversions != null && externalMetrics.conversions > 0) {
+          wins.push(`${Math.round(externalMetrics.conversions)} conversions tracked`);
+        }
+      }
+
       return {
         metrics: {
           total_tasks: taskStats.total,
@@ -215,6 +251,12 @@ export const weeklyRetrospectiveHandler = inngest.createFunction(
           skipped: taskStats.skipped,
           completion_rate: completionRate,
           experiments_running: experimentStats.running,
+          // External metrics
+          sessions: externalMetrics.sessions,
+          page_views: externalMetrics.page_views,
+          conversions: externalMetrics.conversions,
+          bounce_rate: externalMetrics.bounce_rate,
+          metric_sources: externalMetrics.sources,
         },
         wins: wins.length > 0 ? wins : null,
         challenges: challenges.length > 0 ? challenges : null,
@@ -222,7 +264,7 @@ export const weeklyRetrospectiveHandler = inngest.createFunction(
       };
     });
 
-    // Step 6: Insert retrospective (ON CONFLICT guard via catch for TOCTOU safety)
+    // Step 7: Insert retrospective (ON CONFLICT guard via catch for TOCTOU safety)
     const result = await step.run("insert-retrospective", async () => {
       const ctx: OrgContext = { client: supabase, orgId: org_id };
       try {

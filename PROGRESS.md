@@ -1,6 +1,6 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Phase 1–5 complete. Phase 6 complete. Phase 7 complete. Phase 8 complete (Slack OAuth, commands, morning DM, EOD summary, thread sync). Phase 9 ready to start. [2B], [2C] not started.
+> **Status**: Phases 1–9B all complete and verified. Phase 0 stabilization complete. Phase 10 partially complete (10A, 10B done). Blog CRUD, Settings General page, plugin discoverability, and Tasks page FK fix shipped.
 >
 > Last updated: 2026-04-08
 
@@ -17,11 +17,11 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | **Phase 1** | Foundation: Auth safety, types & test infrastructure | **COMPLETE** |
 | [1A] | Auth & org context fix + Vitest setup | **Merged to main** |
 | [1B] | Shared type & query packages (`packages/types/`, `packages/queries/`) | **Merged to main** |
-| **Phase 2** | DB hardening, UI safety & first user-visible win | **IN PROGRESS** |
+| **Phase 2** | DB hardening, UI safety & first user-visible win | **COMPLETE** |
 | [2A] | Database hardening (RLS, soft delete, task event log) | **Complete** — 3 migrations applied |
-| [2B] | Error boundaries, loading states & Playwright E2E setup | Not started |
-| [2C] | Onboarding wizard — 3-step flow (first user-facing improvement) | Not started |
-| **Phase 3** | Migrate web & MCP to shared layer | **IN PROGRESS** |
+| [2B] | Error boundaries, loading states & Playwright E2E setup | **Complete** — error-boundary, page-skeleton, empty-state, Playwright config + 3 smoke tests |
+| [2C] | Onboarding wizard — 3-step flow (first user-facing improvement) | **Complete** — wizard, selectors, inference, migration 014, 9 templates, strategy generator dialog |
+| **Phase 3** | Migrate web & MCP to shared layer | **COMPLETE** |
 | [3A] | MCP server → shared queries | **Complete** — merged + review fixes applied |
 | [3B] | Web server actions → shared queries | **Complete** — merged to main |
 | **Phase 4** | Inngest & credit system (async foundation) | **COMPLETE** |
@@ -29,19 +29,30 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | [4B] | Credit system + pricing tier migration | **Complete** — merged to main (3 migrations: 017, 018, 019) |
 | **Phase 5** | Integration: Wire credits to Inngest | **COMPLETE** |
 | [5A] | Credits ↔ Inngest wiring | **Complete** — merged to main |
-| **Phase 6** | Intelligence: Strategy generation & task decomposition | **IN PROGRESS** |
-| [6A] | Strategy generation engine | **Implementation complete** — code written, builds pass, migration 020 ready |
-| [6B] | Task decomposition engine | Planned |
-| **Phase 7** | Agentic: Blocker resolution | Blocked on Phase 6 |
-| [7A] | Blocker resolution agent (5-type classification) | Planned |
+| **Phase 6** | Intelligence, decomposition & executor framework | **COMPLETE** |
+| [6A] | Strategy generation engine | **Complete** — packages/prompts, framework library, Inngest pipeline, migration 020 |
+| [6B] | Task decomposition engine | **Complete** — decomposer prompts, Inngest pipeline, Generate Tasks button, migration 021 |
+| [6C] | Executor integration framework + Jasper BYOS | **Complete** — registry, Claude/n8n/Jasper executors, integration-card UI, migration 022 |
+| **Phase 7** | Agentic: Blocker resolution | **COMPLETE** |
+| [7A] | Blocker resolution agent (5-type classification) | **Complete** — classifier, research/draft agents, Inngest pipeline, blocker dialog, migration 023 |
 | **Phase 8** | Slack integration | **COMPLETE** |
 | [8A] | Slack OAuth + core handlers | **Implementation complete** — code written, builds pass, 24 tests, migrations 024-025 applied |
 | [8B] | Slack cron functions (morning DM, EOD summary, thread sync) | **Implementation complete** — code written, builds pass, 43 tests (4 new files), migration 026 applied |
-| **Phase 9** | Closed loop: Results & feedback | Ready to start |
-| [9A] | Results dashboard | Planned |
-| [9B] | Feedback engine (strategy auto-refinement) | Planned |
-| **Phase 10** | Collaboration & ecosystem | Blocked on Phase 9 |
-| **Phase 11** | Scale & growth | Blocked on Phase 10 |
+| **Phase 9** | Closed loop: Results & feedback | **COMPLETE** |
+| [9A] | Results dashboard, experiments table, weekly retrospective | **Complete** — merged to main |
+| [9B] | Feedback engine (strategy auto-refinement) | **Complete** — merged to main |
+| **Phase 0** | Stabilization (prerequisites for Phase 10+) | **COMPLETE** |
+| [0A] | Fix Tasks page (error boundary + department auto-create) | **Complete** — error.tsx + self-healing getDepartmentId |
+| [0B] | Free-tier 50 credits (migration 031 + org creation seed) | **Complete** — migration applied, org creation updated |
+| [0C] | ANTHROPIC_API_KEY status banner in settings | **Complete** — PlatformStatusBanner component |
+| [0D] | Strategy manual editing | **Already existed** — DocEditor with markdown, versioning, Ctrl+S |
+| **Phase 10** | Documents, CRM, HubSpot, Metrics, Zapier API | **PLANNED** |
+| [10A] | Document upload & management (Supabase Storage) | **Complete** — migration 032 applied, storage bucket + RLS, upload/preview/edit UI, sidebar nav |
+| [10B] | Contact detail/edit page (standalone CRM) | **Complete** — full detail page with all fields editable, outreach logging, linked docs, lead scoring |
+| [10C] | CSV import + HubSpot sync prep | Planned — Phase 2 in plan |
+| [10D] | HubSpot CRM integration (OAuth, 2-way sync) | Planned — Phase 3 in plan |
+| [10E] | External metrics ingestion (GA, SEO, manual) | Planned — Phase 4 in plan |
+| [10F] | Zapier API + webhook infrastructure | Planned — Phase 5 in plan |
 
 ### Testing Growth Per Phase
 | Phase | Tests Added | Cumulative |

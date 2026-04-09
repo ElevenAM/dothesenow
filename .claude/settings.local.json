@@ -80,7 +80,16 @@
       "Bash(git remote:*)",
       "Bash(gh api:*)",
       "Bash(python3 -m json.tool)",
-      "Bash(python3 -c \"import json,sys; reviews=json.load\\(sys.stdin\\); [print\\(r['user']['login'], r['state'], r['body'][:500] if r['body'] else ''\\) for r in reviews]\")"
+      "Bash(python3 -c \"import json,sys; reviews=json.load\\(sys.stdin\\); [print\\(r['user']['login'], r['state'], r['body'][:500] if r['body'] else ''\\) for r in reviews]\")",
+      "Bash(nvm ls:*)",
+      "Bash(fnm list:*)",
+      "Read(//Users/liam/.nvm/versions/node/**)",
+      "Bash(nvm install:*)",
+      "Bash(brew list:*)",
+      "Bash(brew ls:*)",
+      "Bash(ls /usr/local/bin/node*)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(/usr/local/bin/node --version)"
     ]
   }
 }

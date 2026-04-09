@@ -113,9 +113,22 @@ export async function createOrganization(
     });
 
   if (deptError) {
-    // Non-fatal: org and membership exist, department can be created later
+    // Fatal: department is required for dashboard navigation
     console.error("Failed to create default department:", deptError);
+    // Rollback: delete membership and org
+    await admin.from("dtn_memberships").delete().eq("org_id", org.id);
+    await admin.from("dtn_organizations").delete().eq("id", org.id);
+    return { error: "Failed to create organization. Please try again." };
   }
+
+  // Seed initial credits (50 for free tier) with an auditable ledger entry
+  await admin.from("dtn_credit_ledger").insert({
+    org_id: org.id,
+    amount: 50,
+    balance_after: 50,
+    reason: "Initial free-tier grant (50 credits)",
+    status: "confirmed",
+  });
 
   // Set active org cookie
   await setActiveOrgId(org.id);

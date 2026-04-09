@@ -4,7 +4,7 @@
     {
       "name": "web",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "source ~/.nvm/nvm.sh && nvm use 22 && npm run dev --workspace=apps/web"],
+      "runtimeArgs": ["-c", "export PATH=/usr/local/bin:$PATH && npm run dev --workspace=apps/web"],
       "port": 3000
     }
   ]

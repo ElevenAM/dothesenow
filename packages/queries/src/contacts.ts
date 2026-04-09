@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OrgContext } from "./context.js";
 import type {
   Contact,
@@ -183,6 +184,72 @@ export async function logOutreach(
   }
 
   return data as OutreachEntry;
+}
+
+/**
+ * Upsert a contact by email — used by CSV import and HubSpot sync.
+ * If a non-deleted contact with the same (org_id, email) exists, it updates.
+ * Otherwise it inserts. Requires the idx_contacts_org_email unique index.
+ * Uses admin client to bypass RLS (called from Inngest functions).
+ */
+export async function upsertContactByEmail(
+  adminClient: SupabaseClient,
+  orgId: string,
+  contact: CreateContactInput & { owner_id?: string },
+): Promise<Contact> {
+  if (!contact.email) {
+    // No email means we can't dedup — just insert
+    const { data, error } = await adminClient
+      .from(CONTACTS_TABLE)
+      .insert({ ...contact, org_id: orgId })
+      .select()
+      .single();
+
+    if (error) throw new QueryError(error.message, CONTACTS_TABLE, "upsertContactByEmail", orgId, error);
+    return data as Contact;
+  }
+
+  // Check for existing contact with this email in the org (non-deleted)
+  const { data: existing, error: lookupError } = await adminClient
+    .from(CONTACTS_TABLE)
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("email", contact.email)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (lookupError) throw new QueryError(lookupError.message, CONTACTS_TABLE, "upsertContactByEmail", orgId, lookupError);
+
+  if (existing) {
+    // Update existing contact — merge non-null fields
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(contact)) {
+      if (value != null && key !== "email") {
+        updates[key] = value;
+      }
+    }
+
+    const { data, error } = await adminClient
+      .from(CONTACTS_TABLE)
+      .update(updates)
+      .eq("id", existing.id)
+      .eq("org_id", orgId)
+      .select()
+      .single();
+
+    if (error) throw new QueryError(error.message, CONTACTS_TABLE, "upsertContactByEmail", orgId, error);
+    return data as Contact;
+  }
+
+  // Insert new contact
+  const { data, error } = await adminClient
+    .from(CONTACTS_TABLE)
+    .insert({ ...contact, org_id: orgId })
+    .select()
+    .single();
+
+  if (error) throw new QueryError(error.message, CONTACTS_TABLE, "upsertContactByEmail", orgId, error);
+  return data as Contact;
 }
 
 const PIPELINE_VIEW = "mktg_pipeline_summary";

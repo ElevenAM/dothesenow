@@ -15,7 +15,7 @@ const TABLE = "dtn_daily_tasks";
 const SUMMARY_VIEW = "dtn_daily_tasks_summary";
 
 const PROFILE_SELECT =
-  "*, assigned_profile:profiles!dtn_daily_tasks_assigned_to_fkey(display_name, email), creator_profile:profiles!dtn_daily_tasks_created_by_fkey(display_name, email)";
+  "*, assigned_profile:profiles!dtn_daily_tasks_assigned_to_profiles_fkey(display_name, email), creator_profile:profiles!dtn_daily_tasks_created_by_profiles_fkey(display_name, email)";
 
 export async function getTasksForOrg(
   ctx: OrgContext,

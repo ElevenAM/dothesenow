@@ -27,6 +27,24 @@ import {
   strategyRefinementCron,
   strategyRefinement,
 } from "./strategy-refinement";
+import { contactCsvImport } from "./contact-csv-import";
+import { hubspotInitialSync } from "./hubspot-initial-sync";
+import {
+  hubspotIncrementalSyncCron,
+  hubspotIncrementalSyncHandler,
+} from "./hubspot-incremental-sync";
+import { hubspotOutboundSync } from "./hubspot-outbound-sync";
+import { hubspotWebhookHandler } from "./hubspot-webhook-handler";
+import {
+  googleAnalyticsSyncCron,
+  googleAnalyticsSyncHandler,
+} from "./google-analytics-sync";
+import {
+  metricsWeeklyAggregatorCron,
+  metricsWeeklyAggregatorHandler,
+} from "./metrics-weekly-aggregator";
+import { webhookDelivery } from "./webhook-delivery";
+import { dailyMaintenanceCleanup } from "./daily-maintenance-cleanup";
 
 /**
  * All Inngest functions registered with the app.
@@ -53,4 +71,16 @@ export const functions = [
   weeklyRetrospectiveHandler,
   strategyRefinementCron,
   strategyRefinement,
+  contactCsvImport,
+  hubspotInitialSync,
+  hubspotIncrementalSyncCron,
+  hubspotIncrementalSyncHandler,
+  hubspotOutboundSync,
+  hubspotWebhookHandler,
+  googleAnalyticsSyncCron,
+  googleAnalyticsSyncHandler,
+  metricsWeeklyAggregatorCron,
+  metricsWeeklyAggregatorHandler,
+  webhookDelivery,
+  dailyMaintenanceCleanup,
 ];
