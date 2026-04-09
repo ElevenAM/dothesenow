@@ -33,8 +33,8 @@ export interface TeamMember {
   specialties: string[];
 }
 
-function todayString(timezone = "America/New_York"): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+function todayString(timezone?: string | null): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: timezone ?? "America/New_York" });
 }
 
 export async function createDailyTask(
