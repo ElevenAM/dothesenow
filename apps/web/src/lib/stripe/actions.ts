@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getStripe } from "@/lib/stripe/client";
 import { PLANS, type PlanId } from "@/lib/stripe/config";
-import { PLAN_PRICE_IDS } from "@dothesenow/types";
+import { PLAN_PRICE_IDS, CREDIT_PACKS } from "@dothesenow/types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -150,6 +150,87 @@ export async function createPortalSession() {
     customer: org.stripe_customer_id,
     return_url: `${origin}/settings/billing`,
   });
+
+  redirect(session.url);
+}
+
+/**
+ * Create a Stripe Checkout Session for a one-time credit pack purchase.
+ * Available to all plans (free, starter, etc.) — not gated by current plan.
+ */
+export async function createCreditCheckoutSession(packId: string) {
+  const pack = CREDIT_PACKS.find((p) => p.id === packId);
+  if (!pack) {
+    throw new Error(`Unknown credit pack: ${packId}`);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Not authenticated");
+  }
+
+  const { data: membership } = await supabase
+    .from("dtn_memberships")
+    .select(
+      "org_id, role, dtn_organizations(id, name, stripe_customer_id)"
+    )
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .single();
+
+  if (!membership) {
+    throw new Error("No active organization membership");
+  }
+
+  if (membership.role !== "owner" && membership.role !== "admin") {
+    throw new Error("Only owners and admins can purchase credits");
+  }
+
+  const org = membership.dtn_organizations as unknown as {
+    id: string;
+    name: string;
+    stripe_customer_id: string | null;
+  };
+
+  // Get or create Stripe customer
+  let customerId = org.stripe_customer_id;
+
+  if (!customerId) {
+    const customer = await getStripe().customers.create({
+      email: user.email,
+      metadata: { org_id: org.id, org_name: org.name },
+    });
+    customerId = customer.id;
+
+    await supabase
+      .from("dtn_organizations")
+      .update({ stripe_customer_id: customerId })
+      .eq("id", org.id);
+  }
+
+  const headersList = await headers();
+  const origin = headersList.get("origin") || "http://localhost:3000";
+
+  const session = await getStripe().checkout.sessions.create({
+    customer: customerId,
+    line_items: [{ price: pack.stripePriceId, quantity: 1 }],
+    mode: "payment",
+    success_url: `${origin}/settings/billing?credit_purchase=success`,
+    cancel_url: `${origin}/settings/billing?credit_purchase=canceled`,
+    metadata: {
+      org_id: org.id,
+      credit_pack_id: pack.id,
+      credits: pack.credits.toString(),
+    },
+  });
+
+  if (!session.url) {
+    throw new Error("Failed to create checkout session");
+  }
 
   redirect(session.url);
 }

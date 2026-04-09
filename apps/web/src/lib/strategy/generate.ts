@@ -5,8 +5,6 @@ import { getCreditBalance } from "@dothesenow/queries";
 import { inngest } from "@/lib/inngest/client";
 import { STRATEGY_GENERATION_COST } from "@dothesenow/prompts";
 
-export { STRATEGY_GENERATION_COST };
-
 export async function generateStrategy(): Promise<{
   success: boolean;
   error?: string;

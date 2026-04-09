@@ -57,6 +57,9 @@ export default async function DashboardLayout({
         orgName={org.name}
         allOrgs={allOrgs}
         currentOrgId={org.id}
+        creditsRemaining={org.creditsRemaining}
+        plan={org.plan}
+        role={ctx.membership.role}
       />
       <main className="flex-1 overflow-auto p-6">
         {org.planStatus === "past_due" && (

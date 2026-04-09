@@ -19,7 +19,9 @@ import {
   Puzzle,
   ChevronsUpDown,
   Check,
+  Zap,
 } from "lucide-react";
+import { PLAN_LIMITS, type PlanTier } from "@dothesenow/types";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -57,11 +59,17 @@ export function Sidebar({
   orgName,
   allOrgs,
   currentOrgId,
+  creditsRemaining,
+  plan,
+  role,
 }: {
   dept: string;
   orgName: string;
   allOrgs: OrgInfo[];
   currentOrgId: string;
+  creditsRemaining: number;
+  plan: string;
+  role: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -185,7 +193,12 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="border-t px-2 py-3">
+      <div className="border-t px-3 py-3 space-y-2">
+        <SidebarCredits
+          creditsRemaining={creditsRemaining}
+          plan={plan}
+          role={role}
+        />
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-foreground"
@@ -196,5 +209,99 @@ export function Sidebar({
         </Button>
       </div>
     </aside>
+  );
+}
+
+function SidebarCredits({
+  creditsRemaining,
+  plan,
+  role,
+}: {
+  creditsRemaining: number;
+  plan: string;
+  role: string;
+}) {
+  const planCredits = PLAN_LIMITS[plan as PlanTier]?.credits ?? 0;
+  const isAdmin = role === "owner" || role === "admin";
+
+  // Unlimited plan
+  if (creditsRemaining === -1) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1 text-xs text-[var(--fgColor-muted)]">
+        <Zap className="h-3 w-3" />
+        <span>Unlimited credits</span>
+      </div>
+    );
+  }
+
+  // Zero credits
+  if (creditsRemaining === 0) {
+    return (
+      <div className="flex items-center justify-between px-3 py-1">
+        <div className="flex items-center gap-2 text-xs text-[var(--fgColor-danger)]">
+          <Zap className="h-3 w-3" />
+          <span>0 credits</span>
+        </div>
+        {isAdmin && (
+          <Link
+            href="/settings/billing"
+            className="text-xs font-medium text-[var(--fgColor-accent)] hover:underline"
+          >
+            Buy more
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  // Bonus credits (free plan with remaining > 0 from initial grant or purchase)
+  if (planCredits === 0) {
+    return (
+      <Link
+        href="/settings/billing"
+        className="flex items-center gap-2 px-3 py-1 text-xs text-[var(--fgColor-muted)] hover:text-foreground transition-colors"
+      >
+        <Zap className="h-3 w-3" />
+        <span>{creditsRemaining} credits</span>
+      </Link>
+    );
+  }
+
+  // Normal: plan has credits, show progress bar
+  const usedPct = Math.min(100, Math.round(((planCredits - creditsRemaining) / planCredits) * 100));
+  const fillPct = Math.max(0, 100 - usedPct);
+  const isLow = creditsRemaining <= Math.ceil(planCredits * 0.1);
+
+  return (
+    <div className="space-y-1 px-3 py-1">
+      <div className="flex items-center justify-between">
+        <Link
+          href="/settings/billing"
+          className="flex items-center gap-2 text-xs text-[var(--fgColor-muted)] hover:text-foreground transition-colors"
+        >
+          <Zap className="h-3 w-3" />
+          <span>{creditsRemaining} credits</span>
+        </Link>
+        {isLow && isAdmin && (
+          <Link
+            href="/settings/billing"
+            className="text-xs font-medium text-[var(--fgColor-accent)] hover:underline"
+          >
+            Buy more
+          </Link>
+        )}
+      </div>
+      <div className="h-0.5 w-full rounded-full bg-[var(--bgColor-muted)]">
+        <div
+          className="h-0.5 rounded-full transition-all duration-200"
+          style={{
+            width: `${fillPct}%`,
+            backgroundColor: isLow
+              ? "var(--fgColor-danger)"
+              : "var(--fgColor-accent)",
+          }}
+        />
+      </div>
+    </div>
   );
 }

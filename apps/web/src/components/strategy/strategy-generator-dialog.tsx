@@ -11,7 +11,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { generateStrategy, STRATEGY_GENERATION_COST } from "@/lib/strategy/generate";
+import { generateStrategy } from "@/lib/strategy/generate";
 import { createStrategyDoc } from "@/lib/strategy/actions";
 import { selectTemplate } from "@/lib/onboarding/templates";
 import type { Industry } from "@dothesenow/types";
@@ -22,6 +22,7 @@ interface StrategyGeneratorDialogProps {
   orgBudgetTier: string | null;
   existingTypes: string[];
   creditBalance: number;
+  creditCost: number;
 }
 
 type GenerationStep =
@@ -42,6 +43,7 @@ export function StrategyGeneratorDialog({
   orgBudgetTier,
   existingTypes,
   creditBalance,
+  creditCost,
 }: StrategyGeneratorDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -64,7 +66,7 @@ export function StrategyGeneratorDialog({
     ? selectTemplate(orgIndustry as Industry)
     : null;
 
-  const hasCredits = creditBalance === -1 || creditBalance >= STRATEGY_GENERATION_COST;
+  const hasCredits = creditBalance === -1 || creditBalance >= creditCost;
   const canGenerate = !!orgIndustry && !!orgBudgetTier && hasCredits;
 
   const clearTimers = () => {
@@ -191,7 +193,7 @@ export function StrategyGeneratorDialog({
                   <div className="flex items-center gap-2 rounded-md border border-[var(--borderColor-default)] bg-[var(--bgColor-muted)] px-3 py-2 text-sm">
                     <Zap className="h-4 w-4 text-[var(--fgColor-attention)]" />
                     <span>
-                      This will use <strong>{STRATEGY_GENERATION_COST} credits</strong>.
+                      This will use <strong>{creditCost} credits</strong>.
                       {creditBalance === -1
                         ? " You have unlimited credits."
                         : ` You have ${creditBalance} remaining.`}
@@ -204,7 +206,7 @@ export function StrategyGeneratorDialog({
                   <div>
                     <p className="font-medium">Insufficient credits</p>
                     <p className="text-muted-foreground">
-                      Strategy generation costs {STRATEGY_GENERATION_COST} credits,
+                      Strategy generation costs {creditCost} credits,
                       but you have {creditBalance}. Upgrade your plan or use a
                       pre-built template instead.
                     </p>

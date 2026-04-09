@@ -89,7 +89,9 @@
       "Bash(brew ls:*)",
       "Bash(ls /usr/local/bin/node*)",
       "Read(//opt/homebrew/bin/**)",
-      "Bash(/usr/local/bin/node --version)"
+      "Bash(/usr/local/bin/node --version)",
+      "Bash(pnpm build:*)",
+      "Bash(grep -r 'INNGEST' /Users/liam/Documents/DoTheseNow/apps/web/.env*)"
     ]
   }
 }

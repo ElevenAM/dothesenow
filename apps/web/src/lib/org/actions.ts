@@ -121,14 +121,18 @@ export async function createOrganization(
     return { error: "Failed to create organization. Please try again." };
   }
 
-  // Seed initial credits (50 for free tier) with an auditable ledger entry
-  await admin.from("dtn_credit_ledger").insert({
+  // Seed initial credits (50 for free tier) with an auditable ledger entry.
+  // Non-fatal if it fails: the org row already has 50 via column DEFAULT.
+  const { error: ledgerError } = await admin.from("dtn_credit_ledger").insert({
     org_id: org.id,
     amount: 50,
     balance_after: 50,
     reason: "Initial free-tier grant (50 credits)",
     status: "confirmed",
   });
+  if (ledgerError) {
+    console.error("Failed to insert initial credit ledger entry:", ledgerError);
+  }
 
   // Set active org cookie
   await setActiveOrgId(org.id);

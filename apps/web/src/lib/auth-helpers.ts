@@ -16,6 +16,7 @@ interface OrgJoinRow {
   industry: string | null;
   budget_tier: string | null;
   onboarding_completed_at: string | null;
+  ai_credits_remaining: number;
 }
 
 /** Shape of a single membership row with its org join. */
@@ -42,6 +43,7 @@ export interface AuthenticatedMembership {
     industry: string | null;
     budgetTier: string | null;
     onboardingCompletedAt: string | null;
+    creditsRemaining: number;
   };
   allOrgs: Array<{
     id: string;
@@ -75,7 +77,7 @@ export async function getAuthenticatedMembership(
   const { data: memberships, error } = await supabase
     .from("dtn_memberships")
     .select(
-      "id, org_id, role, dtn_organizations(id, name, slug, plan, plan_status, industry, budget_tier, onboarding_completed_at)"
+      "id, org_id, role, dtn_organizations(id, name, slug, plan, plan_status, industry, budget_tier, onboarding_completed_at, ai_credits_remaining)"
     )
     .eq("user_id", user.id)
     .eq("is_active", true);
@@ -130,6 +132,7 @@ export async function getAuthenticatedMembership(
       industry: org.industry,
       budgetTier: org.budget_tier,
       onboardingCompletedAt: org.onboarding_completed_at,
+      creditsRemaining: org.ai_credits_remaining,
     },
     allOrgs,
   };

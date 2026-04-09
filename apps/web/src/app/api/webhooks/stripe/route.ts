@@ -128,6 +128,36 @@ export async function POST(request: Request) {
       case "checkout.session.completed": {
         const session = event.data.object;
         const orgId = session.metadata?.org_id;
+
+        // ── Credit pack purchase (one-time payment, not subscription) ──
+        if (session.metadata?.credit_pack_id) {
+          const credits = parseInt(session.metadata.credits ?? "0", 10);
+          const packId = session.metadata.credit_pack_id;
+
+          if (!orgId || credits <= 0) {
+            console.error(
+              "checkout.session.completed (credit pack) missing fields:",
+              { orgId, packId, credits }
+            );
+            break;
+          }
+
+          const { error: grantError } = await supabase.rpc("grant_credits", {
+            p_org_id: orgId,
+            p_amount: credits,
+            p_reason: `Credit pack purchase: ${packId}`,
+          });
+
+          if (grantError) {
+            throw new Error(
+              `Failed to grant credits for pack ${packId}: ${grantError.message}`
+            );
+          }
+
+          break;
+        }
+
+        // ── Subscription checkout ──
         const subscriptionId =
           typeof session.subscription === "string"
             ? session.subscription
@@ -391,7 +421,8 @@ export async function POST(request: Request) {
             "Failed to restore subscription active status"
           );
 
-          // Reset credits only on subscription cycle renewals
+          // Reset credits only on subscription cycle renewals.
+          // Uses atomic GREATEST to preserve any purchased credit surplus.
           if (billingReason === "subscription_cycle") {
             const { data: org } = await supabase
               .from("dtn_organizations")
@@ -401,16 +432,15 @@ export async function POST(request: Request) {
 
             if (org) {
               const credits = creditsForPlan(org.plan);
-              assertMutation(
-                await supabase
-                  .from("dtn_organizations")
-                  .update({
-                    ai_credits_remaining: credits,
-                    ai_credits_reset_at: new Date().toISOString(),
-                  })
-                  .eq("id", org.id),
-                "Failed to reset credits on billing cycle"
+              const { error: resetError } = await supabase.rpc(
+                "reset_credits",
+                { p_org_id: org.id, p_plan_credits: credits }
               );
+              if (resetError) {
+                throw new Error(
+                  `Failed to reset credits on billing cycle: ${resetError.message}`
+                );
+              }
             }
           }
         }

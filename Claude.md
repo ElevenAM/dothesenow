@@ -9,10 +9,28 @@
 
 > **ACTION REQUIRED**: Add test credentials here so Claude can verify changes across environments.
 
-- **Web App**: `[email]` / `[password]` — use this to log in when verifying web changes
-- **Admin/Portal**: `[email]` / `[password]` — use this to log in when verifying admin changes
 - **Supabase Dashboard**: [URL] — project ref: `[your-project-ref]`
 - **Vercel Dashboard**: [URL] — team: `[your-team]`
+
+### Dev Auto-Login (local development only)
+
+The app uses magic link (OTP) auth, which blocks automated testing. A dev-only bypass route exists:
+
+```
+GET /api/dev/login?email=user@example.com
+```
+
+- Returns 404 in production (`NODE_ENV !== 'development'` guard)
+- Generates a magic link token server-side via admin API (no email sent)
+- Verifies the token to establish a real cookie-based session
+- Redirects to `/` (or `/onboarding` if user has no org, `/invites` if pending invite)
+- If the user doesn't exist yet, Supabase creates them automatically
+
+**Usage from Claude**: Navigate to `http://localhost:3000/api/dev/login?email=test@example.com` to authenticate.
+
+**Usage in E2E tests**: `global-setup.ts` calls this route automatically — just set `TEST_USER_EMAIL` in `.env.test`.
+
+**Login page**: In dev mode, a "Dev Auto-Login" panel appears below the login form for quick manual testing.
 
 ---
 

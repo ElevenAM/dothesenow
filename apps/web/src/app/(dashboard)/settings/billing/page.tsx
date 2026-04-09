@@ -14,7 +14,12 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-export default async function BillingPage() {
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -142,6 +147,15 @@ export default async function BillingPage() {
         )}
       </Card>
 
+      {/* Credit Purchase Feedback */}
+      {params.credit_purchase === "success" && (
+        <div className="rounded-md border border-[var(--fgColor-success)]/20 bg-[var(--label-green-bg)] p-4">
+          <p className="text-sm font-medium text-[var(--fgColor-success)]">
+            Credits added to your account successfully.
+          </p>
+        </div>
+      )}
+
       {/* Past Due Warning */}
       {org.plan_status === "past_due" && (
         <div className="rounded-md border border-[var(--fgColor-attention)]/20 bg-[#fff8c5] p-4">
@@ -158,6 +172,7 @@ export default async function BillingPage() {
           remaining={creditUsage.remaining}
           total={creditUsage.total}
           resetAt={creditUsage.resetAt}
+          canBuyCredits={isOwnerOrAdmin && org.plan !== "enterprise"}
         />
       )}
 

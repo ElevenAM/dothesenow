@@ -55,6 +55,26 @@ export function isPlanActive(planStatus: string): boolean {
   return planStatus === "active" || planStatus === "trialing";
 }
 
+// ─── Credit Packs (one-time purchases) ─────────────────────────
+
+export interface CreditPack {
+  id: string;
+  credits: number;
+  priceUsd: number;
+  stripePriceId: string;
+  popular?: boolean;
+}
+
+export const CREDIT_PACKS: CreditPack[] = [
+  { id: "credits_50",  credits: 50,  priceUsd: 4.99,  stripePriceId: "price_1TKBzdRwniZbeb16bRD5NULF" },
+  { id: "credits_200", credits: 200, priceUsd: 14.99, stripePriceId: "price_1TKC01RwniZbeb16tV8qt6zo", popular: true },
+  { id: "credits_500", credits: 500, priceUsd: 29.99, stripePriceId: "price_1TKC0TRwniZbeb16zIaRwun0" },
+];
+
+export function creditPackFromPriceId(priceId: string): CreditPack | null {
+  return CREDIT_PACKS.find((p) => p.stripePriceId === priceId) ?? null;
+}
+
 export function isInGracePeriod(planStatus: string): boolean {
   return planStatus === "past_due";
 }
