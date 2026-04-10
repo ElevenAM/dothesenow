@@ -45,10 +45,11 @@ import {
 } from "./metrics-weekly-aggregator";
 import { webhookDelivery } from "./webhook-delivery";
 import { dailyMaintenanceCleanup } from "./daily-maintenance-cleanup";
+import { slackTaskBatchNotification } from "./task-batch-notifications";
 import {
-  slackTaskBatchNotification,
-  emailTaskBatchNotification,
-} from "./task-batch-notifications";
+  emailMorningDigestCron,
+  emailMorningDigestHandler,
+} from "./email-morning-digest";
 
 /**
  * All Inngest functions registered with the app.
@@ -88,5 +89,6 @@ export const functions = [
   webhookDelivery,
   dailyMaintenanceCleanup,
   slackTaskBatchNotification,
-  emailTaskBatchNotification,
+  emailMorningDigestCron,
+  emailMorningDigestHandler,
 ];

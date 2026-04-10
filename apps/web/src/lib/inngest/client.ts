@@ -126,6 +126,9 @@ export type Events = {
       target_date: string;
     };
   };
+  "email/morning-digest.send": {
+    data: { org_id: string; target_date: string };
+  };
 };
 
 export const inngest = new Inngest({ id: "dothesenow" });
