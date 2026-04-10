@@ -56,6 +56,7 @@ export interface DailyTask {
   contact_id: string | null;
   generated_by: GeneratedBy;
   generation_context: Json;
+  result_metrics: Json | null;
   created_at: string;
   updated_at: string;
 }

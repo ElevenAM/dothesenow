@@ -20,6 +20,7 @@ import {
   ChevronsUpDown,
   Check,
   Zap,
+  MessageSquare,
 } from "lucide-react";
 import { PLAN_LIMITS, type PlanTier } from "@dothesenow/types";
 import { createClient } from "@/lib/supabase/client";
@@ -34,6 +35,7 @@ import {
 import { switchOrg } from "@/lib/team/actions";
 
 const navItems = [
+  { href: "/assistant", label: "Assistant", icon: MessageSquare },
   { href: "", label: "Overview", icon: LayoutDashboard },
   { href: "/strategy", label: "Strategy", icon: FileText },
   { href: "/contacts", label: "Contacts", icon: Users },

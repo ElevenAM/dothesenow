@@ -8,8 +8,10 @@ import type {
   TaskFilters,
   TaskStatus,
   TransitionSource,
+  Json,
 } from "@dothesenow/types";
 import { QueryError } from "./errors.js";
+import { logOutreach } from "./contacts.js";
 
 const TABLE = "dtn_daily_tasks";
 const SUMMARY_VIEW = "dtn_daily_tasks_summary";
@@ -222,4 +224,213 @@ export async function carryOverTasks(
 
   if (error) throw new QueryError(error.message, TABLE, "carryOverTasks", ctx.orgId, error);
   return data as { carried_count: number; new_task_ids: string[]; from_date: string; to_date: string };
+}
+
+// ─── Task Result Reporting ─────────────────────────────────────
+
+export interface ReportTaskResultInput {
+  metrics: Record<string, unknown>;
+  notes?: string;
+  contact_ids_engaged?: string[];
+}
+
+/**
+ * Record structured result metrics for a task and auto-complete it.
+ * - Stores metrics in result_metrics JSONB
+ * - Sets outcome_notes if provided
+ * - Transitions to 'completed' via state machine (if not already terminal)
+ * - Returns the updated task
+ */
+export async function reportTaskResult(
+  ctx: OrgContext,
+  taskId: string,
+  input: ReportTaskResultInput,
+  source: TransitionSource,
+  actorId?: string | null,
+): Promise<DailyTask> {
+  // Load the task first to verify ownership and check current status
+  const task = await getTaskById(ctx, taskId);
+  if (!task) {
+    throw new QueryError("Task not found", TABLE, "reportTaskResult", ctx.orgId);
+  }
+
+  // Store result metrics and outcome notes
+  const updates: Record<string, unknown> = {
+    result_metrics: input.metrics,
+  };
+  if (input.notes) {
+    updates.outcome_notes = input.notes;
+  }
+
+  const { error: updateError } = await ctx.client
+    .from(TABLE)
+    .update(updates)
+    .eq("id", taskId)
+    .eq("org_id", ctx.orgId);
+
+  if (updateError) {
+    throw new QueryError(updateError.message, TABLE, "reportTaskResult", ctx.orgId, updateError);
+  }
+
+  // Auto-complete the task if it's in a non-terminal state
+  const terminalStates: TaskStatus[] = [
+    "completed", "skipped", "carried_over", "failed", "blocked",
+  ];
+  if (!terminalStates.includes(task.status as TaskStatus)) {
+    try {
+      await transitionTaskStatus(
+        ctx,
+        taskId,
+        "completed" as TaskStatus,
+        source,
+        actorId,
+        { result_metrics: input.metrics },
+      );
+    } catch (transitionErr) {
+      console.warn(
+        `[reportTaskResult] Could not auto-complete task ${taskId}: ${transitionErr instanceof Error ? transitionErr.message : transitionErr}`,
+      );
+    }
+  }
+
+  // Log outreach for engaged contacts (if provided)
+  if (input.contact_ids_engaged && input.contact_ids_engaged.length > 0) {
+    for (const contactId of input.contact_ids_engaged) {
+      try {
+        await logOutreach(ctx, {
+          contact_id: contactId,
+          channel: "other" as never,
+          direction: "outbound" as never,
+          content: `Engaged via task: ${task.title}`,
+          status: "sent" as never,
+          notes: input.notes ?? null,
+          campaign_id: task.campaign_id ?? null,
+        });
+      } catch (outreachErr) {
+        console.warn(
+          `[reportTaskResult] Failed to log outreach for contact ${contactId}: ${outreachErr instanceof Error ? outreachErr.message : outreachErr}`,
+        );
+      }
+    }
+  }
+
+  // Return the updated task
+  const updated = await getTaskById(ctx, taskId);
+  if (!updated) {
+    throw new QueryError("Task disappeared after update", TABLE, "reportTaskResult", ctx.orgId);
+  }
+  return updated;
+}
+
+// ─── Task Context (enriched) ───────────────────────────────────
+
+export interface TaskContext {
+  task: DailyTask;
+  strategy_doc: { doc_type: string; title: string; content: string } | null;
+  campaign: { id: string; name: string; goal: string | null; status: string } | null;
+  contact: {
+    id: string;
+    first_name: string;
+    last_name: string | null;
+    email: string | null;
+    company: string | null;
+    status: string;
+    lifecycle_stage: string;
+  } | null;
+  recent_outreach: { channel: string; status: string; content: string; sent_at: string }[];
+  similar_completed: { id: string; title: string; outcome_notes: string | null; result_metrics: Json | null; completed_at: string | null }[];
+}
+
+/**
+ * Get full context for a task: the task itself + linked strategy doc,
+ * campaign, contact, recent outreach, and similar completed tasks.
+ * Returns everything needed to understand and execute a task in one call.
+ */
+export async function getTaskContext(
+  ctx: OrgContext,
+  taskId: string,
+): Promise<TaskContext> {
+  const task = await getTaskById(ctx, taskId);
+  if (!task) {
+    throw new QueryError("Task not found", TABLE, "getTaskContext", ctx.orgId);
+  }
+
+  // Fetch linked entities in parallel
+  const [strategyResult, campaignResult, contactResult, outreachResult, similarResult] =
+    await Promise.all([
+      // Strategy doc (if linked via strategy_doc_id or source_strategy)
+      task.strategy_doc_id
+        ? ctx.client
+            .from("mktg_strategy_docs")
+            .select("doc_type, title, content")
+            .eq("id", task.strategy_doc_id)
+            .eq("org_id", ctx.orgId)
+            .maybeSingle()
+        : task.source_strategy
+          ? ctx.client
+              .from("mktg_strategy_docs")
+              .select("doc_type, title, content")
+              .eq("org_id", ctx.orgId)
+              .eq("doc_type", task.source_strategy)
+              .eq("is_active", true)
+              .order("updated_at", { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+
+      // Campaign
+      task.campaign_id
+        ? ctx.client
+            .from("mktg_campaigns")
+            .select("id, name, goal, status")
+            .eq("id", task.campaign_id)
+            .eq("org_id", ctx.orgId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+
+      // Contact
+      task.contact_id
+        ? ctx.client
+            .from("mktg_contacts")
+            .select("id, first_name, last_name, email, company, status, lifecycle_stage")
+            .eq("id", task.contact_id)
+            .eq("org_id", ctx.orgId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+
+      // Recent outreach for linked contact (last 5)
+      task.contact_id
+        ? ctx.client
+            .from("mktg_outreach_log")
+            .select("channel, status, content, sent_at")
+            .eq("contact_id", task.contact_id)
+            .eq("org_id", ctx.orgId)
+            .order("sent_at", { ascending: false })
+            .limit(5)
+        : Promise.resolve({ data: [], error: null }),
+
+      // Similar completed tasks (same task_type + source_strategy, last 10)
+      (() => {
+        let q = ctx.client
+          .from(TABLE)
+          .select("id, title, outcome_notes, result_metrics, completed_at")
+          .eq("org_id", ctx.orgId)
+          .eq("task_type", task.task_type)
+          .eq("status", "completed")
+          .neq("id", taskId);
+        if (task.source_strategy) {
+          q = q.eq("source_strategy", task.source_strategy);
+        }
+        return q.order("completed_at", { ascending: false }).limit(10);
+      })(),
+    ]);
+
+  return {
+    task,
+    strategy_doc: strategyResult.data as TaskContext["strategy_doc"],
+    campaign: campaignResult.data as TaskContext["campaign"],
+    contact: contactResult.data as TaskContext["contact"],
+    recent_outreach: (outreachResult.data ?? []) as TaskContext["recent_outreach"],
+    similar_completed: (similarResult.data ?? []) as TaskContext["similar_completed"],
+  };
 }

@@ -252,6 +252,51 @@ export async function upsertContactByEmail(
   return data as Contact;
 }
 
+// ─── Update Outreach Entry ──────────────────────────────────────
+
+export interface UpdateOutreachInput {
+  status?: string;
+  response_at?: string;
+  notes?: string;
+  content?: string;
+}
+
+/**
+ * Update an existing outreach entry (e.g., mark as "replied").
+ * Also updates the linked contact's last_engaged timestamp.
+ */
+export async function updateOutreach(
+  ctx: OrgContext,
+  outreachId: string,
+  updates: UpdateOutreachInput,
+): Promise<OutreachEntry> {
+  const { data, error } = await ctx.client
+    .from(OUTREACH_TABLE)
+    .update(updates)
+    .eq("id", outreachId)
+    .eq("org_id", ctx.orgId)
+    .select()
+    .single();
+
+  if (error) throw new QueryError(error.message, OUTREACH_TABLE, "updateOutreach", ctx.orgId, error);
+
+  // Update the contact's last_engaged timestamp
+  const entry = data as OutreachEntry;
+  if (entry.contact_id) {
+    const { error: engageError } = await ctx.client
+      .from(CONTACTS_TABLE)
+      .update({ last_engaged: new Date().toISOString() })
+      .eq("id", entry.contact_id)
+      .eq("org_id", ctx.orgId);
+
+    if (engageError) {
+      console.error("updateOutreach: failed to update last_engaged", engageError);
+    }
+  }
+
+  return entry;
+}
+
 const PIPELINE_VIEW = "mktg_pipeline_summary";
 
 export async function getPipelineSummary(

@@ -6,6 +6,7 @@ import {
   createContact,
   updateContact,
   logOutreach,
+  updateOutreach,
   getOutreachHistory,
   getPipelineSummary,
 } from "@dothesenow/queries";
@@ -181,6 +182,35 @@ export const crm: ToolModule = {
         properties: { ...ORG_ID_PROP },
       },
     },
+    {
+      name: "update_outreach",
+      description:
+        "Update an existing outreach entry's status or notes. Use when a previously sent outreach has a new status (e.g., email was replied to, LinkedIn message was opened). Also updates the contact's last_engaged timestamp.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ...ORG_ID_PROP,
+          outreach_id: {
+            type: "string",
+            description: "UUID of the outreach entry to update",
+          },
+          status: {
+            type: "string",
+            description:
+              "New status: drafted, sent, delivered, opened, replied, bounced, no_response",
+          },
+          response_at: {
+            type: "string",
+            description: "ISO timestamp of when the response was received",
+          },
+          notes: {
+            type: "string",
+            description: "Additional notes about the update",
+          },
+        },
+        required: ["outreach_id"],
+      },
+    },
   ],
 
   handlers: {
@@ -239,6 +269,22 @@ export const crm: ToolModule = {
       const ctx = toOrgContext(client);
       const data = await getPipelineSummary(ctx);
       return ok(JSON.stringify(data, null, 2));
+    },
+
+    async update_outreach(client, args) {
+      const ctx = toOrgContext(client);
+      const outreachId = args.outreach_id as string;
+      const updates: Record<string, unknown> = {};
+      if (args.status) updates.status = args.status;
+      if (args.response_at) updates.response_at = args.response_at;
+      if (args.notes) updates.notes = args.notes;
+
+      const data = await updateOutreach(
+        ctx,
+        outreachId,
+        updates as Parameters<typeof updateOutreach>[2],
+      );
+      return ok(`Outreach updated: ${JSON.stringify(data, null, 2)}`);
     },
   },
 };

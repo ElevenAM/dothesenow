@@ -9,6 +9,8 @@ import {
   transitionTaskStatus,
   carryOverTasks,
   getStrategyDocs,
+  reportTaskResult,
+  getTaskContext,
 } from "@dothesenow/queries";
 import { TransitionSource, type TaskStatus } from "@dothesenow/types";
 
@@ -166,6 +168,48 @@ export const dailyTasks: ToolModule = {
         },
       },
     },
+    {
+      name: "report_task_result",
+      description:
+        "Record structured result metrics for a completed task. Use when the user says 'I did X and got Y results' (e.g., '3 Reddit posts, 15/23/7 upvotes'). Stores metrics as structured data, auto-completes the task, and optionally logs outreach for engaged contacts.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ...ORG_ID_PROP,
+          task_id: { type: "string", description: "UUID of the task" },
+          metrics: {
+            type: "object",
+            description:
+              "Structured metrics from the task (e.g., {upvotes: 15, comments: 3, impressions: 200}). Any key-value pairs.",
+          },
+          notes: {
+            type: "string",
+            description:
+              "Qualitative notes about the result (e.g., 'Post resonated with therapist audience')",
+          },
+          contact_ids_engaged: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Optional list of contact UUIDs who were engaged as part of this task",
+          },
+        },
+        required: ["task_id", "metrics"],
+      },
+    },
+    {
+      name: "get_task_context",
+      description:
+        "Get full context for a task in one call: the task itself plus its linked strategy doc, campaign, contact (with recent outreach), and similar completed tasks with their outcomes. Use this before starting work on a task to understand the full picture.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ...ORG_ID_PROP,
+          task_id: { type: "string", description: "UUID of the task" },
+        },
+        required: ["task_id"],
+      },
+    },
   ],
 
   handlers: {
@@ -284,6 +328,30 @@ export const dailyTasks: ToolModule = {
       return ok(
         `Carried over ${result.carried_count} task(s) from ${result.from_date} to ${result.to_date}.`,
       );
+    },
+
+    async report_task_result(client, args) {
+      const ctx = toOrgContext(client);
+      const taskId = args.task_id as string;
+      const metrics = args.metrics as Record<string, unknown>;
+      const notes = args.notes as string | undefined;
+      const contactIds = args.contact_ids_engaged as string[] | undefined;
+
+      const updated = await reportTaskResult(
+        ctx,
+        taskId,
+        { metrics, notes, contact_ids_engaged: contactIds },
+        TransitionSource.Mcp,
+      );
+
+      return ok(`Task result recorded: ${JSON.stringify(updated, null, 2)}`);
+    },
+
+    async get_task_context(client, args) {
+      const ctx = toOrgContext(client);
+      const taskId = args.task_id as string;
+      const context = await getTaskContext(ctx, taskId);
+      return ok(JSON.stringify(context, null, 2));
     },
   },
 };

@@ -1,8 +1,8 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Phases 1–9B all complete and verified. Phase 0 stabilization complete. Phase 10 partially complete (10A, 10B done). Blog CRUD, Settings General page, plugin discoverability, and Tasks page FK fix shipped.
+> **Status**: Phases 1–9B all complete and verified. Phase 0 stabilization complete. Phase 10 partially complete (10A, 10B done). Phase 11 (Cowork readiness + chat) in progress. Blog CRUD, Settings General page, plugin discoverability, and Tasks page FK fix shipped.
 >
-> Last updated: 2026-04-08
+> Last updated: 2026-04-09
 
 ---
 
@@ -53,6 +53,11 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | [10D] | HubSpot CRM integration (OAuth, 2-way sync) | Planned — Phase 3 in plan |
 | [10E] | External metrics ingestion (GA, SEO, manual) | Planned — Phase 4 in plan |
 | [10F] | Zapier API + webhook infrastructure | Planned — Phase 5 in plan |
+| **Phase 11** | Cowork Readiness + Dashboard Chat | **IN PROGRESS** |
+| [11A] | MCP gap fixes (report_task_result, get_task_context, update_outreach) | **Complete** — 3 new tools, migration 044, query functions |
+| [11B] | Chat interface (API route + UI components) | **Complete** — /api/v1/chat with agentic tool loop, ChatPanel in dashboard layout, migration 045 |
+| [11C] | E2E testing (state machine, chat E2E, CI pipeline) | **Complete** — exhaustive state machine test (49 transitions), 5 Playwright chat tests, GitHub Actions workflow |
+| [11D] | Cowork setup tab | **Complete** — 3rd tab in plugin setup instructions |
 
 ### Testing Growth Per Phase
 | Phase | Tests Added | Cumulative |
@@ -64,6 +69,7 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | 5 | ~5 (integration wiring tests) | ~100 |
 | 6 | ~25 (prompt snapshots, agent output validation, decomposition) | ~125 |
 | 7–9 | ~30 each phase | ~200+ |
+| 11 | ~70 (state machine ×56, new-tools ×8, chat E2E ×5) | ~270+ |
 
 ### Known Issues Tracked
 | ID | Issue | Severity | Fixed In |
