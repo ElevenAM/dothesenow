@@ -409,7 +409,7 @@
 **Trigger:** ChatPanel → form submit or Enter key
 **Client:** `apps/web/src/components/chat/chat-panel.tsx`
 **Endpoint:** `POST /api/v1/chat` → `apps/web/src/app/api/v1/chat/route.ts`
-**Tables:** `dtn_chat_sessions` INSERT (if new), `dtn_chat_messages` INSERT (user + assistant + tool_call rows)
+**Tables:** `dtn_chat_sessions` INSERT (if new), `dtn_chat_messages` INSERT (user + assistant + tool_call rows), `dtn_documents` SELECT (context docs with `extracted_text` for system prompt — via `getDocumentsForAiContext`, excludes docs tagged `no-ai`)
 **Credits:** Deducts 1 credit per message turn
 **Returns:** Streaming response with assistant text + tool_calls
 

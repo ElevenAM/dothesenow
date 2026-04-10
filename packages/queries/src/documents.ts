@@ -195,6 +195,44 @@ export async function softDeleteDocument(
   }
 }
 
+// ─── AI context ────────────────────────────────────────────
+
+export interface AiContextDocument {
+  id: string;
+  title: string;
+  extracted_text: string;
+}
+
+/**
+ * Fetch documents with extracted text for AI context injection.
+ * Lightweight query — selects only id, title, extracted_text.
+ * Excludes docs tagged with any tag in `excludeTags`.
+ */
+export async function getDocumentsForAiContext(
+  ctx: OrgContext,
+  options?: {
+    excludeTags?: string[];
+    limit?: number;
+  },
+): Promise<AiContextDocument[]> {
+  let query = ctx.client
+    .from(TABLE)
+    .select("id, title, extracted_text")
+    .eq("org_id", ctx.orgId)
+    .is("deleted_at", null)
+    .not("extracted_text", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(options?.limit ?? 20);
+
+  if (options?.excludeTags && options.excludeTags.length > 0) {
+    query = query.not("tags", "ov", `{${options.excludeTags.join(",")}}`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new QueryError(error.message, TABLE, "getDocumentsForAiContext", ctx.orgId, error);
+  return (data ?? []) as AiContextDocument[];
+}
+
 // ─── Storage helpers ────────────────────────────────────────
 
 const BUCKET = "org-documents";
