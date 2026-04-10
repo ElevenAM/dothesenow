@@ -1,22 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmailConfirmation } from "@/components/auth/email-confirmation";
 import Link from "next/link";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSent, setIsSent] = useState(false);
   const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (window.matchMedia("(min-width: 768px)").matches) {
+      inputRef.current?.focus();
+    }
+  }, []);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
     setError("");
 
     const supabase = createClient();
@@ -29,75 +36,66 @@ export default function SignupPage() {
 
     if (error) {
       setError(error.message);
-      setLoading(false);
+      setIsLoading(false);
       return;
     }
 
-    setSent(true);
-    setLoading(false);
+    setIsSent(true);
+    setIsLoading(false);
   }
 
-  if (sent) {
+  if (isSent) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted px-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Check your email</CardTitle>
-            <CardDescription>
-              We sent a magic link to <strong>{email}</strong>. Click it to create your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setSent(false)}
-            >
-              Use a different email
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <EmailConfirmation
+        email={email}
+        actionLabel="create your account"
+        onReset={() => setIsSent(false)}
+      />
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Create your account</CardTitle>
-          <CardDescription>
-            Get started with DoTheseNow for free
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Sending..." : "Sign up with magic link"}
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/login" className="text-[var(--accent-blue)] hover:underline">
-              Sign in
-            </Link>
+    <>
+      <h2 className="text-2xl font-semibold text-foreground">
+        Create your account
+      </h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Get started with DoTheseNow for free
+      </p>
+
+      <form onSubmit={handleSignup} className="mt-6 space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            ref={inputRef}
+            id="email"
+            type="email"
+            placeholder="you@company.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="h-10"
+          />
+        </div>
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
           </p>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+        <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
+          {isLoading ? "Sending..." : "Create account"}
+        </Button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        Already have an account?{" "}
+        <Link
+          href="/login"
+          className="font-medium text-[var(--accent-blue)] hover:underline"
+        >
+          Sign in
+        </Link>
+      </p>
+    </>
   );
 }
