@@ -39,6 +39,9 @@
 | `dtn_credit_ledger` | Credit audit trail | org_id | | |
 | `dtn_subscriptions` | Stripe subscription sync | org_id | | |
 | `dtn_stripe_events` | Stripe webhook dedup | | | |
+| `dtn_mcp_oauth_clients` | OAuth 2.1 DCR registered clients | | | |
+| `dtn_mcp_oauth_codes` | Short-lived auth codes (PKCE) | client_id, user_id, org_id | | |
+| `dtn_mcp_oauth_tokens` | Access/refresh token pairs | client_id, user_id, org_id | | |
 | `mktg_freelancers` | Contractor registry | org_id | | |
 | `mktg_tasks` | Freelancer work items | org_id, assigned_to, campaign_id | | |
 | `mktg_task_submissions` | Freelancer deliverables | task_id, freelancer_id, org_id | | |
@@ -884,12 +887,23 @@ Expected flow: `draft → open → claimed → in_progress → review → [compl
 | DELETE | `/api/v1/webhooks/[id]` | Delete subscription | `dtn_webhook_subscriptions` |
 | POST | `/api/v1/webhooks/test/[id]` | Test webhook | `dtn_webhook_subscriptions` |
 
+### MCP OAuth 2.1 Routes
+
+| Method | Route | Purpose | Tables |
+|--------|-------|---------|--------|
+| GET | `/.well-known/oauth-authorization-server` | OAuth server metadata discovery | — |
+| GET | `/.well-known/oauth-protected-resource` | Protected resource metadata | — |
+| GET | `/api/mcp/oauth/authorize` | Start auth code flow (redirects to consent UI) | `dtn_mcp_oauth_clients` |
+| POST | `/api/mcp/oauth/register` | Dynamic Client Registration (RFC 7591) | `dtn_mcp_oauth_clients` |
+| POST | `/api/mcp/oauth/token` | Token exchange (auth code → tokens, refresh) | `dtn_mcp_oauth_codes`, `dtn_mcp_oauth_tokens` |
+| — | `/oauth/authorize` (page) | User consent UI for OAuth grants | `dtn_mcp_oauth_codes` |
+
 ### Internal Routes
 
 | Route | Purpose |
 |-------|---------|
 | `POST /api/inngest` | Inngest SDK handler |
-| `POST /api/mcp` | MCP protocol handler |
+| `POST /api/mcp` | MCP protocol handler (session auth + Bearer token) |
 | `POST /api/executors/claude` | Claude API task executor |
 | `GET /api/dev/login` | Dev-only auto-login bypass |
 
