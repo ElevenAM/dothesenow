@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   completeDailyTask,
+  reopenDailyTask,
   skipDailyTask,
   updateDailyTask,
   changeTaskExecutor,
@@ -71,9 +73,12 @@ export function TaskList({
     );
   }
 
+  const activeTasks = tasks.filter((t) => t.status !== "completed");
+  const completedTasks = tasks.filter((t) => t.status === "completed");
+
   return (
     <div className="divide-y">
-      {tasks.map((task) => (
+      {activeTasks.map((task) => (
         <TaskRow
           key={task.id}
           task={task}
@@ -82,6 +87,24 @@ export function TaskList({
           executorAvailability={executorAvailability}
         />
       ))}
+      {completedTasks.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bgColor-muted)]">
+            <span className="text-xs font-semibold text-[var(--label-purple-fg)]">
+              Done ({completedTasks.length})
+            </span>
+          </div>
+          {completedTasks.map((task) => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              onEdit={() => onEditTask(task)}
+              onSelect={() => onSelectTask(task)}
+              executorAvailability={executorAvailability}
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -97,6 +120,7 @@ function TaskRow({
   onSelect: () => void;
   executorAvailability?: ExecutorAvailability;
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [blockerOpen, setBlockerOpen] = useState(false);
   const [freelancerOpen, setFreelancerOpen] = useState(false);
@@ -117,10 +141,11 @@ function TaskRow({
     if (isPending) return;
     startTransition(async () => {
       if (isComplete) {
-        await updateDailyTask(task.id, { status: "pending" });
+        await reopenDailyTask(task.id);
       } else {
         await completeDailyTask(task.id);
       }
+      router.refresh();
     });
   }
 
@@ -143,6 +168,7 @@ function TaskRow({
           await changeTaskExecutor(task.id, "claude_api");
           break;
       }
+      router.refresh();
     });
   }
 

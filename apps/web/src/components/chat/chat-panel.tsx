@@ -22,13 +22,23 @@ export interface ChatMessage {
 
 interface ChatPanelProps {
   pendingTasks: Pick<DailyTask, "id" | "title" | "task_type" | "priority" | "status">[];
+  initialSessionId?: string | null;
+  initialMessages?: ChatMessage[];
+  onSessionCreated?: (sessionId: string, title: string) => void;
+  isLoadingHistory?: boolean;
 }
 
-export function ChatPanel({ pendingTasks }: ChatPanelProps) {
+export function ChatPanel({
+  pendingTasks,
+  initialSessionId,
+  initialMessages,
+  onSessionCreated,
+  isLoadingHistory,
+}: ChatPanelProps) {
   const { credits, decrementCredits, refreshCredits } = useCredits();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages ?? []);
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -102,6 +112,7 @@ export function ChatPanel({ pendingTasks }: ChatPanelProps) {
 
       if (data.session_id && !sessionId) {
         setSessionId(data.session_id);
+        onSessionCreated?.(data.session_id, text.slice(0, 100));
       }
 
       decrementCredits(data.credits_used ?? 1);
@@ -133,7 +144,12 @@ export function ChatPanel({ pendingTasks }: ChatPanelProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Chat area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden">
+        {isLoadingHistory && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--bgColor-default)]/80">
+            <p className="text-sm text-[var(--fgColor-muted)]">Loading conversation...</p>
+          </div>
+        )}
         <ChatMessages
           messages={messages}
           isLoading={isLoading}

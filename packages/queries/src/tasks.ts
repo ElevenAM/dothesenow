@@ -32,7 +32,10 @@ export async function getTasksForOrg(
     query = query.eq("scheduled_date", filters.scheduled_date);
   }
   if (filters?.department_id) {
-    query = query.eq("department_id", filters.department_id);
+    // Show tasks assigned to this department OR org-wide tasks (null department)
+    query = query.or(
+      `department_id.eq.${filters.department_id},department_id.is.null`,
+    );
   }
   if (filters?.status) {
     query = query.eq("status", filters.status);

@@ -4,7 +4,7 @@ import type { RefObject } from "react";
 import type { ChatMessage } from "./chat-panel";
 import type { DailyTask } from "@dothesenow/types";
 import { ToolCallCard } from "./tool-call-card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ThinkingIndicator } from "./thinking-indicator";
 import { CheckSquare, ArrowRight } from "lucide-react";
 
 interface ChatMessagesProps {
@@ -128,14 +128,7 @@ export function ChatMessages({
           </div>
         ))}
 
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] space-y-2 rounded-md bg-[var(--bgColor-muted)] px-3 py-2">
-              <Skeleton className="h-3 w-48" />
-              <Skeleton className="h-3 w-32" />
-            </div>
-          </div>
-        )}
+        {isLoading && <ThinkingIndicator />}
 
         <div ref={messagesEndRef} />
       </div>

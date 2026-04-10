@@ -18,10 +18,10 @@ interface DatePickerProps {
 function formatDisplayDate(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00"); // noon to avoid timezone shifts
   const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = today.toLocaleDateString("en-CA"); // YYYY-MM-DD in local tz
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split("T")[0];
+  const yesterdayStr = yesterday.toLocaleDateString("en-CA");
 
   if (dateStr === todayStr) return "Today";
   if (dateStr === yesterdayStr) return "Yesterday";

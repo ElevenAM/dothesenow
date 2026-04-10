@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useTransition, useEffect, useRef } from "react";
+import { Suspense, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -75,50 +75,18 @@ export function TasksPageClient({
   const [isCarrying, startCarryTransition] = useTransition();
   const [isGenerating, startGenerateTransition] = useTransition();
   const [generateError, setGenerateError] = useState<string | null>(null);
-  const [isAutoGenerating, setIsAutoGenerating] = useState(false);
   const [isManualGenerating, setIsManualGenerating] = useState(false);
   const [genTimedOut, setGenTimedOut] = useState(false);
-  const autoGenTriggeredRef = useRef(false);
 
   const isViewingPast = date < today;
 
-  // Reset auto-gen guard when date or dept changes
+  // Poll for new tasks while generating via manual button
   useEffect(() => {
-    autoGenTriggeredRef.current = false;
-  }, [date, dept]);
+    if (!isManualGenerating) return;
 
-  // Auto-generate tasks on first visit when today has no tasks
-  useEffect(() => {
-    if (
-      autoGenStatus !== "ready" ||
-      tasks.length > 0 ||
-      autoGenTriggeredRef.current
-    ) {
-      return;
-    }
-    autoGenTriggeredRef.current = true;
-    setIsAutoGenerating(true);
-
-    generateDailyTasks(dept, date, true).catch((err) => {
-      setGenerateError(
-        err instanceof Error ? err.message : "Failed to generate tasks",
-      );
-      setIsAutoGenerating(false);
-    });
-  }, [autoGenStatus, tasks.length, dept, date]);
-
-  // Poll for new tasks while generating (auto or manual)
-  useEffect(() => {
-    const shouldPoll =
-      (isAutoGenerating || isManualGenerating) && tasks.length === 0;
-    if (!shouldPoll) {
-      // Tasks arrived — stop generating states
-      if (isAutoGenerating && tasks.length > 0) {
-        setIsAutoGenerating(false);
-      }
-      if (isManualGenerating && tasks.length > 0) {
-        setIsManualGenerating(false);
-      }
+    // Tasks arrived — stop generating
+    if (tasks.length > 0) {
+      setIsManualGenerating(false);
       return;
     }
 
@@ -127,7 +95,6 @@ export function TasksPageClient({
       if (Date.now() - startedAt > POLL_TIMEOUT) {
         clearInterval(interval);
         setGenTimedOut(true);
-        setIsAutoGenerating(false);
         setIsManualGenerating(false);
         return;
       }
@@ -135,7 +102,7 @@ export function TasksPageClient({
     }, POLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [isAutoGenerating, isManualGenerating, tasks.length, router]);
+  }, [isManualGenerating, tasks.length, router]);
 
   function handleEditTask(task: DailyTask) {
     setEditingTask(task);
@@ -179,8 +146,7 @@ export function TasksPageClient({
     ["pending", "in_progress"].includes(t.status),
   ).length;
 
-  const showGeneratingState =
-    (isAutoGenerating || isManualGenerating) && tasks.length === 0;
+  const showGeneratingState = isManualGenerating && tasks.length === 0;
 
   return (
     <div className="space-y-4">
@@ -211,11 +177,11 @@ export function TasksPageClient({
             variant="outline"
             size="sm"
             onClick={handleGenerate}
-            disabled={isGenerating || isAutoGenerating || isManualGenerating}
+            disabled={isGenerating || isManualGenerating}
             className="gap-1.5"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            {isGenerating || isAutoGenerating || isManualGenerating
+            {isGenerating || isManualGenerating
               ? "Generating..."
               : "Generate Tasks"}
           </Button>

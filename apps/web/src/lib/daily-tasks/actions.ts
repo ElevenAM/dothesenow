@@ -136,6 +136,18 @@ export async function completeDailyTask(
   const current = await getTaskById(ctx, taskId);
   const oldStatus = current?.status ?? "pending";
 
+  // Already completed — nothing to do
+  if (oldStatus === "completed") {
+    const fetched = await getTaskById(ctx, taskId);
+    if (!fetched) throw new Error("Task not found");
+    return fetched;
+  }
+
+  // State machine: only in_progress → completed is valid.
+  // Step through in_progress first if coming from any other status.
+  if (oldStatus !== "in_progress") {
+    await transitionTaskStatus(ctx, taskId, "in_progress", "web_ui", auth.user.id);
+  }
   await transitionTaskStatus(ctx, taskId, "completed", "web_ui", auth.user.id);
 
   let task: DailyTask;
@@ -168,6 +180,46 @@ export async function completeDailyTask(
   revalidateTag("tasks", "max");
   revalidateTag("overview", "max");
   return task;
+}
+
+/**
+ * Reopen a completed task back to pending.
+ * Uses the state machine RPC (completed -> pending is now an allowed transition)
+ * so the audit event log in dtn_task_events is properly maintained.
+ */
+export async function reopenDailyTask(taskId: string): Promise<DailyTask> {
+  const { auth, ctx } = await getAuthenticatedOrgContext();
+
+  const { getTaskById } = await import("@dothesenow/queries");
+  const current = await getTaskById(ctx, taskId);
+  if (!current) throw new Error("Task not found");
+  const oldStatus = current.status;
+
+  await transitionTaskStatus(ctx, taskId, "pending", "web_ui", auth.user.id);
+
+  inngest
+    .send({
+      name: "task/status.changed",
+      data: {
+        task_id: taskId,
+        org_id: ctx.orgId,
+        old_status: oldStatus,
+        new_status: "pending",
+        source: "web_ui",
+        actor_id: auth.user.id,
+        changed_at: new Date().toISOString(),
+      },
+    })
+    .catch((err) => {
+      console.error("[actions] Failed to emit task/status.changed:", err);
+    });
+
+  revalidateTag("tasks", "max");
+  revalidateTag("overview", "max");
+
+  const updated = await getTaskById(ctx, taskId);
+  if (!updated) throw new Error("Task not found after reopen");
+  return updated;
 }
 
 export async function skipDailyTask(taskId: string): Promise<DailyTask> {

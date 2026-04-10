@@ -236,6 +236,16 @@
   }
 }
 
+/* Thinking indicator dots */
+@keyframes thinking-bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-4px); }
+}
+
+.thinking-dot {
+  animation: thinking-bounce 1.2s ease-in-out infinite;
+}
+
 /* Reduced motion — Primer accessibility requirement */
 @media (prefers-reduced-motion: reduce) {
   *,
