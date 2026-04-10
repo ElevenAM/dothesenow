@@ -35,7 +35,7 @@ export const marketplace: ToolModule = {
           task_type: {
             type: "string",
             description:
-              "blog_post, social_content, email_copy, design, video, seo_audit, research, outreach, ad_copy, landing_page, case_study, other",
+              "blog_post (deliverable), social_content, email_copy, design, video, seo_audit, research, outreach, ad_copy, landing_page, case_study, other",
           },
           brief: {
             type: "string",

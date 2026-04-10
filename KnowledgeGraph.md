@@ -301,6 +301,7 @@
 **Auth:** Requires owner or admin role
 **Query:** `reviewApproval(ctx, itemId, userId, input)` → `approvals.ts`
 **Tables:** `dtn_approval_queue` UPDATE (status, reviewer_notes, reviewed_at)
+**Side effect:** When `status = "approved"` and `item_type = "blog_post"`, auto-creates a `dtn_blog_posts` (deliverable) row from the approval content with `task_id` linked, `status = "approved"`. Revalidates `blog` cache tag.
 
 | Boundary | Fields |
 |----------|--------|

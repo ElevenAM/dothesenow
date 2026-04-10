@@ -8,6 +8,7 @@ import {
   getApprovalById,
   getApprovalStats as sharedGetApprovalStats,
   reviewApproval,
+  createBlogPost,
   type PaginatedApprovals,
 } from "@dothesenow/queries";
 import type {
@@ -56,6 +57,29 @@ export async function reviewApprovalItem(
     status,
     reviewer_notes: reviewerNotes || null,
   }, "web_ui");
+
+  // When a blog_post approval is approved, create a deliverable from its content
+  if (status === "approved") {
+    const item = await getApprovalById(ctx, itemId);
+    if (item && item.item_type === "blog_post") {
+      const slug = item.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+
+      await createBlogPost(ctx, {
+        title: item.title,
+        slug,
+        content: item.content,
+        status: "approved",
+        department_id: item.department_id,
+        user_id: auth.user.id,
+        task_id: item.daily_task_id,
+      });
+
+      revalidateTag("blog", "max");
+    }
+  }
 
   revalidateTag("approvals", "max");
   return result;

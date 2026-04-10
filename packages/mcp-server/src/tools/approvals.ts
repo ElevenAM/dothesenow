@@ -35,7 +35,7 @@ export const approvals: ToolModule = {
           item_type: {
             type: "string",
             description:
-              "social_post, blog_post, email_draft, task_submission, strategy_change",
+              "social_post, blog_post (deliverable), email_draft, task_submission, strategy_change",
           },
           submitted_by_type: {
             type: "string",
@@ -82,7 +82,7 @@ export const approvals: ToolModule = {
           item_type: {
             type: "string",
             description:
-              "Filter: social_post, blog_post, email_draft, task_submission, strategy_change",
+              "Filter: social_post, blog_post (deliverable), email_draft, task_submission, strategy_change",
           },
           submitted_by_type: {
             type: "string",
