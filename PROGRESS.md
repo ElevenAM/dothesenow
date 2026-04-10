@@ -59,6 +59,12 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | [11C] | E2E testing (state machine, chat E2E, CI pipeline) | **Complete** — exhaustive state machine test (49 transitions), 5 Playwright chat tests, GitHub Actions workflow |
 | [11D] | Cowork setup tab | **Complete** — 3rd tab in plugin setup instructions |
 
+### Separate Repositories (Planned)
+
+| Repo | Description | Bridge Point in This Repo |
+|------|-------------|---------------------------|
+| **Freelancer Marketplace** | Dedicated app for freelancer onboarding, task claiming, submissions, and messaging. Uses existing `mktg_freelancers`, `mktg_tasks`, `mktg_task_submissions`, `mktg_task_messages` tables. | `changeTaskExecutor()` creates `mktg_tasks` record when switching daily task to freelancer executor |
+
 ### Testing Growth Per Phase
 | Phase | Tests Added | Cumulative |
 |-------|------------|------------|

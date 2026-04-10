@@ -292,11 +292,19 @@ All UI work MUST follow the GitHub Primer design system defined in `DESIGN.md` a
 
 ## Pre-Push Checklist
 
-**Before any `git push`, you MUST apply pending migrations and deploy changed edge functions — do not just surface findings, execute them.**
+> **CRITICAL — This checklist is MANDATORY before every `git push`. Do NOT push without completing ALL steps. Do NOT ask the user whether to do them — just do them. Skipping any step has caused production incidents.**
 
 1. **Apply unapplied migrations** — Compare `supabase/migrations/` against production (query `supabase_migrations.schema_migrations` via the Supabase MCP `list_migrations` tool or `execute_sql`). For each migration not yet applied, use the Supabase MCP `apply_migration` tool to apply it immediately. Do not push with unapplied migrations.
 2. **Deploy changed edge functions** — Run `git diff origin/main -- supabase/functions/` to detect local changes not yet deployed. For each changed function, use the Supabase MCP `deploy_edge_function` tool to deploy it immediately. Do not push with undeployed functions.
-3. **Verify before pushing** — Confirm all migrations are applied and all edge functions are deployed, then push.
+3. **Update `KnowledgeGraph.md`** — This is NOT optional. If ANY of these file categories changed, you MUST update the corresponding section(s) in `KnowledgeGraph.md` IN THE SAME COMMIT as the code change (or immediately after, before pushing):
+   - Server actions (`src/lib/*/actions.ts`) — update §2 Flows by Domain (add new flows, update existing ones)
+   - Query functions (`packages/queries/src/*.ts`) — update §2 data shape tables
+   - API routes (`src/app/api/**/*.ts`) — update §6 API Routes Reference
+   - Inngest functions (`src/lib/inngest/functions/*.ts`) — update §3 Autonomous Flows
+   - Database migrations (`supabase/migrations/`) — update §1 Schema Quick Reference AND §2 state machine tables if transitions changed
+   - New UI components that trigger mutations — update the relevant flow's Trigger line
+   - Check §7 Gap Registry — mark resolved items, add any new mismatches discovered
+4. **Verify before pushing** — Confirm all migrations are applied, all edge functions are deployed, and KnowledgeGraph.md reflects changes, then push.
 
 ---
 
