@@ -91,7 +91,17 @@
       "Read(//opt/homebrew/bin/**)",
       "Bash(/usr/local/bin/node --version)",
       "Bash(pnpm build:*)",
-      "Bash(grep -r 'INNGEST' /Users/liam/Documents/DoTheseNow/apps/web/.env*)"
+      "Bash(grep -r 'INNGEST' /Users/liam/Documents/DoTheseNow/apps/web/.env*)",
+      "Bash(grep -r \"SUPABASE_REDIRECT\\\\|SITE_URL\\\\|site_url\" .env* apps/web/.env*)",
+      "Bash(ls .env* apps/web/.env*)",
+      "Bash(ls /Users/liam/Documents/DoTheseNow/.env*)",
+      "Bash(ls /Users/liam/Documents/DoTheseNow/apps/web/.env*)",
+      "Bash(pnpm --filter @dothesenow/queries build)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(c.get\\('body',''\\)\\) for c in d.get\\('comments',[]\\)+d.get\\('reviews',[]\\)]\")",
+      "Bash(grep -E '^[0-9]{3,}')",
+      "Bash(pnpm --filter web build)",
+      "Bash(node -e \"const m = require\\('next/cache'\\); console.log\\(m.revalidateTag.toString\\(\\).substring\\(0, 200\\)\\)\")",
+      "Bash(pnpm --filter web typecheck)"
     ]
   }
 }

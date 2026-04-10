@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { NavigationProgress } from "@/components/navigation-progress";
+import { DashboardPrefetcher } from "@/components/dashboard/dashboard-prefetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
 
@@ -70,6 +71,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen bg-muted">
       <NavigationProgress />
+      <DashboardPrefetcher dept={dept} />
       <Sidebar
         dept={dept}
         orgName={org.name}

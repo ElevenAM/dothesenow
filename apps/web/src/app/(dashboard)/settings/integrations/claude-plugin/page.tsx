@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
+import { getRequestContext } from "@/lib/auth-helpers";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveOrgId } from "@/lib/org-context";
 import { getOrgApiKeys } from "@dothesenow/queries";
 import { ApiKeyManager } from "@/components/settings/claude-plugin/api-key-manager";
 import { SetupInstructions } from "@/components/settings/claude-plugin/setup-instructions";
@@ -9,16 +8,9 @@ import { CapabilityGrid } from "@/components/settings/claude-plugin/capability-g
 import { ArrowLeft } from "lucide-react";
 
 export default async function ClaudePluginPage() {
+  const { membership } = await getRequestContext();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const orgId = await getActiveOrgId();
-  if (!orgId) redirect("/onboarding");
-
-  const ctx = { client: supabase, orgId };
+  const ctx = { client: supabase, orgId: membership.orgId };
   const apiKeys = await getOrgApiKeys(ctx);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.dothesenow.com";

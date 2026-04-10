@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { getRequestContext } from "@/lib/auth-helpers";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveOrgId } from "@/lib/org-context";
 import { getOrgIntegrations, getOrgApiKeys, getLatestSyncLog } from "@dothesenow/queries";
 import { getAllExecutorMetadata } from "@/lib/executors/registry";
 import { IntegrationCard } from "@/components/settings/integration-card";
@@ -10,14 +9,9 @@ import { ClaudePluginCard } from "@/components/settings/claude-plugin-card";
 import { PlatformStatusBanner } from "@/components/settings/platform-status-banner";
 
 export default async function IntegrationsPage() {
+  const { membership } = await getRequestContext();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const orgId = await getActiveOrgId();
-  if (!orgId) redirect("/onboarding");
-
-  const ctx = { client: supabase, orgId };
+  const ctx = { client: supabase, orgId: membership.orgId };
   const integrations = await getOrgIntegrations(ctx);
 
   // Fetch Slack installation for the card
