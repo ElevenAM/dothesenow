@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sidebar } from "@/components/dashboard/sidebar";
+import { DashboardClientShell } from "@/components/dashboard/dashboard-client-shell";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { DashboardPrefetcher } from "@/components/dashboard/dashboard-prefetcher";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -69,6 +70,7 @@ export default async function DashboardLayout({
   ]);
 
   return (
+    <DashboardClientShell initialCredits={org.creditsRemaining}>
     <div className="flex h-screen bg-muted">
       <NavigationProgress />
       <DashboardPrefetcher dept={dept} />
@@ -77,7 +79,6 @@ export default async function DashboardLayout({
         orgName={org.name}
         allOrgs={allOrgs}
         currentOrgId={org.id}
-        creditsRemaining={org.creditsRemaining}
         plan={org.plan}
         role={ctx.membership.role}
       />
@@ -113,5 +114,6 @@ export default async function DashboardLayout({
         {children}
       </main>
     </div>
+    </DashboardClientShell>
   );
 }

@@ -23,6 +23,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { PLAN_LIMITS, type PlanTier } from "@dothesenow/types";
+import { useCredits } from "@/contexts/credits-context";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -61,7 +62,6 @@ export function Sidebar({
   orgName,
   allOrgs,
   currentOrgId,
-  creditsRemaining,
   plan,
   role,
 }: {
@@ -69,10 +69,10 @@ export function Sidebar({
   orgName: string;
   allOrgs: OrgInfo[];
   currentOrgId: string;
-  creditsRemaining: number;
   plan: string;
   role: string;
 }) {
+  const { credits: creditsRemaining } = useCredits();
   const pathname = usePathname();
   const router = useRouter();
   const [switchError, setSwitchError] = useState<string | null>(null);

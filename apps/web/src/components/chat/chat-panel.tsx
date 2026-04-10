@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { ChatMessages } from "./chat-messages";
 import { ChatInput } from "./chat-input";
 import { CommandsSheet } from "./commands-sheet";
+import { useCredits } from "@/contexts/credits-context";
 import type { DailyTask } from "@dothesenow/types";
 
 export interface ChatMessage {
@@ -20,15 +21,14 @@ export interface ChatMessage {
 }
 
 interface ChatPanelProps {
-  creditsRemaining: number;
   pendingTasks: Pick<DailyTask, "id" | "title" | "task_type" | "priority" | "status">[];
 }
 
-export function ChatPanel({ creditsRemaining, pendingTasks }: ChatPanelProps) {
+export function ChatPanel({ pendingTasks }: ChatPanelProps) {
+  const { credits, decrementCredits, refreshCredits } = useCredits();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [credits, setCredits] = useState(creditsRemaining);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -72,7 +72,7 @@ export function ChatPanel({ creditsRemaining, pendingTasks }: ChatPanelProps) {
         const err = await res.json().catch(() => ({ error: "Request failed" }));
 
         if (res.status === 402) {
-          setCredits(0);
+          refreshCredits();
           setMessages((prev) => [
             ...prev,
             {
@@ -104,7 +104,7 @@ export function ChatPanel({ creditsRemaining, pendingTasks }: ChatPanelProps) {
         setSessionId(data.session_id);
       }
 
-      setCredits((c) => Math.max(0, c - (data.credits_used ?? 1)));
+      decrementCredits(data.credits_used ?? 1);
 
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),

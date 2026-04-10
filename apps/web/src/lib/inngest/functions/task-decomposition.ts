@@ -106,7 +106,11 @@ export const taskDecomposition = inngest.createFunction(
           return { targetDate: localDate, dayOfWeek: localDay, shouldSkip: true };
         }
 
-        // Idempotency: check if tasks already generated for this date (cron trigger only)
+        // Idempotency: skip if AI-generated tasks already exist for this date.
+        // Applies to cron triggers to prevent double-firing.
+        // Manual triggers skip this check — the server action pre-validates
+        // and returns an error if tasks already exist, giving the user
+        // immediate feedback instead of a silent skip.
         const isManual = event.name === "task/decompose.manual";
         if (!isManual) {
           const { data: existing } = await supabase

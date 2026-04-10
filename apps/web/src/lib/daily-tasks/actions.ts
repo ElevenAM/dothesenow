@@ -11,7 +11,9 @@ import {
   transitionTaskStatus,
   getStrategyDocs,
   getCreditBalance,
+  createMarketplaceTask,
 } from "@dothesenow/queries";
+import type { CreateMarketplaceTaskInput, ExecutorType } from "@dothesenow/types";
 import { TASK_DECOMPOSITION_COST } from "@dothesenow/prompts";
 import { inngest } from "@/lib/inngest/client";
 import type {
@@ -318,10 +320,16 @@ export async function carryOverTasks(
 /**
  * Trigger AI task generation for a given date.
  * Validates strategy doc exists and credits are sufficient before sending event.
+ *
+ * When `skipIfExists` is true (used by auto-trigger), silently returns success
+ * if AI-generated tasks already exist for this date — prevents duplicate
+ * generation from auto-trigger + cron both firing. Manual button should pass
+ * false (the default) so users can always re-generate.
  */
 export async function generateDailyTasks(
   deptSlug: string,
   date?: string,
+  skipIfExists = false,
 ): Promise<{ success: boolean }> {
   const { auth, ctx } = await getAuthenticatedOrgContext();
 
@@ -342,6 +350,23 @@ export async function generateDailyTasks(
     );
   }
 
+  // For auto-trigger: skip if tasks already exist (prevents auto + cron duplication)
+  if (skipIfExists && date) {
+    const supabase = await createClient();
+    const { data: existing } = await supabase
+      .from("dtn_daily_tasks")
+      .select("id")
+      .eq("org_id", ctx.orgId)
+      .eq("scheduled_date", date)
+      .eq("generated_by", "claude")
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      revalidateTag("tasks", "max");
+      return { success: true };
+    }
+  }
+
   // When no date is provided, omit target_date entirely — the Inngest
   // function computes it from the org's timezone, avoiding the UTC mismatch
   // that todayString() would introduce for late-evening users in UTC- zones.
@@ -357,4 +382,74 @@ export async function generateDailyTasks(
   revalidateTag("tasks", "max");
   revalidateTag("overview", "max");
   return { success: true };
+}
+
+/**
+ * Change a task's executor type and optionally dispatch it or post to marketplace.
+ * Only allowed for tasks in "pending" status.
+ */
+export async function changeTaskExecutor(
+  taskId: string,
+  newExecutorType: string,
+  marketplaceData?: {
+    deliverables: string;
+    required_skills: string[];
+    budget?: number;
+  },
+): Promise<DailyTask> {
+  const { ctx } = await getAuthenticatedOrgContext();
+
+  // Fetch current task and validate state
+  const { getTaskById } = await import("@dothesenow/queries");
+  const current = await getTaskById(ctx, taskId);
+  if (!current) throw new Error("Task not found");
+  if (current.status !== "pending") {
+    throw new Error("Can only change executor on pending tasks");
+  }
+
+  // Update executor type
+  const updated = await updateTaskForOrg(ctx, taskId, {
+    executor_type: newExecutorType as ExecutorType,
+  });
+
+  // If changing to freelancer, create a marketplace task
+  if (newExecutorType === "freelancer" && marketplaceData) {
+    const mktgTask = await createMarketplaceTask(ctx, {
+      title: updated.title,
+      description: updated.description ?? "",
+      brief: updated.description ?? updated.title,
+      task_type: updated.task_type === "create" ? "blog_post" : "other",
+      deliverables: marketplaceData.deliverables,
+      required_skills: marketplaceData.required_skills,
+      budget: marketplaceData.budget ?? null,
+      payment_type: "fixed",
+      priority: updated.priority,
+    });
+
+    // Link the marketplace task back to the daily task (direct update
+    // since mktg_task_id isn't in the UpdateTaskInput type)
+    const supabase = await createClient();
+    const { error: linkError } = await supabase
+      .from("dtn_daily_tasks")
+      .update({ mktg_task_id: mktgTask.id })
+      .eq("id", taskId)
+      .eq("org_id", ctx.orgId);
+
+    if (linkError) {
+      throw new Error(`Failed to link marketplace task: ${linkError.message}`);
+    }
+  }
+
+  // If changing to a dispatchable executor, dispatch it.
+  // Re-fetch to get all fields required by DispatchableTask.
+  if (["claude_api", "n8n", "jasper_api"].includes(newExecutorType)) {
+    const fullTask = await getTaskById(ctx, taskId);
+    if (fullTask) {
+      await dispatchTask(fullTask);
+    }
+  }
+
+  revalidateTag("tasks", "max");
+  revalidateTag("overview", "max");
+  return updated;
 }

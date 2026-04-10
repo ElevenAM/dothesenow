@@ -18,6 +18,32 @@ export interface CreditUsage {
 }
 
 /**
+ * Lightweight credit balance fetch for real-time sync.
+ * Used by CreditsContext.refreshCredits() after credit-consuming operations.
+ */
+export async function fetchCreditBalance(): Promise<number> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: membership } = await supabase
+    .from("dtn_memberships")
+    .select("org_id")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .single();
+
+  if (!membership) throw new Error("No active organization membership");
+
+  const ctx = { client: supabase, orgId: membership.org_id };
+  const balance = await getCreditBalance(ctx);
+  return balance.remaining;
+}
+
+/**
  * Get credit usage data for the current user's org.
  * Used by the billing page to display credit status.
  */

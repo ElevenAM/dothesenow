@@ -24,10 +24,7 @@ export default async function AssistantPage() {
 
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col -m-6">
-      <ChatPanel
-        creditsRemaining={org.creditsRemaining}
-        pendingTasks={pendingTasks}
-      />
+      <ChatPanel pendingTasks={pendingTasks} />
     </div>
   );
 }

@@ -7,7 +7,10 @@ import {
   getTasksSummary,
   getMembershipsForOrg,
   getOrgIntegrations,
+  getStrategyDocs,
+  getCreditBalance,
 } from "@dothesenow/queries";
+import { TASK_DECOMPOSITION_COST } from "@dothesenow/prompts";
 import { getExecutorAvailability } from "@/lib/daily-tasks/dispatch";
 import { getAllExecutorMetadata } from "@/lib/executors/registry";
 import { RealtimeListener } from "@/components/realtime-listener";
@@ -55,6 +58,25 @@ export default async function TasksPage({
   const { tasks, summary, memberships, integrations } =
     await getCachedTasksData(membership.orgId, date, departmentId);
 
+  // Determine auto-generation status for today's empty task list
+  let autoGenStatus: "ready" | "no_strategy" | "no_credits" | null = null;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+  if (date === today && tasks.length === 0) {
+    const adminCtx = createAdminClient();
+    const ctx = { client: adminCtx, orgId: membership.orgId };
+    const docs = await getStrategyDocs(ctx, {
+      is_active: true,
+      doc_type: "master_strategy",
+    });
+    if (docs.length === 0) {
+      autoGenStatus = "no_strategy";
+    } else {
+      const { remaining } = await getCreditBalance(ctx);
+      autoGenStatus =
+        remaining >= TASK_DECOMPOSITION_COST ? "ready" : "no_credits";
+    }
+  }
+
   // Transform memberships → TeamMember[]
   const members: TeamMember[] = memberships
     .filter((m) => m.user_id !== null)
@@ -85,11 +107,13 @@ export default async function TasksPage({
         tasks={sortedTasks}
         summary={summary}
         date={date}
+        today={today}
         dept={dept}
         members={members}
         currentUserId={user.id}
         executorAvailability={executorAvailability}
         executorTypes={executorTypes}
+        autoGenStatus={autoGenStatus}
       />
     </RealtimeListener>
   );

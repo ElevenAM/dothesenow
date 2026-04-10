@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -16,14 +17,20 @@ import {
   XCircle,
   Pencil,
   AlertTriangle,
+  User,
+  Bot,
+  Briefcase,
 } from "lucide-react";
 import {
   completeDailyTask,
   skipDailyTask,
   updateDailyTask,
+  changeTaskExecutor,
 } from "@/lib/daily-tasks/actions";
 import type { DailyTask } from "@/lib/daily-tasks/actions";
+import type { ExecutorAvailability } from "./tasks-page-client";
 import { BlockerDialog } from "./blocker-dialog";
+import { FreelancerPostDialog } from "./freelancer-post-dialog";
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: "bg-[var(--label-red-bg)] text-[var(--label-red-fg)]",
@@ -47,9 +54,15 @@ interface TaskListProps {
   tasks: DailyTask[];
   onEditTask: (task: DailyTask) => void;
   onSelectTask: (task: DailyTask) => void;
+  executorAvailability?: ExecutorAvailability;
 }
 
-export function TaskList({ tasks, onEditTask, onSelectTask }: TaskListProps) {
+export function TaskList({
+  tasks,
+  onEditTask,
+  onSelectTask,
+  executorAvailability,
+}: TaskListProps) {
   if (tasks.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-[var(--fgColor-muted)]">
@@ -66,6 +79,7 @@ export function TaskList({ tasks, onEditTask, onSelectTask }: TaskListProps) {
           task={task}
           onEdit={() => onEditTask(task)}
           onSelect={() => onSelectTask(task)}
+          executorAvailability={executorAvailability}
         />
       ))}
     </div>
@@ -76,17 +90,28 @@ function TaskRow({
   task,
   onEdit,
   onSelect,
+  executorAvailability,
 }: {
   task: DailyTask;
   onEdit: () => void;
   onSelect: () => void;
+  executorAvailability?: ExecutorAvailability;
 }) {
   const [isPending, startTransition] = useTransition();
   const [blockerOpen, setBlockerOpen] = useState(false);
+  const [freelancerOpen, setFreelancerOpen] = useState(false);
   const isComplete = task.status === "completed";
-  const isTerminal = ["completed", "skipped", "failed", "carried_over", "blocked"].includes(
-    task.status,
-  );
+  const isTerminal = [
+    "completed",
+    "skipped",
+    "failed",
+    "carried_over",
+    "blocked",
+  ].includes(task.status);
+  const isPendingStatus = task.status === "pending";
+
+  const claudeAvailable =
+    executorAvailability?.claude_api?.available !== false;
 
   function handleToggle() {
     if (isPending) return;
@@ -110,6 +135,12 @@ function TaskRow({
           break;
         case "fail":
           await updateDailyTask(task.id, { status: "failed" });
+          break;
+        case "do_self":
+          await changeTaskExecutor(task.id, "self");
+          break;
+        case "run_ai":
+          await changeTaskExecutor(task.id, "claude_api");
           break;
       }
     });
@@ -140,12 +171,18 @@ function TaskRow({
       </button>
 
       <div className="flex items-center gap-2 shrink-0">
-        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${PRIORITY_COLORS[task.priority]}`}>
+        <Badge
+          variant="outline"
+          className={`text-[10px] px-1.5 py-0 ${PRIORITY_COLORS[task.priority]}`}
+        >
           {task.priority}
         </Badge>
 
         {task.status !== "pending" && task.status !== "completed" && (
-          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[task.status]}`}>
+          <Badge
+            variant="outline"
+            className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[task.status]}`}
+          >
             {task.status.replace("_", " ")}
           </Badge>
         )}
@@ -157,9 +194,7 @@ function TaskRow({
         )}
 
         <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex items-center justify-center rounded-md h-7 w-7 opacity-0 group-hover:opacity-100 hover:bg-muted cursor-pointer border-0 bg-transparent"
-          >
+          <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md h-7 w-7 opacity-0 group-hover:opacity-100 hover:bg-muted cursor-pointer border-0 bg-transparent">
             <MoreHorizontal className="h-4 w-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -194,6 +229,33 @@ function TaskRow({
                 </DropdownMenuItem>
               </>
             )}
+
+            {/* Executor action options — only for pending tasks */}
+            {isPendingStatus && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleAction("do_self")}>
+                  <User className="mr-2 h-3.5 w-3.5" />
+                  Do it yourself
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleAction("run_ai")}
+                  disabled={!claudeAvailable}
+                >
+                  <Bot className="mr-2 h-3.5 w-3.5" />
+                  Run with AI
+                  {!claudeAvailable && (
+                    <span className="ml-auto text-[10px] text-[var(--fgColor-muted)]">
+                      unavailable
+                    </span>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFreelancerOpen(true)}>
+                  <Briefcase className="mr-2 h-3.5 w-3.5" />
+                  Hire a freelancer
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -203,6 +265,12 @@ function TaskRow({
         taskTitle={task.title}
         open={blockerOpen}
         onOpenChange={setBlockerOpen}
+      />
+
+      <FreelancerPostDialog
+        task={task}
+        open={freelancerOpen}
+        onOpenChange={setFreelancerOpen}
       />
     </div>
   );
