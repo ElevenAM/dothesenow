@@ -16,6 +16,19 @@ const CONTACTS_TABLE = "mktg_contacts";
 const OUTREACH_TABLE = "mktg_outreach_log";
 const DEFAULT_PAGE_SIZE = 20;
 
+/**
+ * Fields that external callers (web UI, MCP) are allowed to update.
+ * System fields (sync_status, external_ids, external_updated_at, owner_id, etc.)
+ * are excluded to protect sync infrastructure and data integrity.
+ *
+ * Single source of truth — imported by both web UI actions and MCP tools.
+ */
+export const ALLOWED_CONTACT_UPDATE_FIELDS = [
+  "first_name", "last_name", "email", "phone", "company", "title",
+  "contact_type", "status", "lifecycle_stage", "tags", "location",
+  "source", "persona", "notes", "lead_score",
+] as const;
+
 /** Escape PostgREST filter special characters to prevent filter injection. */
 export function escapeFilterValue(value: string): string {
   return value.replace(/[\\%_(),."]/g, (ch) => `\\${ch}`);

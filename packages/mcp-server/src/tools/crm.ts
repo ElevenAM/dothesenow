@@ -5,6 +5,7 @@ import {
   getContactsForOrg,
   createContact,
   updateContact,
+  ALLOWED_CONTACT_UPDATE_FIELDS,
   logOutreach,
   updateOutreach,
   getOutreachHistory,
@@ -238,10 +239,27 @@ export const crm: ToolModule = {
 
     async update_contact(client, args) {
       const ctx = toOrgContext(client);
+
+      // Filter through shared whitelist to protect system fields
+      // (sync_status, external_ids, external_updated_at, etc.)
+      const rawUpdates = args.updates as Record<string, unknown>;
+      const filtered: Record<string, unknown> = {};
+      for (const field of ALLOWED_CONTACT_UPDATE_FIELDS) {
+        if (field in rawUpdates) {
+          filtered[field] = rawUpdates[field];
+        }
+      }
+
+      if (Object.keys(filtered).length === 0) {
+        throw new Error(
+          "No allowed fields to update. Allowed: " + ALLOWED_CONTACT_UPDATE_FIELDS.join(", "),
+        );
+      }
+
       const data = await updateContact(
         ctx,
         args.contact_id as string,
-        args.updates as Parameters<typeof updateContact>[2],
+        filtered as Parameters<typeof updateContact>[2],
       );
       return ok(`Contact updated: ${JSON.stringify(data, null, 2)}`);
     },

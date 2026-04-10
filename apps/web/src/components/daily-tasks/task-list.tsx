@@ -241,19 +241,19 @@ function TaskRow({
               </DropdownMenuItem>
             )}
             {!isTerminal && (
-              <>
-                <DropdownMenuItem onClick={() => handleAction("skip")}>
-                  <SkipForward className="mr-2 h-3.5 w-3.5" />
-                  Skip
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleAction("fail")}
-                  className="text-destructive"
-                >
-                  <XCircle className="mr-2 h-3.5 w-3.5" />
-                  Mark Failed
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem onClick={() => handleAction("skip")}>
+                <SkipForward className="mr-2 h-3.5 w-3.5" />
+                Skip
+              </DropdownMenuItem>
+            )}
+            {(task.status === "in_progress" || task.status === "waiting_approval") && (
+              <DropdownMenuItem
+                onClick={() => handleAction("fail")}
+                className="text-destructive"
+              >
+                <XCircle className="mr-2 h-3.5 w-3.5" />
+                Mark Failed
+              </DropdownMenuItem>
             )}
 
             {/* Executor action options — only for pending tasks */}

@@ -7,12 +7,17 @@ import {
   createTaskForOrg,
   updateTaskForOrg,
   transitionTaskStatus,
+  completeTaskViaStateMachine,
   carryOverTasks,
   getStrategyDocs,
   reportTaskResult,
   getTaskContext,
+  getCreditBalance,
+  reserveCredits,
+  confirmCredits,
 } from "@dothesenow/queries";
 import { TransitionSource, type TaskStatus } from "@dothesenow/types";
+import { TASK_DECOMPOSITION_COST } from "@dothesenow/prompts";
 
 const ORG_ID_PROP = {
   org_id: {
@@ -242,15 +247,23 @@ export const dailyTasks: ToolModule = {
       const { org_id: _, task_id, status, ...fieldUpdates } = args;
       const taskId = task_id as string;
 
-      // Status change goes through the state machine first
+      // Status change goes through the state machine
       let statusChanged = false;
       if (status) {
-        await transitionTaskStatus(
-          ctx,
-          taskId,
-          status as TaskStatus,
-          TransitionSource.Mcp,
-        );
+        const targetStatus = status as TaskStatus;
+
+        // Use shared step-through helper for completion (handles
+        // pending→in_progress→completed and already-completed no-op)
+        if (targetStatus === "completed") {
+          await completeTaskViaStateMachine(ctx, taskId, TransitionSource.Mcp);
+        } else {
+          await transitionTaskStatus(
+            ctx,
+            taskId,
+            targetStatus,
+            TransitionSource.Mcp,
+          );
+        }
         statusChanged = true;
       }
 
@@ -279,6 +292,25 @@ export const dailyTasks: ToolModule = {
       const ctx = toOrgContext(client);
       const targetDate = (args.date as string) || todayString();
       const yesterday = yesterdayString();
+
+      // Credit gate — matches web UI's generateDailyTasks() behavior
+      const { remaining } = await getCreditBalance(ctx);
+      if (remaining < TASK_DECOMPOSITION_COST) {
+        return ok(JSON.stringify({
+          error: "insufficient_credits",
+          message: `Insufficient credits for task generation. Need ${TASK_DECOMPOSITION_COST}, have ${remaining}. Ask the user to add credits.`,
+          remaining,
+          required: TASK_DECOMPOSITION_COST,
+        }));
+      }
+
+      // Deduct credits upfront (reserve + immediate confirm = atomic deduction)
+      const ledgerId = await reserveCredits(
+        ctx,
+        TASK_DECOMPOSITION_COST,
+        `mcp-task-generation:${targetDate}`,
+      );
+      await confirmCredits(ctx, ledgerId);
 
       const strategies = await getStrategyDocs(ctx, { is_active: true });
       const yesterdayTasks = await getTasksForOrg(ctx, { scheduled_date: yesterday });

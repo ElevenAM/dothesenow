@@ -9,6 +9,7 @@ import {
   createTaskForOrg,
   updateTaskForOrg,
   transitionTaskStatus,
+  completeTaskViaStateMachine,
   getStrategyDocs,
   getCreditBalance,
   createMarketplaceTask,
@@ -136,27 +137,11 @@ export async function completeDailyTask(
   const current = await getTaskById(ctx, taskId);
   const oldStatus = current?.status ?? "pending";
 
-  // Already completed — nothing to do
-  if (oldStatus === "completed") {
-    const fetched = await getTaskById(ctx, taskId);
-    if (!fetched) throw new Error("Task not found");
-    return fetched;
-  }
+  // Step-through completion via shared helper (handles already-completed no-op)
+  let task = await completeTaskViaStateMachine(ctx, taskId, "web_ui", auth.user.id);
 
-  // State machine: only in_progress → completed is valid.
-  // Step through in_progress first if coming from any other status.
-  if (oldStatus !== "in_progress") {
-    await transitionTaskStatus(ctx, taskId, "in_progress", "web_ui", auth.user.id);
-  }
-  await transitionTaskStatus(ctx, taskId, "completed", "web_ui", auth.user.id);
-
-  let task: DailyTask;
   if (outcomeNotes) {
     task = await updateTaskForOrg(ctx, taskId, { outcome_notes: outcomeNotes });
-  } else {
-    const fetched = await getTaskById(ctx, taskId);
-    if (!fetched) throw new Error("Task not found after completion");
-    task = fetched;
   }
 
   // Emit thread sync event

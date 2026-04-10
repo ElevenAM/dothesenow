@@ -178,6 +178,37 @@ export async function bulkCreateTasks(
 }
 
 /**
+ * Complete a task through the state machine with step-through logic.
+ * If the task is not in_progress, transitions to in_progress first,
+ * then to completed. No-ops if already completed.
+ *
+ * Shared between web UI (completeDailyTask) and MCP (update_daily_task)
+ * to ensure consistent completion semantics across entry points.
+ */
+export async function completeTaskViaStateMachine(
+  ctx: OrgContext,
+  taskId: string,
+  source: TransitionSource,
+  actorId?: string | null,
+): Promise<DailyTask> {
+  const current = await getTaskById(ctx, taskId);
+  if (!current) throw new QueryError("Task not found", TABLE, "completeTaskViaStateMachine", ctx.orgId);
+
+  // Already completed — no-op
+  if (current.status === "completed") return current;
+
+  // Step through in_progress first if not already there
+  if (current.status !== "in_progress") {
+    await transitionTaskStatus(ctx, taskId, "in_progress" as TaskStatus, source, actorId);
+  }
+  await transitionTaskStatus(ctx, taskId, "completed" as TaskStatus, source, actorId);
+
+  const updated = await getTaskById(ctx, taskId);
+  if (!updated) throw new QueryError("Task not found after completion", TABLE, "completeTaskViaStateMachine", ctx.orgId);
+  return updated;
+}
+
+/**
  * Transition a task's status through the state machine.
  * Uses the transition_task_status() RPC which validates transitions,
  * records audit events, and handles completed_at.

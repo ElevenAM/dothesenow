@@ -120,6 +120,7 @@ export async function reviewApproval(
   itemId: string,
   reviewerId: string | null,
   input: ReviewApprovalInput,
+  source: "web_ui" | "mcp" | "api" = "api",
 ): Promise<unknown> {
   const { data, error } = await ctx.client.rpc("review_approval_item", {
     p_approval_id: itemId,
@@ -127,6 +128,7 @@ export async function reviewApproval(
     p_reviewer_id: reviewerId,
     p_status: input.status,
     p_reviewer_notes: input.reviewer_notes ?? null,
+    p_source: source,
   });
 
   if (error) throw new QueryError(error.message, TABLE, "reviewApproval", ctx.orgId, error);
