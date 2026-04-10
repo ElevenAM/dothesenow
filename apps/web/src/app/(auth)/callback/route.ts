@@ -36,6 +36,23 @@ export async function GET(request: NextRequest) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
+      // Check for OAuth consent return cookie — if present, redirect
+      // there instead of the default "/" so the user completes the
+      // OAuth authorization flow after logging in.
+      const oauthReturnTo = request.cookies.get("dtn_oauth_return_to")?.value;
+      if (oauthReturnTo && oauthReturnTo.startsWith("/oauth")) {
+        const response = NextResponse.redirect(
+          new URL(oauthReturnTo, origin),
+        );
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options),
+        );
+        // Clear the return cookie
+        response.cookies.delete("dtn_oauth_return_to");
+        return response;
+      }
+
       let redirectPath = "/";
 
       if (user) {

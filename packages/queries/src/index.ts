@@ -22,3 +22,4 @@ export * from "./hubspot-mappings.js";
 export * from "./external-metrics.js";
 export * from "./webhook-subscriptions.js";
 export * from "./blog.js";
+export * from "./mcp-oauth.js";

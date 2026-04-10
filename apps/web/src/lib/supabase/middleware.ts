@@ -41,11 +41,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users to login (except auth pages and API routes)
+  // Redirect unauthenticated users to login (except auth pages, API routes,
+  // and the OAuth consent page which manages its own auth redirect chain)
   const isAuthPage = path.startsWith("/login") || path.startsWith("/signup") || path.startsWith("/callback");
   const isApiRoute = path.startsWith("/api");
+  const isOAuthConsent = path.startsWith("/oauth");
+  const isWellKnown = path.startsWith("/.well-known");
 
-  if (!user && !isAuthPage && !isApiRoute) {
+  if (!user && !isAuthPage && !isApiRoute && !isOAuthConsent && !isWellKnown) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

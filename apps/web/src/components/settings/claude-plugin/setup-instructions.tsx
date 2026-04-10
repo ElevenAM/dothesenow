@@ -12,37 +12,7 @@ interface SetupInstructionsProps {
 export function SetupInstructions({ mcpEndpoint }: SetupInstructionsProps) {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
 
-  const claudeCodeConfig = JSON.stringify(
-    {
-      mcpServers: {
-        dothesenow: {
-          url: mcpEndpoint,
-          headers: {
-            Authorization: "Bearer YOUR_API_KEY",
-          },
-        },
-      },
-    },
-    null,
-    2,
-  );
-
-  const claudeDesktopConfig = JSON.stringify(
-    {
-      mcpServers: {
-        dothesenow: {
-          url: mcpEndpoint,
-          headers: {
-            Authorization: "Bearer YOUR_API_KEY",
-          },
-        },
-      },
-    },
-    null,
-    2,
-  );
-
-  const claudeCoworkConfig = JSON.stringify(
+  const apiKeyConfig = JSON.stringify(
     {
       mcpServers: {
         dothesenow: {
@@ -99,13 +69,13 @@ export function SetupInstructions({ mcpEndpoint }: SetupInstructionsProps) {
           </p>
           <div className="relative">
             <pre className="rounded-md border border-[var(--borderColor-default)] bg-[var(--bgColor-muted)] p-4 text-xs font-mono overflow-x-auto">
-              {claudeCodeConfig}
+              {apiKeyConfig}
             </pre>
             <Button
               variant="ghost"
               size="sm"
               className="absolute right-2 top-2"
-              onClick={() => handleCopy(claudeCodeConfig, "code")}
+              onClick={() => handleCopy(apiKeyConfig, "code")}
             >
               {copiedTab === "code" ? (
                 <Check className="h-3.5 w-3.5" />
@@ -133,13 +103,13 @@ export function SetupInstructions({ mcpEndpoint }: SetupInstructionsProps) {
           </ul>
           <div className="relative">
             <pre className="rounded-md border border-[var(--borderColor-default)] bg-[var(--bgColor-muted)] p-4 text-xs font-mono overflow-x-auto">
-              {claudeDesktopConfig}
+              {apiKeyConfig}
             </pre>
             <Button
               variant="ghost"
               size="sm"
               className="absolute right-2 top-2"
-              onClick={() => handleCopy(claudeDesktopConfig, "desktop")}
+              onClick={() => handleCopy(apiKeyConfig, "desktop")}
             >
               {copiedTab === "desktop" ? (
                 <Check className="h-3.5 w-3.5" />
@@ -155,32 +125,36 @@ export function SetupInstructions({ mcpEndpoint }: SetupInstructionsProps) {
 
         <TabsContent value="claude-cowork" className="mt-3 space-y-2">
           <p className="text-xs text-[var(--fgColor-muted)]">
-            Add this MCP server configuration to your Cowork workspace settings:
+            Connect via OAuth — just paste the URL and authentication is handled automatically:
           </p>
-          <ol className="list-decimal pl-4 text-xs text-[var(--fgColor-muted)] space-y-1">
-            <li>Open your Cowork workspace settings</li>
-            <li>Navigate to <strong>MCP Servers</strong> or <strong>Integrations</strong></li>
-            <li>Add a new MCP server with the configuration below</li>
+          <ol className="list-decimal pl-4 text-xs text-[var(--fgColor-muted)] space-y-1.5">
+            <li>In Claude Cowork, go to <strong>Connectors</strong> and click <strong>+</strong> to add a custom connector</li>
+            <li>Set the <strong>Name</strong> to &quot;DoTheseNow&quot;</li>
+            <li>Paste this <strong>URL</strong>:</li>
           </ol>
           <div className="relative">
-            <pre className="rounded-md border border-[var(--borderColor-default)] bg-[var(--bgColor-muted)] p-4 text-xs font-mono overflow-x-auto">
-              {claudeCoworkConfig}
+            <pre className="rounded-md border border-[var(--borderColor-default)] bg-[var(--bgColor-muted)] px-4 py-3 text-xs font-mono overflow-x-auto">
+              {mcpEndpoint}
             </pre>
             <Button
               variant="ghost"
               size="sm"
-              className="absolute right-2 top-2"
-              onClick={() => handleCopy(claudeCoworkConfig, "cowork")}
+              className="absolute right-2 top-1.5"
+              onClick={() => handleCopy(mcpEndpoint, "cowork-url")}
             >
-              {copiedTab === "cowork" ? (
+              {copiedTab === "cowork-url" ? (
                 <Check className="h-3.5 w-3.5" />
               ) : (
                 <Copy className="h-3.5 w-3.5" />
               )}
             </Button>
           </div>
+          <ol start={4} className="list-decimal pl-4 text-xs text-[var(--fgColor-muted)] space-y-1.5">
+            <li>Click <strong>Add</strong> — you&apos;ll be redirected to sign in and authorize the connection</li>
+            <li>Select which workspace to connect and click <strong>Authorize</strong></li>
+          </ol>
           <p className="text-xs text-[var(--fgColor-muted)]">
-            Once connected, Claude in Cowork will have access to all 30 DoTheseNow tools —
+            Once connected, Claude in Cowork will have access to all DoTheseNow tools —
             manage tasks, contacts, outreach, strategy, campaigns, and approvals directly from your Cowork session.
           </p>
         </TabsContent>
