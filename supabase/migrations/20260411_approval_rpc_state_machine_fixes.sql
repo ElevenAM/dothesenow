@@ -68,7 +68,7 @@ BEGIN
     task_id, org_id, event_type, source, actor_id,
     previous_state, new_state, metadata
   ) VALUES (
-    p_task_id, v_org_id, 'status_change', p_source, p_actor_id,
+    p_task_id, v_org_id, 'status_changed', p_source, p_actor_id,
     jsonb_build_object('status', v_current_status),
     jsonb_build_object('status', p_new_status),
     p_metadata

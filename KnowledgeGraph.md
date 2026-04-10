@@ -169,7 +169,7 @@
 |-------------|---------------------|
 | `pending` | `in_progress`, `waiting_approval`, `skipped`, `carried_over` |
 | `in_progress` | `completed`, `failed`, `blocked`, `skipped`, `waiting_approval` |
-| `waiting_approval` | `in_progress`, `skipped`, `failed` |
+| `waiting_approval` | `in_progress`, `completed`, `skipped`, `failed` |
 | `blocked` | `in_progress`, `skipped`, `carried_over` |
 | `failed` | `in_progress`, `carried_over` |
 | `completed` | `pending` (reopen via migration `20260410_allow_reopen_completed_tasks`) |
@@ -306,7 +306,7 @@
 
 #### Approval State Machine (migration 002 + RPC 006)
 
-**Source of truth:** `review_approval_item()` RPC in `supabase/migrations/006_approval_review_rpc.sql`
+**Source of truth:** `review_approval_item()` RPC — originally `006_approval_review_rpc.sql`, updated by `20260411_approval_rpc_state_machine_fixes.sql` to use `transition_task_status()` with `p_source` param for audit trail
 **DB CHECK:** `status IN ('pending', 'approved', 'rejected', 'revision_requested')`
 
 | From Status | Allowed Transitions | Enforced By |
@@ -323,12 +323,9 @@
 | Approve button | `approval-detail-sheet.tsx:46` | `isReviewable` check (line 36): only shows for `pending` or `revision_requested` | Yes |
 | Reject button | `approval-detail-sheet.tsx:46` | Same `isReviewable` guard | Yes |
 | Request Revision | `approval-detail-sheet.tsx:46` | Same `isReviewable` guard | Yes |
-| Quick approve (card) | `approval-card.tsx:38` | No from-status guard — calls `reviewApprovalItem(item.id, "approved")` directly | `[MISMATCH]` May show for already-approved items if card re-renders before list refreshes |
+| Quick approve (card) | `approval-card.tsx:92` | `isReviewable` guard: `item.status === "pending" \|\| item.status === "revision_requested"` | Yes (fixed by migration `20260411`) |
 
-**`[MISMATCH]` Approval → Task status bypass:** The `review_approval_item()` RPC (migration 006, lines 49-63) directly UPDATEs `dtn_daily_tasks.status` without calling `transition_task_status()`. This means:
-- Approval approved → task set to `completed` — but `waiting_approval → completed` is **NOT** a valid transition per migration 013 (only `waiting_approval → in_progress/skipped/failed`)
-- No audit trail in `dtn_task_event_log` for these task status changes
-- Rejection sets task to `failed`, revision_requested sets to `in_progress` — both valid transitions, but still no audit entries
+~~**`[MISMATCH]` Approval → Task status bypass**~~ — **RESOLVED** (migration `20260411`): `review_approval_item()` RPC now calls `transition_task_status()` instead of direct UPDATEs. `waiting_approval → completed` added to state machine. All approval-driven task changes produce audit entries in `dtn_task_events` with `p_source` tracking origin (`web_ui`/`mcp`/`api`).
 
 ---
 
@@ -674,16 +671,16 @@ Both paths call the **same handlers** in `packages/mcp-server/src/tools/`. Claud
 
 | MCP Tool | Attempted Transition | Validation | Issues |
 |----------|---------------------|------------|--------|
-| `update_daily_task` (status field) | Any → any (caller chooses) | `transitionTaskStatus()` RPC validates | `[MISMATCH]` **No step-through for `pending → completed`** — unlike the UI's `completeDailyTask()` which auto-steps through `in_progress`, the MCP tool calls `transitionTaskStatus()` directly. If Claude sends `{status: "completed"}` on a pending task, the RPC throws. Claude must be told to send `in_progress` first. |
+| `update_daily_task` (status field) | Any → any (caller chooses) | `transitionTaskStatus()` RPC validates; `completeTaskViaStateMachine()` for completion | ~~`[MISMATCH]`~~ **RESOLVED** — uses shared `completeTaskViaStateMachine()` helper for step-through. Direct transition for `waiting_approval → completed`. |
 | `report_task_result` | Non-terminal → `completed` | `reportTaskResult()` calls `transitionTaskStatus()` inside a try/catch — warns but doesn't throw if transition fails | Soft failure — task stays in current status, metrics still saved |
 | `submit_for_approval` | Task → `waiting_approval` | `transitionTaskStatus()` via MCP source. Throws if task isn't in `pending` or `in_progress` | Valid — but error message is verbose (includes approval ID) |
-| `review_approval` | Approval: pending/revision_requested → approved/rejected/revision_requested | `review_approval_item()` RPC validates from-status | `[MISMATCH]` Same as #11 — linked task status updated via direct UPDATE bypassing task state machine. No audit trail. |
+| `review_approval` | Approval: pending/revision_requested → approved/rejected/revision_requested | `review_approval_item()` RPC validates from-status | ~~`[MISMATCH]`~~ **RESOLVED** — RPC now uses `transition_task_status()` with `p_source = 'mcp'`. Full audit trail. |
 | `carry_over_tasks` | pending/in_progress → `carried_over` | `carry_over_tasks_v2()` RPC (atomic) | Clean — uses the queries package RPC, not the action's manual 3-step |
-| `update_contact` | No state machine — accepts any valid updates | DB CHECK on status/lifecycle_stage | `[MISMATCH]` **No field whitelist** — unlike the web UI's `ALLOWED_UPDATE_FIELDS` (14 fields), the MCP `update_contact` passes `args.updates` directly to `updateContact()`. Claude can set `sync_status`, `external_ids`, `external_updated_at` — fields the UI intentionally blocks. |
+| `update_contact` | No state machine — accepts any valid updates | DB CHECK on status/lifecycle_stage; `ALLOWED_CONTACT_UPDATE_FIELDS` whitelist | ~~`[MISMATCH]`~~ **RESOLVED** — MCP tool now imports shared `ALLOWED_CONTACT_UPDATE_FIELDS` from `@dothesenow/queries` and filters updates. |
 
 ### Key MCP-Specific Risks
 
-1. **No credit deduction for task generation context** — `generate_daily_tasks` MCP tool only fetches context (strategy docs + yesterday's tasks). Claude then calls `create_daily_task` per task, which has no per-task credit cost. The web UI's `generateDailyTasks()` deducts `TASK_DECOMPOSITION_COST` via Inngest, but the MCP path skips this entirely.
+1. ~~**No credit deduction for task generation context**~~ — **PARTIALLY RESOLVED**: `generate_daily_tasks` MCP tool now checks credit balance and returns an error if insufficient. Credits are NOT deducted in this tool (it only gathers context). Deduction happens in the Inngest `task-decomposition` function after actual AI work. The MCP path validates balance but relies on the Inngest pipeline for actual billing.
 
 2. **Chat history injection** — `POST /api/v1/chat` accepts a `history` array from the client. History messages are capped at 20 entries / 4000 chars per message, but content is not sanitized. The system prompt includes tool definitions, and Claude executes tool calls based on conversation context.
 
@@ -926,20 +923,20 @@ Expected flow: `draft → open → claimed → in_progress → review → [compl
 
 9. ~~**`[MISMATCH]` Checkbox uncheck: completed → pending**~~ — **RESOLVED** (migration `20260410`): Added `completed → pending` to state machine RPC (both 5-arg and 6-arg versions). `reopenDailyTask()` action uses `transitionTaskStatus()` with full audit trail.
 
-10. **`[MISMATCH]` "Fail" action from pending** — `task-list.tsx:135` calls `updateDailyTask(task.id, { status: "failed" })` which triggers `transitionTaskStatus()`. But `pending → failed` is not a valid transition (only `in_progress → failed` or `waiting_approval → failed`). The action menu may show "Fail" for pending tasks, which would throw.
+10. ~~**`[MISMATCH]` "Fail" action from pending**~~ — **RESOLVED**: "Mark Failed" dropdown item now only renders when `task.status === "in_progress" || task.status === "waiting_approval"`. Pending tasks show "Skip" but not "Fail".
 
-11. **`[MISMATCH]` Approval RPC bypasses task state machine** — `review_approval_item()` RPC (migration 006, lines 49-63) directly UPDATEs `dtn_daily_tasks.status` to `completed`/`failed`/`in_progress` without calling `transition_task_status()`. This means: (a) `waiting_approval → completed` is attempted but is not in the valid transition map (migration 013), (b) no audit entries in `dtn_task_event_log` for approval-driven task changes. The direct UPDATE succeeds because it bypasses the RPC, but the two state machines disagree on valid transitions.
+11. ~~**`[MISMATCH]` Approval RPC bypasses task state machine**~~ — **RESOLVED** (migration `20260411`): `review_approval_item()` RPC replaced to call `transition_task_status()` with `p_source` param. `waiting_approval → completed` added to state machine. All three approval outcomes now produce audit entries in `dtn_task_events`.
 
-12. **`[MISMATCH]` Approval card: no from-status guard** — `approval-card.tsx:38` calls `reviewApprovalItem(item.id, "approved")` without checking if the item is still in a reviewable state. If the card re-renders before the list refreshes (e.g., after another user approves), it could attempt to re-approve an already-approved item. The RPC would throw, but the button shouldn't be clickable.
+12. ~~**`[MISMATCH]` Approval card: no from-status guard**~~ — **RESOLVED**: `approval-card.tsx:92` now guards with `item.status === "pending" || item.status === "revision_requested"`.
 
-13. **`[MISMATCH]` Blocker dismiss/resolve: no status guard** — `dismissBlocker()` and `resolveBlockerManually()` in `blockers/actions.ts` do not check `resolution_status` before updating. Dismissing an already-resolved blocker succeeds (no DB constraint on transitions) but then calls `transitionTaskStatus(task_id, "in_progress")` which will throw if the task has already moved to a terminal state.
+13. ~~**`[MISMATCH]` Blocker dismiss/resolve: no status guard**~~ — **RESOLVED**: Both functions use atomic conditional update (`WHERE resolution_status NOT IN ('resolved', 'dismissed')`). Returns `{ status: "already_resolved" }` if beaten by another actor. Task transition only fires if `task.status === "blocked"`.
 
 ### MCP / Chat Entry Point Mismatches
 
-14. **`[MISMATCH]` MCP `update_daily_task`: no step-through for pending → completed** — Unlike the web UI's `completeDailyTask()` which auto-steps `pending → in_progress → completed`, the MCP tool calls `transitionTaskStatus()` directly. If Claude sends `{status: "completed"}` on a pending task, the RPC throws `Invalid status transition: pending → completed`. The system prompt doesn't warn Claude about this constraint.
+14. ~~**`[MISMATCH]` MCP `update_daily_task`: no step-through for pending → completed**~~ — **RESOLVED**: MCP tool now uses shared `completeTaskViaStateMachine()` helper from `@dothesenow/queries`. Auto-steps through `in_progress` for non-`in_progress`/`waiting_approval` statuses. Direct `waiting_approval → completed` transition supported.
 
-15. **`[MISMATCH]` MCP `update_contact`: no field whitelist** — The web UI's `updateContact()` action filters through `ALLOWED_UPDATE_FIELDS` (14 fields), blocking `sync_status`, `external_ids`, `external_updated_at`. The MCP tool passes `args.updates` directly to the query layer with no filter. Claude (or a Cowork user) can modify sync infrastructure fields, potentially breaking HubSpot bidirectional sync.
+15. ~~**`[MISMATCH]` MCP `update_contact`: no field whitelist**~~ — **RESOLVED**: MCP tool imports shared `ALLOWED_CONTACT_UPDATE_FIELDS` from `@dothesenow/queries` and filters updates. System fields (`sync_status`, `external_ids`, etc.) are blocked.
 
-16. **`[MISMATCH]` MCP `review_approval`: same task state machine bypass as UI (#11)** — Calls the same `review_approval_item()` RPC that directly UPDATEs `dtn_daily_tasks.status` without `transition_task_status()`. No audit trail for task status changes triggered via MCP approval reviews.
+16. ~~**`[MISMATCH]` MCP `review_approval`: same task state machine bypass as UI (#11)**~~ — **RESOLVED** (same fix as #11): RPC now uses `transition_task_status()` with `p_source = 'mcp'`.
 
-17. **`[GAP]` MCP task generation skips credit deduction** — The MCP `generate_daily_tasks` tool only fetches context. Claude then calls `create_daily_task` per task with no per-task credit cost. The web UI's flow charges `TASK_DECOMPOSITION_COST` via Inngest before any tasks are created. MCP path allows unlimited free task creation.
+17. ~~**`[GAP]` MCP task generation skips credit deduction**~~ — **PARTIALLY RESOLVED**: `generate_daily_tasks` MCP tool now checks `getCreditBalance()` and returns error if insufficient. Credits are NOT deducted in this context-gathering tool — deduction happens in the Inngest pipeline after actual AI work, matching web UI flow.

@@ -6,14 +6,13 @@ import {
   createBlocker,
   getBlockerForTask,
   getBlockerById,
-  updateBlocker,
   getTaskById,
   transitionTaskStatus,
   getCreditBalance,
 } from "@dothesenow/queries";
 import { BLOCKER_CLASSIFICATION_COST } from "@dothesenow/prompts";
 import { inngest } from "@/lib/inngest/client";
-import type { Blocker, BlockerResolutionStatus } from "@dothesenow/types";
+import type { Blocker } from "@dothesenow/types";
 
 export type { Blocker } from "@dothesenow/types";
 

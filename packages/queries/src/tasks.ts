@@ -197,8 +197,9 @@ export async function completeTaskViaStateMachine(
   // Already completed — no-op
   if (current.status === "completed") return current;
 
-  // Step through in_progress first if not already there
-  if (current.status !== "in_progress") {
+  // waiting_approval → completed is a valid direct transition (no step-through needed)
+  // All other non-in_progress statuses must step through in_progress first
+  if (current.status !== "in_progress" && current.status !== "waiting_approval") {
     await transitionTaskStatus(ctx, taskId, "in_progress" as TaskStatus, source, actorId);
   }
   await transitionTaskStatus(ctx, taskId, "completed" as TaskStatus, source, actorId);

@@ -13,8 +13,6 @@ import {
   reportTaskResult,
   getTaskContext,
   getCreditBalance,
-  reserveCredits,
-  confirmCredits,
 } from "@dothesenow/queries";
 import { TransitionSource, type TaskStatus } from "@dothesenow/types";
 import { TASK_DECOMPOSITION_COST } from "@dothesenow/prompts";
@@ -293,7 +291,10 @@ export const dailyTasks: ToolModule = {
       const targetDate = (args.date as string) || todayString();
       const yesterday = yesterdayString();
 
-      // Credit gate — matches web UI's generateDailyTasks() behavior
+      // Credit gate — check balance but don't deduct yet.
+      // This tool only gathers context for Claude to reason over.
+      // Credit deduction happens in the Inngest task-decomposition function
+      // after actual AI work is performed, matching the web UI's flow.
       const { remaining } = await getCreditBalance(ctx);
       if (remaining < TASK_DECOMPOSITION_COST) {
         return ok(JSON.stringify({
@@ -303,14 +304,6 @@ export const dailyTasks: ToolModule = {
           required: TASK_DECOMPOSITION_COST,
         }));
       }
-
-      // Deduct credits upfront (reserve + immediate confirm = atomic deduction)
-      const ledgerId = await reserveCredits(
-        ctx,
-        TASK_DECOMPOSITION_COST,
-        `mcp-task-generation:${targetDate}`,
-      );
-      await confirmCredits(ctx, ledgerId);
 
       const strategies = await getStrategyDocs(ctx, { is_active: true });
       const yesterdayTasks = await getTasksForOrg(ctx, { scheduled_date: yesterday });

@@ -122,9 +122,13 @@ export function TaskDetailSheet({
     if (!blocker || isPending) return;
     startTransition(async () => {
       try {
-        await dismissBlocker(blocker.id);
+        const result = await dismissBlocker(blocker.id);
+        if (result.status === "already_resolved") {
+          setBlockerError("This blocker was already resolved");
+        } else {
+          setBlockerError(null);
+        }
         setBlocker(null);
-        setBlockerError(null);
       } catch {
         setBlockerError("Failed to dismiss blocker");
       }
@@ -135,9 +139,13 @@ export function TaskDetailSheet({
     if (!blocker || isPending) return;
     startTransition(async () => {
       try {
-        await resolveBlockerManually(blocker.id);
+        const result = await resolveBlockerManually(blocker.id);
+        if (result.status === "already_resolved") {
+          setBlockerError("This blocker was already resolved");
+        } else {
+          setBlockerError(null);
+        }
         setBlocker(null);
-        setBlockerError(null);
       } catch {
         setBlockerError("Failed to resolve blocker");
       }
