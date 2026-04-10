@@ -12,7 +12,7 @@ import {
   BarChart3,
   TrendingUp,
   ShieldCheck,
-  PenLine,
+  PackageCheck,
   Settings,
   LogOut,
   Building2,
@@ -41,11 +41,11 @@ const navItems = [
   { href: "/strategy", label: "Strategy", icon: FileText },
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
-  { href: "/documents", label: "Documents", icon: FolderOpen },
+  { href: "/context-docs", label: "Context Docs", icon: FolderOpen },
   { href: "/pipeline", label: "Pipeline", icon: BarChart3 },
   { href: "/results", label: "Results", icon: TrendingUp },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck },
-  { href: "/blog", label: "Blog", icon: PenLine },
+  { href: "/deliverables", label: "Deliverables", icon: PackageCheck },
 ];
 
 const settingsItems = [

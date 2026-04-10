@@ -28,7 +28,7 @@
 | `mktg_campaigns` | Campaign grouping | org_id | | |
 | `mktg_competitors` | Competitive intelligence | org_id | | |
 | `mktg_insights` | Learnings and patterns | org_id | | |
-| `dtn_blog_posts` | Blog content | org_id, department_id, user_id, campaign_id | | |
+| `dtn_blog_posts` | Blog content | org_id, department_id, user_id, campaign_id, task_id | | |
 | `dtn_documents` | File storage metadata | org_id, uploaded_by, contact_id, campaign_id, strategy_doc_id, experiment_id | Y | |
 | `dtn_chat_sessions` | Conversation threads | org_id, user_id | | |
 | `dtn_chat_messages` | Individual chat messages | session_id | | |
@@ -332,48 +332,54 @@
 
 ---
 
-### 2.5 Blog
+### 2.5 Blog / Deliverables
 
-#### Create Blog Post
+**Route:** `/[dept]/deliverables` (previously `/[dept]/blog`). UI label is "Deliverables".
 
-**Trigger:** BlogEditorDialog → form submit
+#### Create Deliverable (Blog Post)
+
+**Trigger:** DeliverableEditorDialog → form submit
 **Action:** `createPost(deptSlug, input)` → `apps/web/src/lib/blog/actions.ts:26`
 **Query:** `createBlogPost(ctx, data)` → `packages/queries/src/blog.ts`
 **Tables:** `dtn_blog_posts` INSERT
 
 | Boundary | Fields |
 |----------|--------|
-| UI → Action | `title`, `content`, `slug?`, `excerpt`, `tags[]`, `seo_title`, `seo_description`, `status` |
+| UI → Action | `title`, `content`, `slug?`, `excerpt`, `tags[]`, `seo_title`, `seo_description`, `status`, `task_id?` |
 | Action → Query | + `department_id`, `user_id` (auth), auto-generates slug from title if not provided |
 | Query → DB | + `org_id` |
 
-#### Publish Blog Post
+**Note:** `getBlogPostsForOrg` now accepts an optional `task_id` filter and joins `dtn_daily_tasks` to surface the linked task. New query function `getDeliverablesForTask(ctx, taskId)` returns all deliverables associated with a specific task.
 
-**Trigger:** Blog list → publish button
+#### Publish Deliverable (Blog Post)
+
+**Trigger:** Deliverables list → publish button
 **Action:** `publishPost(deptSlug, postId)` → calls `updatePost` with `status="published"`, `published_at=now()`
 
-#### Delete Blog Post
+#### Delete Deliverable (Blog Post)
 
-**Trigger:** Blog list → delete button
+**Trigger:** Deliverables list → delete button
 **Action:** `deletePost(deptSlug, postId)` → `deleteBlogPost(ctx, postId)` → hard delete
 
-#### Blog Status Transitions (no state machine — direct updates)
+#### Deliverable Status Transitions (no state machine — direct updates)
 
 **DB CHECK:** `status IN ('draft', 'review', 'approved', 'published', 'archived')`
 **Enforcement:** DB CHECK constraint only — no transition validation in code. `updateBlogPost()` accepts any valid status value.
 
 | UI Trigger | Component | Attempted Transition | Guard |
 |------------|-----------|---------------------|-------|
-| Create post | `blog-editor-dialog.tsx:45` | → `draft` (default) | None needed |
-| Edit post (change status) | `blog-editor-dialog.tsx:92` | any → any valid status | No guard — editor allows setting any status via dropdown |
-| Publish button | `blog-page-client.tsx:206-213` | any → `published` | Only shown when `post.status !== "published"` |
-| Delete | `blog-page-client.tsx:215` | N/A (hard delete) | Always shown |
+| Create post | `deliverable-editor-dialog.tsx:45` | → `draft` (default) | None needed |
+| Edit post (change status) | `deliverable-editor-dialog.tsx:92` | any → any valid status | No guard — editor allows setting any status via dropdown |
+| Publish button | `deliverables-page-client.tsx:206-213` | any → `published` | Only shown when `post.status !== "published"` |
+| Delete | `deliverables-page-client.tsx:215` | N/A (hard delete) | Always shown |
 
 **Note:** No transition enforcement means `published → draft` is allowed (un-publish), which may be intentional. `archived → published` is also allowed with no review step.
 
 ---
 
-### 2.6 Documents
+### 2.6 Documents / Context Docs
+
+**Route:** `/[dept]/context-docs` (previously `/[dept]/documents`). UI label is "Context Docs".
 
 #### Upload Document
 
@@ -923,11 +929,11 @@ Expected flow: `draft → open → claimed → in_progress → review → [compl
 
 ### Potential Gaps
 
-4. **`[GAP]` Blog webhook emission** — Blog publish (`blog/actions.ts:91`) calls `updatePost` which updates status but does NOT emit a webhook event. No `blog.published` event type exists in `WebhookEventType`. Subscribers cannot be notified of new blog posts.
+4. **`[GAP]` Deliverable webhook emission** — Deliverable publish (`blog/actions.ts:91`) calls `updatePost` which updates status but does NOT emit a webhook event. No `deliverable.published` event type exists in `WebhookEventType`. Subscribers cannot be notified of new deliverables.
 
 5. **`[GAP]` Document text extraction** — Only DOCX files get text extracted (`documents/actions.ts:113`). PDF, TXT, and other file types have no extraction path. The `extracted_text` column exists but is only populated for DOCX.
 
-6. **`[GAP]` Approval publish_config execution** — `dtn_approval_queue.publish_config` JSONB column exists and `ReviewApprovalInput` includes it, but the actual publish execution after approval (e.g., auto-publish a blog post) is not visible in the approval actions — may be handled in the query layer's RPC.
+6. **`[GAP]` Approval publish_config execution** — `dtn_approval_queue.publish_config` JSONB column exists and `ReviewApprovalInput` includes it, but the actual publish execution after approval (e.g., auto-publish a deliverable) is not visible in the approval actions — may be handled in the query layer's RPC.
 
 7. **`[GAP]` Campaign metrics aggregation** — `mktg_campaigns` has `budget`, `spend`, and `kpis` JSONB columns but no automated flow populates `spend` or `kpis`. These appear to be manual-entry only.
 

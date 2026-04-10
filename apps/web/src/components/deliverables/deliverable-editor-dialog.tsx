@@ -22,21 +22,21 @@ import {
 } from "@/components/ui/select";
 import { createPost, updatePost } from "@/lib/blog/actions";
 import type { BlogPost } from "@/lib/blog/actions";
-import { Loader2 } from "lucide-react";
+import { Loader2, LinkIcon } from "lucide-react";
 
-interface BlogEditorDialogProps {
+interface DeliverableEditorDialogProps {
   open: boolean;
   onClose: () => void;
   post: BlogPost | null;
   dept: string;
 }
 
-export function BlogEditorDialog({
+export function DeliverableEditorDialog({
   open,
   onClose,
   post,
   dept,
-}: BlogEditorDialogProps) {
+}: DeliverableEditorDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -85,7 +85,7 @@ export function BlogEditorDialog({
     startTransition(async () => {
       const parsedTags = tags
         .split(",")
-        .map((t) => t.trim())
+        .map((tag) => tag.trim())
         .filter(Boolean);
 
       if (post) {
@@ -133,17 +133,28 @@ export function BlogEditorDialog({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{post ? "Edit Post" : "New Post"}</DialogTitle>
+          <DialogTitle>
+            {post ? "Edit Deliverable" : "New Deliverable"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Source task (read-only) */}
+          {post?.task && (
+            <div className="flex items-center gap-2 rounded-md border border-[var(--borderColor-default)] bg-[var(--bgColor-muted)] px-3 py-2 text-sm">
+              <LinkIcon className="h-3.5 w-3.5 text-[var(--fgColor-muted)]" />
+              <span className="text-[var(--fgColor-muted)]">Source task:</span>
+              <span className="font-medium">{post.task.title}</span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Post title"
+              placeholder="Deliverable title"
               disabled={isPending}
             />
           </div>
@@ -154,7 +165,7 @@ export function BlogEditorDialog({
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Write your post content in markdown..."
+              placeholder="Write your content in markdown..."
               rows={12}
               className="font-mono text-sm"
               disabled={isPending}
@@ -223,7 +234,7 @@ export function BlogEditorDialog({
                   id="seoTitle"
                   value={seoTitle}
                   onChange={(e) => setSeoTitle(e.target.value)}
-                  placeholder="Custom SEO title (defaults to post title)"
+                  placeholder="Custom SEO title (defaults to deliverable title)"
                   disabled={isPending}
                 />
               </div>
@@ -250,7 +261,7 @@ export function BlogEditorDialog({
           <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
           <Button onClick={handleSave} disabled={isPending}>
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {post ? "Save Changes" : "Create Post"}
+            {post ? "Save Changes" : "Create Deliverable"}
           </Button>
         </DialogFooter>
       </DialogContent>

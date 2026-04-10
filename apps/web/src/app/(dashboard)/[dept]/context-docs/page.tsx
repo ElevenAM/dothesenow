@@ -20,9 +20,9 @@ export default async function DocumentsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Documents</h1>
+        <h1 className="text-2xl font-bold">Context Docs</h1>
         <p className="text-muted-foreground">
-          Upload, preview, and manage files linked to your contacts, campaigns, and strategies.
+          Upload reference documents that inform AI-generated outputs.
         </p>
       </div>
       <Suspense>

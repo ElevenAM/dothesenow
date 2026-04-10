@@ -29,7 +29,7 @@ const STATUS_TABS = [
 const ITEM_TYPES = [
   { value: "all", label: "All Types" },
   { value: "social_post", label: "Social Post" },
-  { value: "blog_post", label: "Blog Post" },
+  { value: "blog_post", label: "Deliverable" },
   { value: "email_draft", label: "Email Draft" },
   { value: "task_submission", label: "Task Output" },
   { value: "strategy_change", label: "Strategy" },

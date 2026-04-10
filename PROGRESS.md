@@ -1,8 +1,8 @@
 # DoTheseNow.com — Build Progress
 
-> **Status**: Phases 1–9B all complete and verified. Phase 0 stabilization complete. Phase 10 partially complete (10A, 10B done). Phase 11 (Cowork readiness + chat) in progress. Blog CRUD, Settings General page, plugin discoverability, and Tasks page FK fix shipped.
+> **Status**: Phases 1–9B all complete and verified. Phase 0 stabilization complete. Phase 10 partially complete (10A, 10B done). Phase 11 (Cowork readiness + chat) in progress. Deliverables (renamed from Blog) with task linking, preview sheet, and approval grouping shipped. Context Docs (renamed from Documents) with updated labels throughout shipped.
 >
-> Last updated: 2026-04-09
+> Last updated: 2026-04-10
 
 ---
 
@@ -47,7 +47,7 @@ The roadmap follows the `[Number][Letter]` parallel worktree convention (see CLA
 | [0C] | ANTHROPIC_API_KEY status banner in settings | **Complete** — PlatformStatusBanner component |
 | [0D] | Strategy manual editing | **Already existed** — DocEditor with markdown, versioning, Ctrl+S |
 | **Phase 10** | Documents, CRM, HubSpot, Metrics, Zapier API | **PLANNED** |
-| [10A] | Document upload & management (Supabase Storage) | **Complete** — migration 032 applied, storage bucket + RLS, upload/preview/edit UI, sidebar nav |
+| [10A] | Context Docs upload & management (Supabase Storage) | **Complete** — migration 032 applied, storage bucket + RLS, upload/preview/edit UI, sidebar nav. Renamed from "Documents" to "Context Docs" (`/[dept]/context-docs`); labels updated throughout (upload dialog, detail sheet, search, empty state) |
 | [10B] | Contact detail/edit page (standalone CRM) | **Complete** — full detail page with all fields editable, outreach logging, linked docs, lead scoring |
 | [10C] | CSV import + HubSpot sync prep | Planned — Phase 2 in plan |
 | [10D] | HubSpot CRM integration (OAuth, 2-way sync) | Planned — Phase 3 in plan |
@@ -909,6 +909,32 @@ apps/web/src/components/approvals/approval-stats.tsx
 
 ### Deliverable
 Production-ready platform
+
+---
+
+## Deliverables & Context Docs Rename (2026-04-10)
+
+### Deliverables (renamed from Blog)
+
+**Route**: `/[dept]/deliverables` (was `/[dept]/blog`)
+
+**What changed:**
+- [x] Renamed "Blog" → "Deliverables" throughout UI — sidebar nav, page titles, headings, empty states
+- [x] Deliverables now link to source tasks via `task_id` FK — each deliverable can be traced back to the task that produced it
+- [x] New `getDeliverablesForTask` query function in `packages/queries/` — fetches all deliverables linked to a given task
+- [x] New preview sheet for quick content review without leaving the list view
+- [x] Approved/unapproved grouping in the deliverables list — approved items shown in a separate section from pending
+
+**Next steps:**
+- [ ] Wire task completion → automatic deliverable creation (when a task transitions to `completed`, create a draft deliverable linked via `task_id`)
+- [ ] Add markdown rendering in preview sheet (currently renders raw text)
+
+### Context Docs (renamed from Documents)
+
+**Route**: `/[dept]/context-docs` (was `/[dept]/documents`)
+
+**What changed:**
+- [x] Renamed "Documents" → "Context Docs" throughout UI — sidebar nav, page titles, upload dialog, detail sheet, search placeholder, and empty state copy
 
 ---
 

@@ -19,9 +19,14 @@ export interface BlogPost {
   seo_description: string | null;
   published_at: string | null;
   campaign_id: string | null;
+  task_id: string | null;
+  task?: { id: string; title: string } | null;
   created_at: string;
   updated_at: string;
 }
+
+/** UI-facing alias */
+export type Deliverable = BlogPost;
 
 export interface CreateBlogPostInput {
   title: string;
@@ -34,6 +39,7 @@ export interface CreateBlogPostInput {
   seo_title?: string | null;
   seo_description?: string | null;
   department_id?: string | null;
+  task_id?: string | null;
 }
 
 export interface UpdateBlogPostInput {
@@ -49,13 +55,15 @@ export interface UpdateBlogPostInput {
   published_at?: string | null;
 }
 
+const SELECT_WITH_TASK = "*, task:dtn_daily_tasks!task_id(id, title)";
+
 export async function getBlogPostsForOrg(
   ctx: OrgContext,
-  filters?: { status?: string; search?: string },
+  filters?: { status?: string; search?: string; task_id?: string },
 ): Promise<BlogPost[]> {
   let query = ctx.client
     .from(TABLE)
-    .select("*")
+    .select(SELECT_WITH_TASK)
     .eq("org_id", ctx.orgId)
     .order("updated_at", { ascending: false });
 
@@ -65,9 +73,27 @@ export async function getBlogPostsForOrg(
   if (filters?.search) {
     query = query.ilike("title", `%${filters.search}%`);
   }
+  if (filters?.task_id) {
+    query = query.eq("task_id", filters.task_id);
+  }
 
   const { data, error } = await query;
   if (error) throw new QueryError(error.message, TABLE, "getBlogPostsForOrg", ctx.orgId, error);
+  return (data ?? []) as BlogPost[];
+}
+
+export async function getDeliverablesForTask(
+  ctx: OrgContext,
+  taskId: string,
+): Promise<BlogPost[]> {
+  const { data, error } = await ctx.client
+    .from(TABLE)
+    .select(SELECT_WITH_TASK)
+    .eq("org_id", ctx.orgId)
+    .eq("task_id", taskId)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new QueryError(error.message, TABLE, "getDeliverablesForTask", ctx.orgId, error);
   return (data ?? []) as BlogPost[];
 }
 
@@ -77,7 +103,7 @@ export async function getBlogPostById(
 ): Promise<BlogPost | null> {
   const { data, error } = await ctx.client
     .from(TABLE)
-    .select("*")
+    .select(SELECT_WITH_TASK)
     .eq("org_id", ctx.orgId)
     .eq("id", postId)
     .maybeSingle();

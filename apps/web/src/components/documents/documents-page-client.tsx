@@ -59,7 +59,7 @@ export function DocumentsPageClient({
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search documents..."
+            placeholder="Search context docs..."
             defaultValue={currentSearch}
             onChange={(e) => updateSearch(e.target.value)}
             className="pl-9"
@@ -71,8 +71,8 @@ export function DocumentsPageClient({
       {documents.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="No documents yet"
-          description="Upload your first document to get started."
+          title="No context docs yet"
+          description="Upload your first context document to inform AI outputs."
         />
       ) : (
         <>

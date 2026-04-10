@@ -125,7 +125,7 @@ export function DocumentUploadDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Upload Document</DialogTitle>
+          <DialogTitle>Upload Context Doc</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {!file ? (

@@ -7,7 +7,7 @@ export const STATUS_COLORS: Record<string, string> = {
 
 export const ITEM_TYPE_LABELS: Record<string, string> = {
   social_post: "Social Post",
-  blog_post: "Blog Post",
+  blog_post: "Deliverable",
   email_draft: "Email Draft",
   task_submission: "Task Output",
   strategy_change: "Strategy Change",

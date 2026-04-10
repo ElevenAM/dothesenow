@@ -44,7 +44,7 @@ export async function createPost(
     });
 
     revalidateTag("blog", "max");
-    revalidatePath(`/${deptSlug}/blog`);
+    revalidatePath(`/${deptSlug}/deliverables`);
     return { success: true, post };
   } catch (err) {
     console.error("Failed to create blog post:", err);
@@ -64,7 +64,7 @@ export async function updatePost(
 
     const post = await updateBlogPost(ctx, postId, updates);
     revalidateTag("blog", "max");
-    revalidatePath(`/${deptSlug}/blog`);
+    revalidatePath(`/${deptSlug}/deliverables`);
     return { success: true, post };
   } catch (err) {
     console.error("Failed to update blog post:", err);
@@ -80,7 +80,7 @@ export async function deletePost(
     const { ctx } = await getAuthenticatedOrgContext();
     await deleteBlogPost(ctx, postId);
     revalidateTag("blog", "max");
-    revalidatePath(`/${deptSlug}/blog`);
+    revalidatePath(`/${deptSlug}/deliverables`);
     return { success: true };
   } catch (err) {
     console.error("Failed to delete blog post:", err);

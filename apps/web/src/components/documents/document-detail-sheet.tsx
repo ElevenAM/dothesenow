@@ -114,7 +114,7 @@ export function DocumentDetailSheet({
             ) : (
               <FileText className="h-5 w-5 text-muted-foreground" />
             )}
-            Document Details
+            Context Doc Details
           </SheetTitle>
         </SheetHeader>
 
