@@ -186,6 +186,7 @@ export const approvals: ToolModule = {
           status: args.status as string,
           reviewer_notes: (args.reviewer_notes as string) || null,
         } as Parameters<typeof reviewApproval>[3],
+        "mcp",
       );
       return ok(JSON.stringify(data, null, 2));
     },

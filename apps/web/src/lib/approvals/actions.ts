@@ -55,7 +55,7 @@ export async function reviewApprovalItem(
   const result = await reviewApproval(ctx, itemId, auth.user.id, {
     status,
     reviewer_notes: reviewerNotes || null,
-  });
+  }, "web_ui");
 
   revalidateTag("approvals", "max");
   return result;

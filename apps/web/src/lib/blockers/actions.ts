@@ -6,14 +6,13 @@ import {
   createBlocker,
   getBlockerForTask,
   getBlockerById,
-  updateBlocker,
   getTaskById,
   transitionTaskStatus,
   getCreditBalance,
 } from "@dothesenow/queries";
 import { BLOCKER_CLASSIFICATION_COST } from "@dothesenow/prompts";
 import { inngest } from "@/lib/inngest/client";
-import type { Blocker, BlockerResolutionStatus } from "@dothesenow/types";
+import type { Blocker } from "@dothesenow/types";
 
 export type { Blocker } from "@dothesenow/types";
 
@@ -73,10 +72,13 @@ export async function getTaskBlocker(
 /**
  * Dismiss a blocker and unblock the task.
  * Restricted to: the blocker reporter, task assignee, or org admin/owner.
+ *
+ * Uses atomic conditional update to prevent TOCTOU race: if the blocker
+ * was already resolved/dismissed by another actor, returns early.
  */
 export async function dismissBlocker(
   blockerId: string,
-): Promise<void> {
+): Promise<{ status: "dismissed" | "already_resolved" }> {
   const { auth, ctx } = await getAuthenticatedOrgContext();
 
   const blocker = await getBlockerById(ctx, blockerId);
@@ -85,26 +87,41 @@ export async function dismissBlocker(
   // Auth guard: reporter, assignee, or admin
   await assertBlockerPermission(auth, ctx, blocker);
 
-  await updateBlocker(ctx, blockerId, {
-    resolution_status: "dismissed" as BlockerResolutionStatus,
-  });
+  // Atomic conditional update — only update if not already resolved/dismissed
+  const { data: updated } = await ctx.client
+    .from("dtn_blockers")
+    .update({ resolution_status: "dismissed" })
+    .eq("id", blockerId)
+    .eq("org_id", ctx.orgId)
+    .not("resolution_status", "in", "(resolved,dismissed)")
+    .select("id")
+    .maybeSingle();
 
-  // Unblock the task via state machine
-  await transitionTaskStatus(ctx, blocker.task_id, "in_progress", "web_ui", auth.user.id, {
-    blocker_id: blockerId,
-    action: "dismissed",
-  });
+  if (!updated) return { status: "already_resolved" };
+
+  // Only transition the task if it's still blocked
+  const task = await getTaskById(ctx, blocker.task_id);
+  if (task?.status === "blocked") {
+    await transitionTaskStatus(ctx, blocker.task_id, "in_progress", "web_ui", auth.user.id, {
+      blocker_id: blockerId,
+      action: "dismissed",
+    });
+  }
 
   revalidateTag("tasks", "max");
+  return { status: "dismissed" };
 }
 
 /**
  * Manually resolve a blocker and unblock the task.
  * Restricted to: the blocker reporter, task assignee, or org admin/owner.
+ *
+ * Uses atomic conditional update to prevent TOCTOU race: if the blocker
+ * was already resolved/dismissed by another actor, returns early.
  */
 export async function resolveBlockerManually(
   blockerId: string,
-): Promise<void> {
+): Promise<{ status: "resolved" | "already_resolved" }> {
   const { auth, ctx } = await getAuthenticatedOrgContext();
 
   const blocker = await getBlockerById(ctx, blockerId);
@@ -113,19 +130,33 @@ export async function resolveBlockerManually(
   // Auth guard: reporter, assignee, or admin
   await assertBlockerPermission(auth, ctx, blocker);
 
-  await updateBlocker(ctx, blockerId, {
-    resolution_status: "resolved" as BlockerResolutionStatus,
-    resolved_at: new Date().toISOString(),
-    resolved_by: auth.user.id,
-  });
+  // Atomic conditional update — only update if not already resolved/dismissed
+  const { data: updated } = await ctx.client
+    .from("dtn_blockers")
+    .update({
+      resolution_status: "resolved",
+      resolved_at: new Date().toISOString(),
+      resolved_by: auth.user.id,
+    })
+    .eq("id", blockerId)
+    .eq("org_id", ctx.orgId)
+    .not("resolution_status", "in", "(resolved,dismissed)")
+    .select("id")
+    .maybeSingle();
 
-  // Unblock the task via state machine
-  await transitionTaskStatus(ctx, blocker.task_id, "in_progress", "web_ui", auth.user.id, {
-    blocker_id: blockerId,
-    action: "manually_resolved",
-  });
+  if (!updated) return { status: "already_resolved" };
+
+  // Only transition the task if it's still blocked
+  const task = await getTaskById(ctx, blocker.task_id);
+  if (task?.status === "blocked") {
+    await transitionTaskStatus(ctx, blocker.task_id, "in_progress", "web_ui", auth.user.id, {
+      blocker_id: blockerId,
+      action: "manually_resolved",
+    });
+  }
 
   revalidateTag("tasks", "max");
+  return { status: "resolved" };
 }
 
 // ─── Auth helper ────────────────────────────────────────────────

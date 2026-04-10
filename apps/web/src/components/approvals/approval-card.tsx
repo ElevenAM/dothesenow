@@ -89,7 +89,7 @@ export function ApprovalCard({ item, onSelect, canReview }: ApprovalCardProps) {
             )}
           </div>
 
-          {canReview && item.status === "pending" && (
+          {canReview && (item.status === "pending" || item.status === "revision_requested") && (
             <div className="flex gap-1 shrink-0">
               <Button
                 size="sm"

@@ -9,6 +9,7 @@ import {
   logOutreach as sharedLogOutreach,
   createContact as sharedCreateContact,
   updateContact as sharedUpdateContact,
+  ALLOWED_CONTACT_UPDATE_FIELDS,
   createImport,
   getImportsForOrg,
   getImport,
@@ -68,12 +69,6 @@ export async function createContact(
   return contact;
 }
 
-const ALLOWED_UPDATE_FIELDS = [
-  "first_name", "last_name", "email", "phone", "company", "title",
-  "contact_type", "status", "lifecycle_stage", "tags", "location",
-  "source", "persona", "notes", "lead_score",
-] as const;
-
 export async function updateContact(
   contactId: string,
   updates: Partial<Record<string, unknown>>,
@@ -81,8 +76,9 @@ export async function updateContact(
   const { ctx } = await getAuthenticatedOrgContext();
 
   // Only allow user-modifiable fields (security boundary)
+  // Whitelist imported from @dothesenow/queries (single source of truth)
   const filtered: Record<string, unknown> = {};
-  for (const field of ALLOWED_UPDATE_FIELDS) {
+  for (const field of ALLOWED_CONTACT_UPDATE_FIELDS) {
     if (field in updates) {
       filtered[field] = updates[field];
     }
