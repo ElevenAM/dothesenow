@@ -14,6 +14,7 @@ import type { AiContextDocument } from "@dothesenow/queries";
 import type { OrgContext } from "@dothesenow/queries";
 import { getAllDefinitions, handleToolForOrg } from "@dothesenow/mcp-server/tools";
 import { OrgScopedClient } from "@dothesenow/mcp-server/lib";
+import { CHAT_MESSAGE_COST } from "@dothesenow/prompts";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const dynamic = "force-dynamic";
@@ -262,10 +263,10 @@ export async function POST(request: Request) {
   const ctx: OrgContext = { client: admin, orgId: auth.orgId };
   const referenceId = `chat:${auth.userId}:${Date.now()}`;
 
-  // 4. Reserve 1 credit
+  // 4. Reserve credits
   let ledgerId: string;
   try {
-    ledgerId = await reserveCredits(ctx, 1, "chat_message", referenceId);
+    ledgerId = await reserveCredits(ctx, CHAT_MESSAGE_COST, "chat_message", referenceId);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Credit check failed";
     if (msg.toLowerCase().includes("insufficient")) {

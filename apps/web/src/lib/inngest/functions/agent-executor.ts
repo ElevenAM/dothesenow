@@ -2,6 +2,7 @@ import { inngest } from "../client";
 import { relevantDocTypes } from "../utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTaskById, reserveCredits, confirmCredits, refundByReference } from "@dothesenow/queries";
+import { AGENT_EXECUTION_COST } from "@dothesenow/prompts";
 import type { OrgContext } from "@dothesenow/queries";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -97,7 +98,7 @@ export const agentExecutor = inngest.createFunction(
     const ledgerId = await step.run("reserve-credits", async () => {
       console.log("[inngest:agent] reserve-credits", { taskId: task_id, orgId: org_id });
       const ctx: OrgContext = { client: supabase, orgId: org_id };
-      return reserveCredits(ctx, 1, `agent-execution:${task_id}`, task_id);
+      return reserveCredits(ctx, AGENT_EXECUTION_COST, `agent-execution:${task_id}`, task_id);
     });
 
     // Step 4: Call Claude API

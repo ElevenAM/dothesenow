@@ -51,21 +51,29 @@ export interface ValidationResult {
   errors: string[];
 }
 
+// ─── Chat & Agent Execution ────────────────────────────────
+
+/** Credits consumed per chat message. */
+export const CHAT_MESSAGE_COST = 1;
+
+/** Credits consumed per agent task execution. */
+export const AGENT_EXECUTION_COST = 1;
+
 // ─── Blocker Resolution ─────────────────────────────────────
 
 /** Credits consumed per blocker classification. */
 export const BLOCKER_CLASSIFICATION_COST = 1;
 
 /** Credits consumed per blocker research resolution. */
-export const BLOCKER_RESEARCH_COST = 3;
+export const BLOCKER_RESEARCH_COST = 1;
 
 /** Credits consumed per blocker draft resolution. */
-export const BLOCKER_DRAFT_COST = 2;
+export const BLOCKER_DRAFT_COST = 1;
 
 // ─── Task Decomposition ─────────────────────────────────────
 
 /** Credits consumed per daily task decomposition. */
-export const TASK_DECOMPOSITION_COST = 2;
+export const TASK_DECOMPOSITION_COST = 1;
 
 export interface TeamMember {
   userId: string;

@@ -4,6 +4,7 @@ import { type PlanId, PLANS } from "@/lib/stripe/config";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
 import { PlanComparison } from "@/components/billing/plan-comparison";
 import { CreditUsage } from "@/components/billing/credit-usage";
+import { CreditUsageGuide } from "@/components/billing/credit-usage-guide";
 import { getCreditUsage } from "@/lib/credits/actions";
 import {
   Card,
@@ -175,6 +176,9 @@ export default async function BillingPage({
           canBuyCredits={isOwnerOrAdmin && org.plan !== "enterprise"}
         />
       )}
+
+      {/* Credit Usage Guide */}
+      <CreditUsageGuide />
 
       {/* Plan Comparison */}
       {isOwnerOrAdmin && <PlanComparison currentPlan={org.plan} />}
