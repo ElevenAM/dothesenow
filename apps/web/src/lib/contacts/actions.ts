@@ -2,6 +2,7 @@
 
 import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
+import { trackServerEvent } from "@/lib/analytics";
 import {
   getContactsForOrg,
   getContactById,
@@ -65,6 +66,7 @@ export async function createContact(
     ...(contactData as CreateContactInput),
     owner_id: auth.user.id,
   });
+  trackServerEvent(auth.user.id, "contact_created", { orgId: ctx.orgId });
   revalidateTag("contacts", "max");
   return contact;
 }
@@ -123,6 +125,8 @@ export async function startContactImport(input: {
       storage_path: input.storage_path,
     },
   });
+
+  trackServerEvent(auth.user.id, "contact_import_started", { orgId: ctx.orgId, total_rows: input.total_rows });
 
   return importRecord;
 }

@@ -3,6 +3,7 @@ import { getStripe } from "@/lib/stripe/client";
 import { planFromPriceId } from "@/lib/stripe/config";
 import { PLAN_LIMITS, type PlanTier } from "@dothesenow/types";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { trackServerEvent } from "@/lib/analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -229,6 +230,17 @@ export async function POST(request: Request) {
           "Failed to upsert subscription on checkout"
         );
 
+        // Look up org owner for analytics distinctId (webhooks have no user session)
+        const { data: ownerOnCreate } = await supabase
+          .from("dtn_memberships")
+          .select("user_id")
+          .eq("org_id", orgId)
+          .eq("role", "owner")
+          .eq("is_active", true)
+          .single();
+
+        trackServerEvent(ownerOnCreate?.user_id ?? orgId, "subscription_created", { plan, customerId, orgId });
+
         break;
       }
 
@@ -366,6 +378,18 @@ export async function POST(request: Request) {
             .eq("stripe_subscription_id", subscriptionId),
           "Failed to update subscription status to canceled"
         );
+
+        if (org) {
+          const { data: ownerOnCancel } = await supabase
+            .from("dtn_memberships")
+            .select("user_id")
+            .eq("org_id", org.id)
+            .eq("role", "owner")
+            .eq("is_active", true)
+            .single();
+
+          trackServerEvent(ownerOnCancel?.user_id ?? org.id, "subscription_canceled", { subscriptionId, orgId: org.id });
+        }
 
         break;
       }

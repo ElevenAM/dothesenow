@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { trackServerEvent } from "@/lib/analytics";
 import { getActiveOrgId } from "@/lib/org-context";
 import { createRateLimiter, rateLimitResponse } from "@/lib/rate-limit";
 import {
@@ -325,7 +326,7 @@ export async function POST(request: Request) {
 
   try {
     // Agentic loop: keep calling Claude until we get a final text response
-    let currentMessages = [...messages];
+    const currentMessages = [...messages];
 
     for (let iteration = 0; iteration < MAX_TOOL_CALLS_PER_TURN + 1; iteration++) {
       const response = await anthropic.messages.create({
@@ -467,7 +468,13 @@ export async function POST(request: Request) {
       }
     }
 
-    // 9. Return response
+    // 9. Track & return response
+    trackServerEvent(auth.userId, "chat_message_sent", {
+      orgId: auth.orgId,
+      tokens_used: totalTokens,
+      tool_calls_count: toolCallResults.length,
+    });
+
     return new Response(
       JSON.stringify({
         message: finalText,

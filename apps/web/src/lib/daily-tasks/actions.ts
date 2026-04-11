@@ -3,6 +3,7 @@
 import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
+import { trackServerEvent } from "@/lib/analytics";
 import { dispatchTask } from "@/lib/daily-tasks/dispatch";
 import { getDepartmentId } from "@/lib/departments";
 import {
@@ -57,6 +58,8 @@ export async function createDailyTask(
 
   // Dispatch to executor if non-self (awaited to prevent serverless termination)
   await dispatchTask(created);
+
+  trackServerEvent(auth.user.id, "task_created", { orgId: ctx.orgId });
 
   revalidateTag("tasks", "max");
   revalidateTag("overview", "max");
@@ -161,6 +164,8 @@ export async function completeDailyTask(
     .catch((err) => {
       console.error("[actions] Failed to emit task/status.changed:", err);
     });
+
+  trackServerEvent(auth.user.id, "task_completed", { orgId: ctx.orgId });
 
   revalidateTag("tasks", "max");
   revalidateTag("overview", "max");
@@ -415,6 +420,8 @@ export async function generateDailyTasks(
       target_date: date || "",
     },
   });
+
+  trackServerEvent(auth.user.id, "tasks_generated", { orgId: ctx.orgId });
 
   revalidateTag("tasks", "max");
   revalidateTag("overview", "max");

@@ -78,6 +78,7 @@
 **Query:** `createTaskForOrg(ctx, data)` → `packages/queries/src/tasks.ts:126`
 **Tables:** `dtn_daily_tasks` INSERT
 **Side effects:** `dispatchTask()` → if executor_type != "self", dispatches via Inngest
+**Analytics:** `trackServerEvent("task_created", { orgId })`
 **Cache:** revalidates `tasks`, `overview`
 
 | Boundary | Fields |
@@ -108,6 +109,7 @@
 **Query:** Steps through `pending→in_progress→completed` via `transitionTaskStatus()` RPC
 **Tables:** `dtn_daily_tasks` UPDATE, `dtn_task_event_log` INSERT (2 entries if from pending)
 **Emits:** `task/status.changed`
+**Analytics:** `trackServerEvent("task_completed", { orgId })`
 
 #### Reopen Completed Task
 
@@ -142,6 +144,7 @@
 **Emits:** `task/decompose.manual` Inngest event
 **Inngest:** `task-decomposition` function → Claude API → `bulkCreateTasks()` → `dtn_daily_tasks` batch INSERT
 **Credits:** Deducts `TASK_DECOMPOSITION_COST` from org
+**Analytics:** `trackServerEvent("tasks_generated", { orgId })`
 
 | Boundary | Fields |
 |----------|--------|
@@ -204,6 +207,7 @@
 **Action:** `createContact(contactData)` → `apps/web/src/lib/contacts/actions.ts:59`
 **Query:** `createContact(ctx, data)` → `packages/queries/src/contacts.ts:125`
 **Tables:** `mktg_contacts` INSERT
+**Analytics:** `trackServerEvent("contact_created", { orgId })`
 
 | Boundary | Fields |
 |----------|--------|
@@ -244,6 +248,7 @@
 **Action:** `startContactImport(input)` → `actions.ts:108`
 **Query:** `createImport(adminClient, orgId, input)` → `packages/queries/src/contact-imports.ts`
 **Emits:** `contacts/import.requested` Inngest event
+**Analytics:** `trackServerEvent("contact_import_started", { orgId, total_rows })`
 **Inngest:** `contact-csv-import` → parses CSV → `upsertContactByEmail()` per row
 **Tables:** `dtn_contact_imports` INSERT, `mktg_contacts` UPSERT (batch)
 
@@ -257,6 +262,7 @@
 **Action:** `createStrategyDoc(docType, title, content, tags)` → `apps/web/src/lib/strategy/actions.ts:36`
 **Query:** `createDoc(ctx, input)` → `packages/queries/src/strategy.ts`
 **Tables:** `mktg_strategy_docs` INSERT (deactivates previous active doc of same type)
+**Analytics:** `trackServerEvent("strategy_doc_created", { orgId, docType })`
 
 | Boundary | Fields |
 |----------|--------|
@@ -411,6 +417,7 @@
 **Endpoint:** `POST /api/v1/chat` → `apps/web/src/app/api/v1/chat/route.ts`
 **Tables:** `dtn_chat_sessions` INSERT (if new), `dtn_chat_messages` INSERT (user + assistant + tool_call rows), `dtn_documents` SELECT (context docs with `extracted_text` for system prompt — via `getDocumentsForAiContext`, excludes docs tagged `no-ai`)
 **Credits:** Deducts 1 credit per message turn
+**Analytics:** `trackServerEvent("chat_message_sent", { orgId, tokens_used, tool_calls_count })`
 **Returns:** Streaming response with assistant text + tool_calls
 
 | Boundary | Fields |
@@ -547,6 +554,7 @@
 **Action:** Creates Stripe checkout session → redirects to Stripe
 **Webhook:** `POST /api/webhooks/stripe` → processes subscription events
 **Tables:** `dtn_subscriptions` UPSERT, `dtn_stripe_events` INSERT (dedup), `dtn_organizations` UPDATE (plan, credits)
+**Analytics:** `trackServerEvent("subscription_created"/"subscription_canceled")` — distinctId resolved via `dtn_memberships` owner lookup (webhooks have no user session)
 
 ---
 
@@ -745,9 +753,44 @@ Both paths call the **same handlers** in `packages/mcp-server/src/tools/`. Claud
 |-----------|-------|--------|
 | **Inbound** | `POST /api/mcp` | All org-scoped tables (24 tools) |
 
+### PostHog (Product Analytics)
+
+| Direction | Component/File | Purpose |
+|-----------|----------------|---------|
+| **Client init** | `AnalyticsProvider` → `apps/web/src/components/providers/analytics-provider.tsx` | Wraps root layout, initializes `posthog-js`, captures `$pageview` on route change |
+| **Client identify** | `IdentifyUser` → `apps/web/src/components/providers/identify-user.tsx` | Calls `posthog.identify()` + `posthog.group("org")` in dashboard layout |
+| **Server tracking** | `trackServerEvent()` → `apps/web/src/lib/analytics.ts` | Uses `posthog-node` with `flushAt:1` for server actions and API routes |
+| **Outbound** | `https://us.i.posthog.com` (default, configurable via `NEXT_PUBLIC_POSTHOG_HOST`) | Event ingestion |
+
+### Sentry (Error Tracking)
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **Client config** | `apps/web/sentry.client.config.ts` | Browser error capture, 10% trace sampling, replay on error |
+| **Server config** | `apps/web/sentry.server.config.ts` | Node.js error capture, 10% trace sampling |
+| **Edge config** | `apps/web/sentry.edge.config.ts` | Edge runtime error capture |
+| **Instrumentation** | `apps/web/instrumentation.ts` | Next.js instrumentation hook, loads server/edge configs |
+| **Global error** | `apps/web/src/app/global-error.tsx` | Root error boundary, `Sentry.captureException` |
+| **Error boundaries** | All `error.tsx` files + `ErrorBoundary` component | `Sentry.captureException` in `useEffect`/`componentDidCatch` |
+
+### Tracked Events Catalog
+
+| Event | Source File | distinctId | Properties |
+|-------|------------|------------|------------|
+| `$pageview` | `analytics-provider.tsx` | browser session | `$current_url` |
+| `chat_message_sent` | `api/v1/chat/route.ts` | userId | `orgId`, `tokens_used`, `tool_calls_count` |
+| `subscription_created` | `api/webhooks/stripe/route.ts` | owner userId (membership lookup) | `plan`, `customerId`, `orgId` |
+| `subscription_canceled` | `api/webhooks/stripe/route.ts` | owner userId (membership lookup) | `subscriptionId`, `orgId` |
+| `contact_created` | `contacts/actions.ts` | userId | `orgId` |
+| `contact_import_started` | `contacts/actions.ts` | userId | `orgId`, `total_rows` |
+| `task_created` | `daily-tasks/actions.ts` | userId | `orgId` |
+| `task_completed` | `daily-tasks/actions.ts` | userId | `orgId` |
+| `tasks_generated` | `daily-tasks/actions.ts` | userId | `orgId` |
+| `strategy_doc_created` | `strategy/actions.ts` | userId | `orgId`, `docType` |
+
 ---
 
-## 5. Cross-Cutting Concerns
+## 6. Cross-Cutting Concerns
 
 ### Authentication
 
@@ -865,7 +908,7 @@ Expected flow: `draft → open → claimed → in_progress → review → [compl
 
 ---
 
-## 6. API Routes Reference
+## 7. API Routes Reference
 
 ### Public API (v1) — Session Auth
 
@@ -916,7 +959,7 @@ Expected flow: `draft → open → claimed → in_progress → review → [compl
 
 ---
 
-## 7. Gap Registry
+## 8. Gap Registry
 
 > Discovered issues and inconsistencies. Update this section when new gaps are found.
 
@@ -961,3 +1004,11 @@ Expected flow: `draft → open → claimed → in_progress → review → [compl
 16. ~~**`[MISMATCH]` MCP `review_approval`: same task state machine bypass as UI (#11)**~~ — **RESOLVED** (same fix as #11): RPC now uses `transition_task_status()` with `p_source = 'mcp'`.
 
 17. ~~**`[GAP]` MCP task generation skips credit deduction**~~ — **PARTIALLY RESOLVED**: `generate_daily_tasks` MCP tool now checks `getCreditBalance()` and returns error if insufficient. Credits are NOT deducted in this context-gathering tool — deduction happens in the Inngest pipeline after actual AI work, matching web UI flow.
+
+### Observability & Analytics
+
+18. ~~**`[GAP]` No error tracking or product analytics**~~ — **RESOLVED** (Phase 1 Observability): Sentry error tracking instrumented across all error boundaries (`global-error.tsx`, 5 route `error.tsx` files, `ErrorBoundary` component). PostHog product analytics added with `AnalyticsProvider` (root layout), `IdentifyUser` (dashboard layout), and `trackServerEvent` calls in 5 server action files and 2 API routes. See §5 Tracked Events Catalog.
+
+19. **`[GAP]` CSP nonce support** — Current `Content-Security-Policy` header uses `'unsafe-inline'` and `'unsafe-eval'` for `script-src` due to Next.js static header limitations. Upgrade to nonce-based CSP via middleware for stronger XSS protection.
+
+20. **`[GAP]` Analytics coverage — secondary actions not tracked** — `trackServerEvent` is not called in: `updateDailyTask`, `reopenDailyTask`, `skipDailyTask`, `carryOverTasks`, `changeTaskExecutor`, `updateContact`, `logContactOutreach`, `updateStrategyDoc`, `deleteStrategyDoc`. These omissions are intentional (high-frequency or secondary actions) but should be reviewed for product analytics completeness.
