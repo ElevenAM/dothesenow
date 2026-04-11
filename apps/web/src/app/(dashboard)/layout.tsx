@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardClientShell } from "@/components/dashboard/dashboard-client-shell";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { DashboardPrefetcher } from "@/components/dashboard/dashboard-prefetcher";
+import { IdentifyUser } from "@/components/providers/identify-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedMembership } from "@/lib/auth-helpers";
 
@@ -71,7 +72,8 @@ export default async function DashboardLayout({
 
   return (
     <DashboardClientShell initialCredits={org.creditsRemaining}>
-    <div className="flex h-screen bg-muted">
+      <IdentifyUser userId={user.id} email={user.email ?? null} orgId={org.id} orgName={org.name} />
+      <div className="flex h-screen bg-muted">
       <NavigationProgress />
       <DashboardPrefetcher dept={dept} />
       <Sidebar

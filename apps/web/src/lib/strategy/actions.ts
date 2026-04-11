@@ -2,6 +2,7 @@
 
 import { revalidateTag } from "next/cache";
 import { getAuthenticatedOrgContext } from "@/lib/auth-helpers";
+import { trackServerEvent } from "@/lib/analytics";
 import {
   getStrategyDocs as sharedGetStrategyDocs,
   getDocById,
@@ -48,6 +49,8 @@ export async function createStrategyDoc(
     tags,
     changed_by: auth.user.id,
   });
+
+  trackServerEvent(auth.user.id, "strategy_doc_created", { orgId: ctx.orgId, docType });
 
   revalidateTag("strategy", "max");
   return docId;
