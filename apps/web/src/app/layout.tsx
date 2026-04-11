@@ -3,7 +3,7 @@ import { AnalyticsProvider } from "@/components/providers/analytics-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DoTheseNow",
+  title: { default: "DoTheseNow", template: "%s | DoTheseNow" },
   description: "Operations management platform for teams",
 };
 
