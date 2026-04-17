@@ -28,13 +28,9 @@ const getCachedDeptSlug = unstable_cache(
 );
 
 export default async function HomePage() {
+  let ctx: Awaited<ReturnType<typeof getAuthenticatedMembership>>;
   try {
-    const ctx = await getAuthenticatedMembership();
-    if (!ctx.org.onboardingCompletedAt) {
-      redirect("/onboarding");
-    }
-    const dept = await getCachedDeptSlug(ctx.org.id);
-    redirect(`/${dept}`);
+    ctx = await getAuthenticatedMembership();
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message === "No active organization membership") {
@@ -43,4 +39,9 @@ export default async function HomePage() {
     // Not authenticated — show landing page
     return <LandingPage />;
   }
+  if (!ctx.org.onboardingCompletedAt) {
+    redirect("/onboarding");
+  }
+  const dept = await getCachedDeptSlug(ctx.org.id);
+  redirect(`/${dept}`);
 }

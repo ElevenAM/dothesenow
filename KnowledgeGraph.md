@@ -794,7 +794,8 @@ Both paths call the **same handlers** in `packages/mcp-server/src/tools/`. Claud
 
 ### Authentication
 
-**Flow:** Email → `signInWithOtp()` → magic link → `/callback` → session cookie
+**Flow:** Email → `signInWithOtp()` → magic link → `/callback` → session cookie → `/`
+**Post-login handoff at `/`:** `apps/web/src/app/page.tsx` branches via `getAuthenticatedMembership()`: authenticated + onboarded → `redirect(/${dept})` (first active dept slug, cached); authenticated but no onboarding / no membership → `/onboarding`; unauthenticated → marketing `LandingPage`. `redirect()` calls live OUTSIDE the auth try/catch so Next.js `NEXT_REDIRECT` exceptions aren't swallowed.
 **Clients:**
 - Browser: `createClient()` → `apps/web/src/lib/supabase/client.ts`
 - Server: `createClient()` → `apps/web/src/lib/supabase/server.ts` (cookie-based)
